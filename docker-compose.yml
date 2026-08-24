@@ -1,0 +1,70 @@
+services:
+  eduerp-postgres:
+    image: postgres:16-alpine
+    container_name: eduerp-postgres
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-eduerp_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-eduerp_prod}
+    volumes:
+      - eduerp_postgres_data:/var/lib/postgresql/data
+    networks:
+      - eduerp-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-eduerp_app} -d ${POSTGRES_DB:-eduerp_prod}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+
+  eduerp-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: eduerp-app
+    restart: unless-stopped
+    ports:
+      # Bound explicitly to localhost 127.0.0.1 on port 3500 for total isolation
+      - "127.0.0.1:3500:3000"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      APP_URL: ${APP_URL:-https://eduerp.us}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://eduerp.us}
+      NEXT_PUBLIC_APP_DOMAIN: ${NEXT_PUBLIC_APP_DOMAIN:-eduerp.us}
+      NEXT_PUBLIC_ROOT_DOMAIN: ${NEXT_PUBLIC_ROOT_DOMAIN:-eduerp.us}
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET is required}
+      SESSION_SECRET: ${SESSION_SECRET:-eduerp_session_secret_default_32b}
+      SESSION_EXPIRY_DAYS: ${SESSION_EXPIRY_DAYS:-7}
+      ENABLE_DEMO_SIMULATORS: ${ENABLE_DEMO_SIMULATORS:-false}
+    volumes:
+      - eduerp_uploads_data:/app/uploads
+    networks:
+      - eduerp-network
+    depends_on:
+      eduerp-postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 1536M
+
+networks:
+  eduerp-network:
+    name: eduerp-network
+    driver: bridge
+
+volumes:
+  eduerp_postgres_data:
+    name: eduerp_postgres_data
+  eduerp_uploads_data:
+    name: eduerp_uploads_data

@@ -1,0 +1,62 @@
+name: EduERP Production Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'Release Version Tag (e.g. eduerp-pilot-v1)'
+        required: false
+        default: 'latest'
+
+jobs:
+  deploy-vps:
+    name: Deploy to EduERP Hostinger VPS
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Execute Remote Zero-Downtime Deployment
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EDUERP_VPS_HOST }}
+          username: ${{ secrets.EDUERP_VPS_USER }}
+          key: ${{ secrets.EDUERP_VPS_SSH_KEY }}
+          port: ${{ secrets.EDUERP_VPS_PORT || 22 }}
+          script: |
+            set -e
+            echo "Starting EduERP VPS Deployment..."
+            
+            DEPLOY_DIR="/var/www/eduerp"
+            TIMESTAMP=$(date +%Y%m%d%H%M%S)
+            RELEASE_DIR="$DEPLOY_DIR/releases/$TIMESTAMP"
+            
+            mkdir -p "$RELEASE_DIR"
+            git clone --depth 1 https://github.com/ventotechnology/eduerp.git "$RELEASE_DIR"
+            
+            cd "$RELEASE_DIR"
+            npm ci --production=false
+            
+            # Load production environment file
+            if [ -f /etc/eduerp/eduerp.env ]; then
+              export $(grep -v '^#' /etc/eduerp/eduerp.env | xargs)
+            fi
+            
+            npx prisma generate
+            npx prisma db push --skip-generate
+            npx tsx scripts/seed-production-qa.ts
+            npm run build
+            
+            # Atomic symlink switch
+            ln -sfn "$RELEASE_DIR" "$DEPLOY_DIR/current"
+            
+            # Keep only last 3 releases
+            cd "$DEPLOY_DIR/releases"
+            ls -1t | tail -n +4 | xargs -r rm -rf
+            
+            # Restart service
+            sudo systemctl restart eduerp.service || sudo systemctl restart eduerp || true
+            
+            echo "EduERP Deployment Completed Successfully!"

@@ -1,0 +1,57 @@
+name: EduERP CI Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-and-build:
+    name: Test, Lint & Production Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20 LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Validate Prisma Schema Format
+        run: npx prisma format
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Initialize Test Database & Seed
+        run: |
+          npx prisma db push --skip-generate
+          npx tsx scripts/seed-production-qa.ts
+        env:
+          DATABASE_URL: "file:./dev.db"
+          AUTH_SECRET: "ci_pipeline_secret_test_key_32_bytes_long"
+          NODE_ENV: "test"
+
+      - name: Run Test Suite (Vitest)
+        run: npm test
+        env:
+          DATABASE_URL: "file:./dev.db"
+          AUTH_SECRET: "ci_pipeline_secret_test_key_32_bytes_long"
+          NODE_ENV: "test"
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run Next.js Production Build
+        run: npm run build
+        env:
+          DATABASE_URL: "file:./dev.db"
+          AUTH_SECRET: "ci_pipeline_secret_test_key_32_bytes_long"
+          NODE_ENV: "production"
