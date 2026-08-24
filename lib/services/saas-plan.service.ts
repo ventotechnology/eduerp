@@ -206,6 +206,10 @@ export const INITIAL_SAAS_PLANS: SubscriptionPlanInput[] = [
 ];
 
 export class SaasPlanService {
+  static async seedDefaultPlans() {
+    return this.seedInitialPlans();
+  }
+
   /**
    * Initializes or refreshes the default SaaS plans in the database
    */

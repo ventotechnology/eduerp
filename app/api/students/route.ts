@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getServerSession } from '@/lib/auth/server-auth';
 import { requirePermission } from '@/lib/rbac/guard';
+import { requireTenantLimit } from '@/lib/rbac/entitlement-guard';
 import { resolveTenantContext } from '@/lib/tenant/tenant-guard';
 import { getTenantStudents, createTenantStudent } from '@/lib/services/student-service';
 import { successResponse, errorResponse } from '@/lib/errors/api-response';
@@ -44,6 +45,10 @@ export async function POST(req: NextRequest) {
       session,
       tenantSlug: body.tenantSlug || body.tenantId
     });
+
+    if (!session.isPlatformAdmin && tenantContext.tenantId) {
+      await requireTenantLimit(tenantContext.tenantId, 'STUDENTS');
+    }
 
     const student = await createTenantStudent(tenantContext.tenantId, body, session);
     return successResponse(student, 'Student record created successfully with academic enrollment', 201);

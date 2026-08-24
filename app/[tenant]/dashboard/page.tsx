@@ -7,6 +7,7 @@ import { useTenant } from '@/lib/tenant-context';
 import { getTenantRouteSlug } from '@/lib/tenant/tenant-aliases';
 import { getTranslation } from '@/lib/i18n';
 import { evaluatePredictiveRisks } from '@/lib/ai-assistant';
+import { TenantOnboardingWizard } from '@/components/onboarding/tenant-onboarding-wizard';
 import {
   Users,
   GraduationCap,
@@ -115,6 +116,9 @@ export default function DashboardPage() {
           </Link>
         </div>
       </div>
+
+      {/* Onboarding Wizard (displays dynamically if incomplete) */}
+      <TenantOnboardingWizard tenantSlug={routeSlug} />
 
       {/* 4 Core KPI Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

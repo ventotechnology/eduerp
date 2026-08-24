@@ -4,6 +4,7 @@ import { requireTenant } from '@/lib/tenant/tenant-guard';
 import { getServerSession } from '@/lib/auth/server-auth';
 import { SessionUser, UserStatus } from '@/lib/auth/types';
 import { requirePermission } from '@/lib/rbac/guard';
+import { requireTenantFeature, requireTenantLimit } from '@/lib/rbac/entitlement-guard';
 import { AppError } from '@/lib/errors/app-error';
 import {
   createEmployee,
@@ -279,6 +280,10 @@ export async function POST(req: NextRequest) {
 
     if (!resolvedTenant) throw AppError.validation('Tenant ID is required.');
 
+    if (session) {
+      await requireTenantFeature(session, 'HR');
+    }
+
     const actor: SessionUser = session || {
       id: 'GUEST_ACTOR',
       name: 'System / Guest HR User',
@@ -291,7 +296,12 @@ export async function POST(req: NextRequest) {
 
     switch (action) {
       case 'CREATE_EMPLOYEE': {
-        if (session) requirePermission(session, 'CREATE', 'EMPLOYEES');
+        if (session) {
+          requirePermission(session, 'CREATE', 'EMPLOYEES');
+          if (session.tenantId) {
+            await requireTenantLimit(session.tenantId, 'TEACHERS');
+          }
+        }
         const data = await createEmployee(resolvedTenant, payload, actor);
         return NextResponse.json({ success: true, data }, { status: 201 });
       }

@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Building2, UserCheck, CreditCard, Check, AlertCircle, Loader2, Sparkles, Globe, Lock, Mail, Phone, MapPin } from 'lucide-react';
+import { Building2, UserCheck, CreditCard, Check, AlertCircle, Loader2, Sparkles, Globe, Lock, Mail, Phone, MapPin, CheckCircle2, ArrowRight } from 'lucide-react';
+import Link from 'next/link';
 
 interface Feature {
   id: string;
@@ -45,10 +46,11 @@ export default function SignupClient({ plans }: { plans: Plan[] }) {
   const router = useRouter();
 
   const preselectedPlan = searchParams.get('plan') || 'standard';
-  const preselectedBilling = searchParams.get('billing') === 'MONTHLY' ? 'MONTHLY' : 'ANNUAL';
+  const isTrialParam = searchParams.get('trial') === 'true';
+  const preselectedBilling = isTrialParam ? 'TRIAL' : (searchParams.get('billing') === 'MONTHLY' ? 'MONTHLY' : 'ANNUAL');
 
   const [selectedPlanSlug, setSelectedPlanSlug] = useState<string>(preselectedPlan);
-  const [billingCycle, setBillingCycle] = useState<'MONTHLY' | 'ANNUAL'>(preselectedBilling);
+  const [billingCycle, setBillingCycle] = useState<'MONTHLY' | 'ANNUAL' | 'TRIAL'>(preselectedBilling);
 
   // Form State
   const [institutionName, setInstitutionName] = useState('');
@@ -73,6 +75,7 @@ export default function SignupClient({ plans }: { plans: Plan[] }) {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [trialSuccess, setTrialSuccess] = useState<any | null>(null);
 
   // Find active plan object
   const activePlan = plans.find(p => p.slug === selectedPlanSlug) || plans[0] || null;
@@ -173,6 +176,7 @@ export default function SignupClient({ plans }: { plans: Plan[] }) {
           password,
           planIdOrCode: activePlan.id,
           billingCycle,
+          isTrial: billingCycle === 'TRIAL',
           promoCode: promoCode.trim() || undefined
         })
       });
@@ -183,16 +187,71 @@ export default function SignupClient({ plans }: { plans: Plan[] }) {
         throw new Error(data.error || 'Failed to create institution account.');
       }
 
-      // Redirect to Order Checkout
-      router.push(`/checkout/${data.orderId}`);
+      if (data.isTrial) {
+        setTrialSuccess(data);
+        setLoading(false);
+      } else {
+        // Redirect to Order Checkout
+        router.push(`/checkout/${data.orderId}`);
+      }
     } catch (err: any) {
       setError(err.message || 'An error occurred during registration.');
       setLoading(false);
     }
   };
 
+  if (trialSuccess) {
+    return (
+      <div className="max-w-2xl mx-auto p-8 rounded-3xl bg-slate-900 border border-emerald-500/40 text-center shadow-2xl space-y-6">
+        <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mx-auto">
+          <CheckCircle2 className="w-9 h-9" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-2xl font-extrabold text-white">Free Trial Activated Successfully!</h2>
+          <p className="text-sm text-slate-300">
+            Your {trialSuccess.trialDays || 14}-day free trial for <strong>{trialSuccess.plan?.name || 'EduERP'}</strong> has been provisioned.
+          </p>
+        </div>
+        <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-left space-y-2 text-xs font-mono">
+          <div className="flex justify-between">
+            <span className="text-slate-500">Institution:</span>
+            <span className="text-white font-bold">{institutionName}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-500">Tenant Slug:</span>
+            <span className="text-emerald-400 font-bold">{trialSuccess.tenantSlug}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-500">Workspace URL:</span>
+            <span className="text-white">https://eduerp.us/{trialSuccess.tenantSlug}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-500">Admin Email:</span>
+            <span className="text-white">{email}</span>
+          </div>
+        </div>
+        <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center">
+          <Link
+            href={`/login?email=${encodeURIComponent(email)}&returnUrl=/${trialSuccess.tenantSlug}/dashboard`}
+            className="py-3 px-6 rounded-xl font-bold text-sm bg-emerald-500 text-slate-950 hover:bg-emerald-400 transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20"
+          >
+            <span>Sign In to Your Workspace</span>
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+          <Link
+            href={`/${trialSuccess.tenantSlug}/dashboard`}
+            className="py-3 px-6 rounded-xl font-semibold text-sm bg-slate-800 text-white hover:bg-slate-700 transition flex items-center justify-center gap-2"
+          >
+            <span>Open Institution Dashboard</span>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   const isAnnual = billingCycle === 'ANNUAL';
-  const price = activePlan ? (isAnnual ? activePlan.annualPrice : activePlan.monthlyPrice) : 0;
+  const isTrial = billingCycle === 'TRIAL';
+  const price = isTrial ? 0 : (activePlan ? (isAnnual ? activePlan.annualPrice : activePlan.monthlyPrice) : 0);
 
   return (
     <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -429,6 +488,17 @@ export default function SignupClient({ plans }: { plans: Plan[] }) {
             <div className="flex items-center p-1 rounded-lg bg-slate-950 border border-slate-800 text-xs">
               <button
                 type="button"
+                onClick={() => setBillingCycle('TRIAL')}
+                className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+                  billingCycle === 'TRIAL'
+                    ? 'bg-teal-500 text-slate-950 font-bold'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                14d Trial
+              </button>
+              <button
+                type="button"
                 onClick={() => setBillingCycle('MONTHLY')}
                 className={`px-2.5 py-1 rounded-md font-medium transition-all ${
                   billingCycle === 'MONTHLY'
@@ -455,7 +525,7 @@ export default function SignupClient({ plans }: { plans: Plan[] }) {
           <div className="space-y-2.5">
             {plans.map((p) => {
               const isSelected = p.slug === selectedPlanSlug;
-              const pPrice = isAnnual ? p.annualPrice : p.monthlyPrice;
+              const pPrice = isTrial ? 0 : (isAnnual ? p.annualPrice : p.monthlyPrice);
 
               return (
                 <div
@@ -489,10 +559,10 @@ export default function SignupClient({ plans }: { plans: Plan[] }) {
                   </div>
                   <div className="text-right">
                     <div className="text-sm font-extrabold text-white">
-                      BDT {pPrice.toLocaleString()}
+                      {isTrial ? 'FREE TRIAL' : `BDT ${pPrice.toLocaleString()}`}
                     </div>
                     <div className="text-[10px] text-slate-400">
-                      /{isAnnual ? 'year' : 'mo'}
+                      {isTrial ? `${p.trialDays || 14} days` : `/${isAnnual ? 'year' : 'mo'}`}
                     </div>
                   </div>
                 </div>
@@ -501,23 +571,27 @@ export default function SignupClient({ plans }: { plans: Plan[] }) {
           </div>
 
           {/* Promo Code Input */}
-          <div className="mt-4 pt-4 border-t border-slate-800">
-            <label className="block text-xs font-semibold text-slate-400 mb-1">
-              Promo Code (Optional)
-            </label>
-            <input
-              type="text"
-              value={promoCode}
-              onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-              placeholder="e.g. LAUNCH2026"
-              className="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-white text-xs font-mono uppercase focus:outline-none focus:border-emerald-500"
-            />
-          </div>
+          {!isTrial && (
+            <div className="mt-4 pt-4 border-t border-slate-800">
+              <label className="block text-xs font-semibold text-slate-400 mb-1">
+                Promo Code (Optional)
+              </label>
+              <input
+                type="text"
+                value={promoCode}
+                onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                placeholder="e.g. LAUNCH2026"
+                className="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-white text-xs font-mono uppercase focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+          )}
         </div>
 
         {/* Order Summary & Checkout CTA */}
         <div className="p-6 rounded-2xl bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800 shadow-xl">
-          <h3 className="text-base font-bold text-white mb-4">Order Summary</h3>
+          <h3 className="text-base font-bold text-white mb-4">
+            {isTrial ? 'Free Trial Summary' : 'Order Summary'}
+          </h3>
 
           <div className="space-y-2.5 text-xs text-slate-300 pb-4 border-b border-slate-800">
             <div className="flex justify-between">
@@ -525,16 +599,18 @@ export default function SignupClient({ plans }: { plans: Plan[] }) {
               <span className="font-semibold text-white">{activePlan?.name} ({billingCycle})</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-400">Base Subscription:</span>
-              <span className="font-semibold text-white">BDT {price.toLocaleString()}</span>
+              <span className="text-slate-400">{isTrial ? 'Trial Period:' : 'Base Subscription:'}</span>
+              <span className="font-semibold text-white">
+                {isTrial ? `${activePlan?.trialDays || 14} Days Active Trial` : `BDT ${price.toLocaleString()}`}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-400">Platform Setup Fee:</span>
               <span className="text-emerald-400 font-semibold">FREE (BDT 0)</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-400">Estimated VAT / Tax:</span>
-              <span className="text-slate-400 font-semibold">Included</span>
+              <span className="text-slate-400">Billing Verification:</span>
+              <span className="text-slate-400 font-semibold">{isTrial ? 'No Credit Card Required' : 'Instant bKash Gateway'}</span>
             </div>
           </div>
 
@@ -542,9 +618,11 @@ export default function SignupClient({ plans }: { plans: Plan[] }) {
             <span className="text-sm font-bold text-white">Total Due Today:</span>
             <div className="text-right">
               <span className="text-2xl font-extrabold text-emerald-400 tracking-tight">
-                BDT {price.toLocaleString()}
+                {isTrial ? 'BDT 0' : `BDT ${price.toLocaleString()}`}
               </span>
-              <span className="text-[10px] text-slate-400 block">{isAnnual ? 'Billed annually' : 'Billed monthly'}</span>
+              <span className="text-[10px] text-slate-400 block">
+                {isTrial ? 'Full feature access included' : (isAnnual ? 'Billed annually' : 'Billed monthly')}
+              </span>
             </div>
           </div>
 
@@ -565,7 +643,12 @@ export default function SignupClient({ plans }: { plans: Plan[] }) {
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Creating Institution Account...</span>
+                <span>{isTrial ? 'Provisioning Free Trial...' : 'Creating Institution Account...'}</span>
+              </>
+            ) : isTrial ? (
+              <>
+                <Sparkles className="w-4 h-4" />
+                <span>Activate 14-Day Free Trial</span>
               </>
             ) : (
               <>

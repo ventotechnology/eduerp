@@ -35,8 +35,8 @@ export class AppError extends Error {
     return new AppError(msg, 'UNAUTHENTICATED', 401);
   }
 
-  static forbidden(msg = 'Insufficient permissions for this operation'): AppError {
-    return new AppError(msg, 'INSUFFICIENT_PERMISSION', 403);
+  static forbidden(msg = 'Insufficient permissions for this operation', details?: any): AppError {
+    return new AppError(msg, 'INSUFFICIENT_PERMISSION', 403, details);
   }
 
   static notFound(msg = 'Requested resource was not found'): AppError {

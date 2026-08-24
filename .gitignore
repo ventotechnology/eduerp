@@ -47,6 +47,8 @@ logs/
 # QA Credentials & Private Exports
 EDUERP-ONLINE-TEST-CREDENTIALS.txt
 EDUERP-ONLINE-TEST-CREDENTIALS.csv
+EDUERP-DEMO-CREDENTIALS.local.txt
+*.local.txt
 qa-credentials/
 private/
 *.xlsx

@@ -6,7 +6,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const result = await SaasSignupService.createSignupApplication(body);
     return NextResponse.json({
-      success: true,
       ...result
     }, { status: 201 });
   } catch (error: any) {

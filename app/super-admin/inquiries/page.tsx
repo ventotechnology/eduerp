@@ -226,6 +226,16 @@ export default function SuperAdminInquiriesPage() {
                     </button>
                   ))}
                 </div>
+
+                <div className="pt-2">
+                  <a
+                    href={`/super-admin/institutions?prefill=true&name=${encodeURIComponent(selectedInquiry.institutionName)}&email=${encodeURIComponent(selectedInquiry.email)}&phone=${encodeURIComponent(selectedInquiry.phone || '')}&type=${selectedInquiry.institutionType || 'SCHOOL'}&inquiryId=${selectedInquiry.id}`}
+                    className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 hover:from-emerald-400 hover:to-teal-400 shadow-md transition"
+                  >
+                    <Building2 className="w-4 h-4" />
+                    <span>Convert to Customer (Onboard)</span>
+                  </a>
+                </div>
               </div>
             </div>
           ) : (

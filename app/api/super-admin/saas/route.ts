@@ -6,6 +6,7 @@ import { hashPassword, generateSecurePassword } from '@/lib/auth/password';
 import { logAuditEvent } from '@/lib/audit/audit-logger';
 import { QA_ACCOUNT_DEFINITIONS } from '@/lib/demo/demo-account-definitions';
 import { SaasPlanService } from '@/lib/services/saas-plan.service';
+import { SubscriptionEntitlementService } from '@/lib/services/subscription-entitlement-service';
 import { requirePlatformPermission } from '@/lib/rbac/platform-guard';
 
 export async function GET(request: NextRequest) {
@@ -613,10 +614,14 @@ export async function POST(request: NextRequest) {
     if (action === 'UPDATE_TENANT_STATUS') {
       requirePlatformPermission(session, 'TENANT_SUSPEND');
 
-      const { tenantId, isActive } = body;
+      const { tenantId, isActive, status } = body;
+      const tenantStatus = status || (isActive ? 'ACTIVE_PAID' : 'SUSPENDED');
       const updated = await db.tenant.update({
         where: { id: tenantId },
-        data: { isActive }
+        data: {
+          isActive: isActive !== undefined ? isActive : status !== 'SUSPENDED',
+          status: tenantStatus as any
+        }
       });
 
       await logAuditEvent({
@@ -628,6 +633,168 @@ export async function POST(request: NextRequest) {
       });
 
       return NextResponse.json({ success: true, tenant: updated });
+    }
+
+    // 5. Record Offline Payment (Bank Transfer, Cheque, Cash)
+    if (action === 'RECORD_OFFLINE_PAYMENT') {
+      requirePlatformPermission(session, 'PAYMENT_MANAGE');
+
+      const { tenantId, paymentMethod, amount, referenceNumber, notes, durationMonths = 1 } = body;
+      if (!tenantId || !paymentMethod || !amount || !referenceNumber) {
+        return NextResponse.json({ success: false, error: 'Tenant, payment method, amount, and reference are required.' }, { status: 400 });
+      }
+
+      const result = await db.$transaction(async (tx) => {
+        // Record offline payment
+        const offlineRecord = await tx.offlinePaymentRecord.create({
+          data: {
+            tenantId,
+            paymentMethod,
+            amount: parseFloat(amount),
+            currency: 'BDT',
+            referenceNumber,
+            notes,
+            approvedBy: session.name || 'Super Admin'
+          }
+        });
+
+        // Find active or recent subscription
+        const sub = await tx.subscription.findFirst({
+          where: { tenantId },
+          include: { plan: true },
+          orderBy: { createdAt: 'desc' }
+        });
+
+        const now = new Date();
+        const start = sub && sub.endDate > now ? sub.endDate : now;
+        const newEnd = new Date(start.getTime() + durationMonths * 30 * 24 * 60 * 60 * 1000);
+
+        if (sub) {
+          await tx.subscription.update({
+            where: { id: sub.id },
+            data: {
+              status: 'ACTIVE',
+              endDate: newEnd,
+              currentPeriodEnd: newEnd,
+              nextBillingDate: newEnd
+            }
+          });
+        }
+
+        // Create SaaS Invoice
+        const defaultPlan = sub?.planId || (await tx.subscriptionPlan.findFirst({ select: { id: true } }))?.id || 'default';
+        const invoice = await tx.subscriptionInvoice.create({
+          data: {
+            invoiceNumber: `INV-MAN-${now.getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+            tenantId,
+            planId: defaultPlan,
+            billingPeriod: `${start.toISOString().slice(0, 10)} to ${newEnd.toISOString().slice(0, 10)}`,
+            billingCycle: (sub?.billingCycle as any) || 'MONTHLY',
+            subTotal: parseFloat(amount),
+            taxAmount: 0,
+            totalAmount: parseFloat(amount),
+            currency: 'BDT',
+            status: 'PAID',
+            paymentMethod,
+            transactionRef: referenceNumber,
+            paidAt: now
+          }
+        });
+
+        // Ensure Tenant status is active
+        await tx.tenant.update({
+          where: { id: tenantId },
+          data: { status: 'ACTIVE_PAID', isActive: true }
+        });
+
+        return { offlineRecord, invoice };
+      });
+
+      await logAuditEvent({
+        tenantId,
+        actor: session,
+        action: 'OFFLINE_PAYMENT_RECORDED',
+        resourceType: 'OfflinePaymentRecord',
+        resourceId: result.offlineRecord.id,
+        newState: { amount, paymentMethod, referenceNumber }
+      });
+
+      return NextResponse.json({ success: true, ...result });
+    }
+
+    // 6. Set Feature Override
+    if (action === 'SET_FEATURE_OVERRIDE') {
+      requirePlatformPermission(session, 'TENANT_UPDATE');
+
+      const { tenantId, featureKey, isEnabled = true, expiresAt, reason } = body;
+      if (!tenantId || !featureKey) {
+        return NextResponse.json({ success: false, error: 'Tenant ID and featureKey are required.' }, { status: 400 });
+      }
+
+      const override = await SubscriptionEntitlementService.setFeatureOverride(
+        tenantId,
+        featureKey,
+        isEnabled,
+        expiresAt ? new Date(expiresAt) : null,
+        reason,
+        session.name || 'Platform Super Admin'
+      );
+
+      return NextResponse.json({ success: true, override });
+    }
+
+    // 7. Remove Feature Override
+    if (action === 'REMOVE_FEATURE_OVERRIDE') {
+      requirePlatformPermission(session, 'TENANT_UPDATE');
+
+      const { tenantId, featureKey } = body;
+      if (!tenantId || !featureKey) {
+        return NextResponse.json({ success: false, error: 'Tenant ID and featureKey are required.' }, { status: 400 });
+      }
+
+      await SubscriptionEntitlementService.removeFeatureOverride(tenantId, featureKey, session.name || 'Platform Super Admin');
+      return NextResponse.json({ success: true });
+    }
+
+    // 8. Reset Tenant Owner Password (with temporary secure password)
+    if (action === 'RESET_TENANT_OWNER_PASSWORD') {
+      requirePlatformPermission(session, 'PLATFORM_USER_MANAGE');
+
+      const { tenantId, userId } = body;
+      const targetUser = await db.user.findFirst({
+        where: userId ? { id: userId, tenantId } : { tenantId, role: { in: ['OWNER', 'PRINCIPAL', 'VICE_CHANCELLOR', 'HEAD_MASTER'] as any } }
+      });
+
+      if (!targetUser) {
+        return NextResponse.json({ success: false, error: 'Tenant owner user not found.' }, { status: 404 });
+      }
+
+      const temporaryPassword = generateSecurePassword();
+      const passwordHash = hashPassword(temporaryPassword);
+
+      await db.user.update({
+        where: { id: targetUser.id },
+        data: {
+          passwordHash,
+          forcePasswordChange: true
+        }
+      });
+
+      await logAuditEvent({
+        tenantId,
+        actor: session,
+        action: 'USER_PASSWORD_RESET_ADMIN',
+        resourceType: 'User',
+        resourceId: targetUser.id,
+        newState: { forcedPasswordChange: true }
+      });
+
+      return NextResponse.json({
+        success: true,
+        userEmail: targetUser.email,
+        temporaryPassword,
+        message: 'Temporary password generated. The user will be required to change it upon first login.'
+      });
     }
 
     return NextResponse.json({ success: false, error: 'Unknown action' }, { status: 400 });

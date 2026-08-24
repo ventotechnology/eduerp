@@ -58,6 +58,7 @@ import {
   syncLmsGradeToOfficialExam,
 } from '@/lib/services/gradebook-service';
 import { getServerSession } from '@/lib/auth/server-auth';
+import { requireTenantFeature } from '@/lib/rbac/entitlement-guard';
 import {
   getStudentLearningDashboard,
   getTeacherLmsDashboard,
@@ -92,6 +93,7 @@ export async function GET(req: NextRequest) {
     const discussionId = searchParams.get('discussionId');
 
     const actor = await getActor(req, tenantSlug);
+    await requireTenantFeature(actor, 'LMS');
 
     switch (action) {
       case 'COURSES': {
@@ -172,6 +174,7 @@ export async function POST(req: NextRequest) {
     const action = searchParams.get('action') || 'CREATE_COURSE';
 
     const actor = await getActor(req, tenantSlug);
+    await requireTenantFeature(actor, 'LMS');
     const body = await req.json();
 
     let result;

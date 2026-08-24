@@ -146,7 +146,7 @@ describe('COMMAND 11 — SaaS Commercial Billing, Signup & bKash Provisioning En
       const fakeTrxId = `BKASH-TRX-${Date.now()}`;
 
       // Fulfill Paid Order
-      const fulfillment = await SaasProvisioningService.fulfillPaidOrder(signup.orderId, {
+      const fulfillment = await SaasProvisioningService.fulfillPaidOrder(signup.orderId!, {
         gateway: 'BKASH',
         paymentId: `BKASH-PAY-${Date.now()}`,
         trxId: fakeTrxId,
@@ -223,7 +223,7 @@ describe('COMMAND 11 — SaaS Commercial Billing, Signup & bKash Provisioning En
       const fakeTrxId = `BKASH-DUP-${Date.now()}`;
 
       // First fulfillment
-      const first = await SaasProvisioningService.fulfillPaidOrder(signup.orderId, {
+      const first = await SaasProvisioningService.fulfillPaidOrder(signup.orderId!, {
         gateway: 'BKASH',
         paymentId: `BKASH-PID-${Date.now()}`,
         trxId: fakeTrxId,
@@ -232,7 +232,7 @@ describe('COMMAND 11 — SaaS Commercial Billing, Signup & bKash Provisioning En
       expect(first.success).toBe(true);
 
       // Second identical fulfillment (duplicate callback simulation)
-      const second = await SaasProvisioningService.fulfillPaidOrder(signup.orderId, {
+      const second = await SaasProvisioningService.fulfillPaidOrder(signup.orderId!, {
         gateway: 'BKASH',
         trxId: fakeTrxId,
         amount: plan!.annualPrice

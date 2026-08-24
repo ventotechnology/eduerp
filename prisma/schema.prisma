@@ -29,16 +29,39 @@ enum SubscriptionTier {
   ENTERPRISE
 }
 
+enum TenantProvisioningStatus {
+  DRAFT
+  SIGNUP_STARTED
+  EMAIL_VERIFICATION_PENDING
+  PROFILE_PENDING
+  PLAN_SELECTED
+  PAYMENT_PENDING
+  PAYMENT_VERIFICATION
+  PROVISIONING
+  ACTIVE_TRIAL
+  ACTIVE_PAID
+  PAST_DUE
+  GRACE_PERIOD
+  SUSPENDED
+  CANCELLED
+  EXPIRED
+  PROVISIONING_FAILED
+  ARCHIVED
+}
+
 model Tenant {
-  id               String           @id @default(uuid())
-  slug             String           @unique // e.g. "dhaka-ideal-school"
-  customDomain     String?          @unique // e.g. "erp.dims.edu.bd"
-  institutionType  InstitutionType  @default(SCHOOL)
-  subscriptionTier SubscriptionTier @default(PROFESSIONAL)
-  isActive         Boolean          @default(true)
-  isDemoTenant     Boolean          @default(false)
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
+  id               String                   @id @default(uuid())
+  slug             String                   @unique // e.g. "dhaka-ideal-school"
+  customDomain     String?                  @unique // e.g. "erp.dims.edu.bd"
+  institutionType  InstitutionType          @default(SCHOOL)
+  subscriptionTier SubscriptionTier         @default(PROFESSIONAL)
+  status           TenantProvisioningStatus @default(ACTIVE_PAID)
+  isActive         Boolean                  @default(true)
+  isDemoTenant     Boolean                  @default(false)
+  isTestTenant     Boolean                  @default(false)
+  provisioningKey  String?                  @unique
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
 
   // Multi-domain mapping
   domains              TenantDomain[]
@@ -49,20 +72,75 @@ model Tenant {
   usageRecords         UsageRecord[]
   subscriptionOrders   SubscriptionOrder[]
   subscriptionInvoices SubscriptionInvoice[]
+  onboardingProgress   TenantOnboardingProgress?
+  featureOverrides     TenantFeatureOverride[]
+  offlinePayments      OfflinePaymentRecord[]
 
   @@index([slug])
   @@index([isActive])
+  @@index([status])
 }
 
 model TenantDomain {
+  id                String    @id @default(uuid())
+  tenantId          String
+  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  domain            String    @unique // e.g. "portal.dims.edu.bd" or "dims.eduerp.us"
+  isPrimary         Boolean   @default(false)
+  isVerified        Boolean   @default(false)
+  verificationToken String?
+  sslStatus         String    @default("PENDING") // PENDING, ISSUED, FAILED
+  redirectToPrimary Boolean   @default(true)
+  verifiedAt        DateTime?
+  createdAt         DateTime  @default(now())
+
+  @@index([tenantId])
+}
+
+model TenantOnboardingProgress {
+  id             String    @id @default(uuid())
+  tenantId       String    @unique
+  tenant         Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  currentStep    Int       @default(1)
+  completedSteps Json      @default("[]")
+  isCompleted    Boolean   @default(false)
+  startedAt      DateTime  @default(now())
+  completedAt    DateTime?
+  updatedAt      DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@index([isCompleted])
+}
+
+model TenantFeatureOverride {
   id         String    @id @default(uuid())
   tenantId   String
   tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  domain     String    @unique // e.g. "portal.dims.edu.bd" or "dims.eduerp.us"
-  isPrimary  Boolean   @default(false)
-  isVerified Boolean   @default(false)
-  verifiedAt DateTime?
+  featureKey String
+  isEnabled  Boolean   @default(true)
+  expiresAt  DateTime?
+  reason     String?
+  grantedBy  String?
   createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([tenantId, featureKey])
+  @@index([tenantId])
+}
+
+model OfflinePaymentRecord {
+  id               String   @id @default(uuid())
+  tenantId         String
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  paymentMethod    String // "BANK_TRANSFER", "CHEQUE", "CASH", "MANUAL_INVOICE"
+  amount           Float
+  currency         String   @default("BDT")
+  referenceNumber  String
+  paymentDate      DateTime @default(now())
+  proofDocumentUrl String?
+  notes            String?
+  approvedBy       String
+  createdAt        DateTime @default(now())
 
   @@index([tenantId])
 }
@@ -619,6 +697,8 @@ model User {
   failedLoginAttempts Int        @default(0)
   lockedUntil         DateTime?
   lastLoginAt         DateTime?
+  forcePasswordChange Boolean    @default(false)
+  passwordChangedAt   DateTime?
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
 

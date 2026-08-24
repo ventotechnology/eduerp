@@ -4,9 +4,10 @@ import { redirect } from 'next/navigation';
 import { getServerSession } from '@/lib/auth/server-auth';
 import { TenantSidebar } from '@/components/layout/tenant-sidebar';
 import { TenantHeader } from '@/components/layout/tenant-header';
+import { ForcePasswordChangeModal } from '@/components/auth/force-password-change-modal';
 import { resolveCanonicalTenantSlug } from '@/lib/tenant/tenant-guard';
 import { db } from '@/lib/db';
-import { ShieldAlert, ArrowLeft, LogOut } from 'lucide-react';
+import { ShieldAlert, ArrowLeft, LogOut, ExternalLink, ShieldCheck } from 'lucide-react';
 
 export default async function TenantAppLayout({
   children,
@@ -84,16 +85,46 @@ export default async function TenantAppLayout({
     }
   }
 
+  // Check if user requires forced password change
+  const user = await db.user.findUnique({
+    where: { id: session.id },
+    select: { forcePasswordChange: true, email: true }
+  });
+
   return (
-    <div className="flex-1 flex bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
-      <TenantSidebar />
-      <div className="flex-1 flex flex-col min-w-0">
-        <TenantHeader />
-        <main className="flex-1 p-6 overflow-y-auto max-h-[calc(100vh-106px)]">
-          {children}
-        </main>
+    <div className="flex-1 flex flex-col min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+      {/* Audited Platform Support Session Banner */}
+      {session.isPlatformAdmin && (
+        <div className="bg-amber-500/10 border-b border-amber-500/30 px-6 py-2 text-xs text-amber-300 font-medium flex items-center justify-between z-50">
+          <div className="flex items-center gap-2">
+            <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>
+              <strong>PLATFORM SUPPORT SESSION</strong> • Viewing <code className="bg-amber-500/20 px-1.5 py-0.5 rounded text-amber-200">{urlTenantSlug}</code> as Super Admin ({session.name})
+            </span>
+          </div>
+          <Link
+            href="/super-admin/institutions"
+            className="flex items-center gap-1 text-amber-300 hover:text-amber-200 underline text-[11px]"
+          >
+            <span>Return to SaaS Control Plane</span>
+            <ExternalLink className="w-3 h-3" />
+          </Link>
+        </div>
+      )}
+
+      <div className="flex-1 flex min-w-0">
+        <TenantSidebar />
+        <div className="flex-1 flex flex-col min-w-0">
+          <TenantHeader />
+          <main className="flex-1 p-6 overflow-y-auto max-h-[calc(100vh-106px)]">
+            {children}
+          </main>
+        </div>
       </div>
+
+      {user?.forcePasswordChange && (
+        <ForcePasswordChangeModal userEmail={user.email} />
+      )}
     </div>
   );
 }
-

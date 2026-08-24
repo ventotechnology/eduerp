@@ -1,7 +1,8 @@
 import { db } from '../db';
 import { hashPassword } from '../auth/password';
-import { InstitutionType } from '@prisma/client';
+import { InstitutionType, UserRole } from '@prisma/client';
 import crypto from 'crypto';
+import { TenantOnboardingService } from './tenant-onboarding.service';
 
 export const RESERVED_TENANT_SLUGS = new Set([
   'admin',
@@ -53,8 +54,9 @@ export interface SignupInput {
   desiredSlug: string;
   password: string;
   planIdOrCode: string;
-  billingCycle: 'MONTHLY' | 'ANNUAL';
+  billingCycle: 'MONTHLY' | 'ANNUAL' | 'TRIAL';
   promoCode?: string;
+  isTrial?: boolean;
 }
 
 export interface SlugValidationResult {
@@ -116,7 +118,7 @@ export class SaasSignupService {
   }
 
   /**
-   * Creates a pre-payment SignupApplication and SubscriptionOrder
+   * Creates a pre-payment SignupApplication and SubscriptionOrder, OR directly provisions a Free Trial
    */
   static async createSignupApplication(input: SignupInput) {
     const slugCheck = await this.validateSlug(input.desiredSlug);
@@ -127,8 +129,17 @@ export class SaasSignupService {
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(input.email)) {
+    const normalizedEmail = input.email.toLowerCase().trim();
+    if (!emailRegex.test(normalizedEmail)) {
       throw new Error('Please provide a valid email address.');
+    }
+
+    // Check if user account already exists
+    const existingUser = await db.user.findUnique({
+      where: { email: normalizedEmail }
+    });
+    if (existingUser) {
+      throw new Error('An account with this email address already exists. Please sign in or use account recovery.');
     }
 
     // Check password strength
@@ -152,7 +163,165 @@ export class SaasSignupService {
       throw new Error('The selected subscription package was not found or is inactive.');
     }
 
-    // Calculate server-verified pricing
+    const passwordHash = await hashPassword(input.password);
+    const now = new Date();
+
+    // -------------------------------------------------------------
+    // INSTANT FREE TRIAL PROVISIONING PATH
+    // -------------------------------------------------------------
+    if (input.billingCycle === 'TRIAL' || input.isTrial) {
+      const trialDays = plan.trialDays || 14;
+      const trialEndsAt = new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000);
+
+      const trialResult = await db.$transaction(async (tx) => {
+        // 1. Create Tenant
+        const tenant = await tx.tenant.create({
+          data: {
+            slug: cleanSlug,
+            institutionType: input.institutionType,
+            subscriptionTier: plan.tier,
+            status: 'ACTIVE_TRIAL',
+            isActive: true,
+            isDemoTenant: false,
+            provisioningKey: `TRIAL-${cleanSlug}-${now.getTime()}`
+          }
+        });
+
+        // 2. Create Institution
+        const shortName = input.institutionName
+          .split(' ')
+          .map(w => w[0])
+          .join('')
+          .slice(0, 6)
+          .toUpperCase() || 'INST';
+
+        const institution = await tx.institution.create({
+          data: {
+            tenantId: tenant.id,
+            name: input.institutionName.trim(),
+            shortName,
+            address: input.address.trim(),
+            district: 'Dhaka',
+            division: 'Dhaka',
+            upazilaThana: 'Dhanmondi',
+            phone: input.phone.trim(),
+            email: normalizedEmail,
+            currencyCode: plan.currency || 'BDT',
+            currencySymbol: '৳'
+          }
+        });
+
+        // 3. Create Main Campus
+        await tx.campus.create({
+          data: {
+            institutionId: institution.id,
+            name: 'Main Campus',
+            code: 'MAIN',
+            address: input.address.trim(),
+            phone: input.phone.trim(),
+            email: normalizedEmail,
+            isMain: true
+          }
+        });
+
+        // 4. Create Academic Year
+        const year = now.getFullYear();
+        await tx.academicYear.create({
+          data: {
+            institutionId: institution.id,
+            name: `Academic Year ${year}`,
+            code: `AY-${year}`,
+            startDate: new Date(year, 0, 1),
+            endDate: new Date(year, 11, 31),
+            isCurrent: true,
+            status: 'ACTIVE'
+          }
+        });
+
+        // 5. Create Owner User
+        const ownerRole = input.institutionType === 'UNIVERSITY' ? UserRole.VICE_CHANCELLOR : UserRole.PRINCIPAL;
+        await tx.user.create({
+          data: {
+            tenantId: tenant.id,
+            email: normalizedEmail,
+            passwordHash,
+            name: input.contactPerson.trim(),
+            phone: input.phone.trim(),
+            role: ownerRole as any,
+            status: 'ACTIVE' as any,
+            forcePasswordChange: false
+          }
+        });
+
+        // 6. Create Trial Subscription
+        await tx.subscription.create({
+          data: {
+            tenantId: tenant.id,
+            planId: plan.id,
+            billingCycle: 'MONTHLY',
+            startDate: now,
+            endDate: trialEndsAt,
+            currentPeriodStart: now,
+            currentPeriodEnd: trialEndsAt,
+            nextBillingDate: trialEndsAt,
+            trialEndsAt,
+            status: 'TRIALING',
+            autoRenew: false
+          }
+        });
+
+        // 7. Initialize Onboarding Progress
+        await tx.tenantOnboardingProgress.create({
+          data: {
+            tenantId: tenant.id,
+            currentStep: 1,
+            completedSteps: [1, 3, 4], // Profile, Academic Year, Campus initialized
+            isCompleted: false
+          }
+        });
+
+        // 8. Audit Log
+        await tx.auditLog.create({
+          data: {
+            tenantId: tenant.id,
+            userName: input.contactPerson,
+            userRole: 'OWNER',
+            action: 'TRIAL_PROVISIONED',
+            resourceType: 'Tenant',
+            resourceId: tenant.id,
+            newState: JSON.stringify({
+              plan: plan.name,
+              trialDays,
+              trialEndsAt: trialEndsAt.toISOString()
+            })
+          }
+        });
+
+        return {
+          tenantId: tenant.id,
+          tenantSlug: tenant.slug,
+          planName: plan.name,
+          trialDays,
+          trialEndsAt
+        };
+      });
+
+      return {
+        success: true,
+        isTrial: true,
+        tenantSlug: trialResult.tenantSlug,
+        plan: {
+          name: plan.name,
+          code: plan.code
+        },
+        trialDays,
+        message: `Your ${trialDays}-day free trial for ${plan.name} has been activated. Please sign in to access your workspace.`
+      };
+    }
+
+    // -------------------------------------------------------------
+    // PAID ORDER CHECKOUT PATH
+    // -------------------------------------------------------------
     const isAnnual = input.billingCycle === 'ANNUAL';
     let basePrice = isAnnual ? plan.annualPrice : plan.monthlyPrice;
     let discount = 0;
@@ -187,19 +356,17 @@ export class SaasSignupService {
     const taxAmount = (subtotal * taxRate) / 100;
     const totalAmount = subtotal + taxAmount + (plan.setupFee || 0);
 
-    const passwordHash = await hashPassword(input.password);
     const checkoutToken = crypto.randomUUID();
-    const orderNumber = `EDU-ORD-${new Date().getFullYear()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours validity
+    const orderNumber = `EDU-ORD-${now.getFullYear()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+    const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours validity
 
-    // Atomic creation of SignupApplication and SubscriptionOrder
     const [signup, order] = await db.$transaction(async (tx) => {
       const createdSignup = await tx.signupApplication.create({
         data: {
           institutionName: input.institutionName.trim(),
           institutionType: input.institutionType,
           contactPerson: input.contactPerson.trim(),
-          email: input.email.toLowerCase().trim(),
+          email: normalizedEmail,
           phone: input.phone.trim(),
           country: input.country || 'Bangladesh',
           address: input.address.trim(),
@@ -238,6 +405,8 @@ export class SaasSignupService {
     });
 
     return {
+      success: true,
+      isTrial: false,
       signupId: signup.id,
       orderId: order.id,
       orderNumber: order.orderNumber,

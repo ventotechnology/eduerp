@@ -1,6 +1,7 @@
 import { db } from '../db';
+import { AppError } from '../errors/app-error';
 
-export type LimitMetric = 'STUDENTS' | 'CAMPUSES' | 'TEACHERS' | 'USERS' | 'STORAGE_GB' | 'SMS';
+export type LimitMetric = 'STUDENTS' | 'CAMPUSES' | 'TEACHERS' | 'USERS' | 'STORAGE_GB' | 'SMS' | 'MONTHLY_EMAILS';
 
 export interface LimitCheckResult {
   allowed: boolean;
@@ -12,6 +13,40 @@ export interface LimitCheckResult {
   message?: string;
 }
 
+export interface DowngradeCheckResult {
+  allowed: boolean;
+  blockers: {
+    metric: string;
+    current: number;
+    targetLimit: number;
+    message: string;
+  }[];
+}
+
+const FEATURE_KEY_ALIASES: Record<string, string[]> = {
+  ATTENDANCE: ['ATTENDANCE', 'SIS', 'ACADEMICS'],
+  SIS: ['SIS', 'STUDENTS'],
+  ACADEMICS: ['ACADEMICS'],
+  EXAMINATION: ['EXAMINATION', 'EXAMS'],
+  PAYROLL: ['PAYROLL', 'HR_PAYROLL', 'FINANCE', 'HR'],
+  HR: ['HR', 'HR_PAYROLL', 'TEACHERS'],
+  LMS: ['LMS', 'LMS_COMPLETE'],
+  HIFZ: ['HIFZ', 'HIFZ_TRACKING'],
+  UNIVERSITY: ['UNIVERSITY', 'UNIVERSITY_CREDIT', 'FACULTY_PORTAL'],
+  FACILITIES: ['FACILITIES', 'TRANSPORT', 'HOSTEL', 'LIBRARY', 'INVENTORY'],
+  CUSTOM_REPORTS: ['CUSTOM_REPORTS', 'REPORTING'],
+  ADVANCED_FINANCE: ['ADVANCED_FINANCE', 'FINANCE'],
+  GOV_COMPLIANCE: ['GOV_COMPLIANCE', 'REGULATORY'],
+  API_ACCESS: ['API_ACCESS', 'REST_API', 'API'],
+  CUSTOM_DOMAIN: ['CUSTOM_DOMAIN'],
+  WHITE_LABEL: ['WHITE_LABEL'],
+  PRIORITY_SUPPORT: ['PRIORITY_SUPPORT']
+};
+
+const CORE_TIER_FEATURES = new Set(['SIS', 'ATTENDANCE', 'ACADEMICS', 'EXAMINATION', 'PORTAL', 'RBAC', 'REPORTS']);
+const STANDARD_TIER_FEATURES = new Set([...CORE_TIER_FEATURES, 'ADMISSION', 'FINANCE', 'HR', 'HR_PAYROLL', 'PAYROLL', 'FACILITIES', 'CUSTOM_REPORTS']);
+const PRO_TIER_FEATURES = new Set([...STANDARD_TIER_FEATURES, 'MULTI_CAMPUS', 'LMS', 'LMS_COMPLETE', 'GOV_COMPLIANCE', 'ADVANCED_FINANCE', 'FACULTY_PORTAL', 'CUSTOM_DOMAIN', 'PRIORITY_SUPPORT']);
+
 export class SubscriptionEntitlementService {
   /**
    * Retrieves the active subscription and plan for a given tenant
@@ -20,7 +55,7 @@ export class SubscriptionEntitlementService {
     const sub = await db.subscription.findFirst({
       where: {
         tenantId,
-        status: { in: ['ACTIVE', 'TRIALING', 'PAST_DUE'] }
+        status: { in: ['ACTIVE', 'TRIALING', 'PAST_DUE', 'GRACE_PERIOD'] }
       },
       include: {
         plan: {
@@ -157,6 +192,14 @@ export class SubscriptionEntitlementService {
         });
         currentUsage = smsRecord ? smsRecord.quantity : 0;
         break;
+
+      case 'MONTHLY_EMAILS':
+        maxLimit = plan.includedEmails || 5000;
+        const emailRecord = await db.usageRecord.findFirst({
+          where: { tenantId, metric: 'EMAILS_SENT' }
+        });
+        currentUsage = emailRecord ? emailRecord.quantity : 0;
+        break;
     }
 
     const allowed = currentUsage < maxLimit;
@@ -174,24 +217,184 @@ export class SubscriptionEntitlementService {
   }
 
   /**
-   * Checks if a specific feature is enabled in the tenant's current plan
+   * Checks if a specific feature is enabled in the tenant's current plan or active feature override
    */
   static async hasFeature(tenantId: string, featureKey: string): Promise<boolean> {
+    const tenant = await db.tenant.findUnique({ where: { id: tenantId } });
+    if (tenant?.isDemoTenant) return true; // Demo tenants have full functional access for evaluation
+
+    // 1. Check Super Admin temporary Feature Overrides
+    const override = await db.tenantFeatureOverride.findFirst({
+      where: {
+        tenantId,
+        featureKey: { in: FEATURE_KEY_ALIASES[featureKey] || [featureKey] },
+        isEnabled: true,
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }]
+      }
+    });
+
+    if (override) return true;
+
+    // 2. Check Active Subscription Plan
     const sub = await this.getTenantSubscription(tenantId);
     if (!sub) return false;
 
-    // Check plan flags
-    if (featureKey === 'API_ACCESS' && sub.plan.apiAccess) return true;
+    // Check Plan Boolean flags
+    if ((featureKey === 'API_ACCESS' || featureKey === 'REST_API') && sub.plan.apiAccess) return true;
     if (featureKey === 'CUSTOM_DOMAIN' && sub.plan.customDomain) return true;
     if (featureKey === 'WHITE_LABEL' && sub.plan.whiteLabel) return true;
     if (featureKey === 'PRIORITY_SUPPORT' && sub.plan.prioritySupport) return true;
 
-    // Check PlanFeature entries
-    return sub.plan.features.some(f => f.featureKey === featureKey && f.isEnabled);
+    // Check Plan Tier Hierarchy
+    const tier = (sub.plan.tier || sub.plan.code || '').toUpperCase();
+    if (tier === 'ENTERPRISE') return true;
+
+    const normKey = featureKey.toUpperCase();
+    if (CORE_TIER_FEATURES.has(normKey)) return true;
+    if (['STANDARD', 'PROFESSIONAL'].includes(tier) && STANDARD_TIER_FEATURES.has(normKey)) return true;
+    if (tier === 'PROFESSIONAL' && PRO_TIER_FEATURES.has(normKey)) return true;
+
+    // Check PlanFeature records with alias resolution
+    const searchKeys = new Set(FEATURE_KEY_ALIASES[featureKey] || [featureKey]);
+    return sub.plan.features.some(f => searchKeys.has(f.featureKey) && f.isEnabled);
   }
 
   /**
-   * Returns comprehensive billing status and metrics for the tenant customer billing portal
+   * Validates if a tenant can safely downgrade to a lower plan without exceeding limits
+   */
+  static async checkDowngradeEligibility(tenantId: string, targetPlanId: string): Promise<DowngradeCheckResult> {
+    const targetPlan = await db.subscriptionPlan.findUnique({
+      where: { id: targetPlanId }
+    });
+
+    if (!targetPlan) {
+      throw AppError.notFound(`Target plan ${targetPlanId} not found.`);
+    }
+
+    const [studentsCount, campusesCount, teachersCount, usersCount] = await Promise.all([
+      db.student.count({ where: { campus: { institution: { tenantId } } } }),
+      db.campus.count({ where: { institution: { tenantId } } }),
+      db.teacher.count({ where: { employee: { campus: { institution: { tenantId } } } } }),
+      db.user.count({ where: { tenantId } })
+    ]);
+
+    const blockers: DowngradeCheckResult['blockers'] = [];
+
+    if (studentsCount > targetPlan.maxStudents) {
+      blockers.push({
+        metric: 'STUDENTS',
+        current: studentsCount,
+        targetLimit: targetPlan.maxStudents,
+        message: `Your institution currently has ${studentsCount} students, but the ${targetPlan.name} plan allows a maximum of ${targetPlan.maxStudents} students.`
+      });
+    }
+
+    if (campusesCount > targetPlan.maxCampuses) {
+      blockers.push({
+        metric: 'CAMPUSES',
+        current: campusesCount,
+        targetLimit: targetPlan.maxCampuses,
+        message: `Your institution currently has ${campusesCount} campuses, but the ${targetPlan.name} plan allows a maximum of ${targetPlan.maxCampuses} campus(es).`
+      });
+    }
+
+    if (teachersCount > targetPlan.maxTeachers) {
+      blockers.push({
+        metric: 'TEACHERS',
+        current: teachersCount,
+        targetLimit: targetPlan.maxTeachers,
+        message: `Your institution currently has ${teachersCount} teachers, but the ${targetPlan.name} plan allows a maximum of ${targetPlan.maxTeachers} teachers.`
+      });
+    }
+
+    if (usersCount > targetPlan.maxUsers) {
+      blockers.push({
+        metric: 'USERS',
+        current: usersCount,
+        targetLimit: targetPlan.maxUsers,
+        message: `Your institution currently has ${usersCount} users, but the ${targetPlan.name} plan allows a maximum of ${targetPlan.maxUsers} users.`
+      });
+    }
+
+    return {
+      allowed: blockers.length === 0,
+      blockers
+    };
+  }
+
+  /**
+   * Grants a temporary feature override for pilot or support purposes
+   */
+  static async setFeatureOverride(
+    tenantId: string,
+    featureKey: string,
+    isEnabled: boolean,
+    expiresAt?: Date | null,
+    reason?: string,
+    grantedBy?: string
+  ) {
+    const override = await db.tenantFeatureOverride.upsert({
+      where: {
+        tenantId_featureKey: {
+          tenantId,
+          featureKey
+        }
+      },
+      create: {
+        tenantId,
+        featureKey,
+        isEnabled,
+        expiresAt: expiresAt || null,
+        reason: reason || null,
+        grantedBy: grantedBy || 'Super Admin'
+      },
+      update: {
+        isEnabled,
+        expiresAt: expiresAt || null,
+        reason: reason || null,
+        grantedBy: grantedBy || 'Super Admin',
+        updatedAt: new Date()
+      }
+    });
+
+    await db.auditLog.create({
+      data: {
+        tenantId,
+        userName: grantedBy || 'Super Admin',
+        userRole: 'PLATFORM_SUPER_ADMIN',
+        action: 'FEATURE_OVERRIDE_UPDATED',
+        resourceType: 'TenantFeatureOverride',
+        resourceId: override.id,
+        newState: JSON.stringify({ featureKey, isEnabled, expiresAt, reason })
+      }
+    });
+
+    return override;
+  }
+
+  /**
+   * Removes a feature override
+   */
+  static async removeFeatureOverride(tenantId: string, featureKey: string, removedBy?: string) {
+    await db.tenantFeatureOverride.deleteMany({
+      where: { tenantId, featureKey }
+    });
+
+    await db.auditLog.create({
+      data: {
+        tenantId,
+        userName: removedBy || 'Super Admin',
+        userRole: 'PLATFORM_SUPER_ADMIN',
+        action: 'FEATURE_OVERRIDE_REMOVED',
+        resourceType: 'TenantFeatureOverride',
+        resourceId: `${tenantId}:${featureKey}`,
+        newState: JSON.stringify({ featureKey, removed: true })
+      }
+    });
+  }
+
+  /**
+   * Returns comprehensive billing status and metrics for tenant customer billing portal
    */
   static async getTenantBillingSummary(tenantId: string) {
     const sub = await this.getTenantSubscription(tenantId);
@@ -201,6 +404,12 @@ export class SubscriptionEntitlementService {
         institution: {
           include: {
             campuses: true
+          }
+        },
+        featureOverrides: {
+          where: {
+            isEnabled: true,
+            OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }]
           }
         }
       }
@@ -221,7 +430,12 @@ export class SubscriptionEntitlementService {
 
     const availablePlans = await db.subscriptionPlan.findMany({
       where: { isPublic: true, isActive: true },
-      orderBy: { displayOrder: 'asc' }
+      orderBy: { displayOrder: 'asc' },
+      include: {
+        features: {
+          where: { isEnabled: true }
+        }
+      }
     });
 
     return {
