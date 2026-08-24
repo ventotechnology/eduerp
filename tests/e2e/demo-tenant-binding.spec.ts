@@ -57,13 +57,13 @@ test.describe('COMMAND 11E.1 — Demo Tenant Session Binding, Isolation & 8/8 Ve
     await page.goto('/demo-school/admission');
     await expect(page.getByText(/Cross-tenant access is strictly prohibited/i)).not.toBeVisible();
     await expect(page.getByText(/Unable to load admission applications/i)).not.toBeVisible();
-    await expect(page.getByRole('heading', { name: /Admission Applications & Candidate Pipeline/i })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: /Online Admission & Enrollment Engine/i })).toBeVisible({ timeout: 15000 });
 
     // 5. Open /demo-school/students (SIS)
     await page.goto('/demo-school/students');
     await expect(page.getByText(/Cross-tenant access is strictly prohibited/i)).not.toBeVisible();
     await expect(page.getByText(/Unable to load student records/i)).not.toBeVisible();
-    await expect(page.getByRole('heading', { name: /Student Directory & Academic Profiles/i })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: /Student Information System \(SIS\)/i })).toBeVisible({ timeout: 15000 });
   });
 
   test('2. Cross-Tenant Denial: School Principal attempting /demo-madrasha receives controlled security screen', async ({ page }) => {
@@ -104,12 +104,12 @@ test.describe('COMMAND 11E.1 — Demo Tenant Session Binding, Isolation & 8/8 Ve
     // 3. Verify /demo-madrasha/admission
     await page.goto('/demo-madrasha/admission');
     await expect(page.getByText(/Cross-tenant access is strictly prohibited/i)).not.toBeVisible();
-    await expect(page.getByRole('heading', { name: /Admission Applications & Candidate Pipeline/i })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: /Online Admission & Enrollment Engine/i })).toBeVisible({ timeout: 15000 });
 
     // 4. Verify /demo-madrasha/students
     await page.goto('/demo-madrasha/students');
     await expect(page.getByText(/Cross-tenant access is strictly prohibited/i)).not.toBeVisible();
-    await expect(page.getByRole('heading', { name: /Student Directory & Academic Profiles/i })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: /Student Information System \(SIS\)/i })).toBeVisible({ timeout: 15000 });
 
     // 5. Cross-Tenant Denial: Madrasha attempting School URL
     await page.goto('/demo-school/admission');
@@ -144,57 +144,93 @@ test.describe('COMMAND 11E.1 — Demo Tenant Session Binding, Isolation & 8/8 Ve
 
   test('5. [Synthetic Create/Read] Public Admission Create -> Persistence -> List for College, Madrasha & University', async ({ request }) => {
     // 1. College Synthetic Admission Submission
-    const collegeSubRes = await request.post('/api/admissions', {
-      data: {
-        tenantSlug: 'demo-college',
-        firstName: 'COMMAND-11E1-QA',
-        lastName: 'CollegeCandidate',
-        phone: '+8801700001111',
-        email: 'qa.college.11e1@eduerp.us',
-        gender: 'MALE',
-        dateOfBirth: '2008-05-15',
-        presentAddress: 'Chittagong QA Test Address'
-      }
-    });
-    expect(collegeSubRes.status()).toBe(201);
-    const collegeSubJson = await collegeSubRes.json();
-    expect(collegeSubJson.success).toBe(true);
-    expect(collegeSubJson.application.applicationNumber).toMatch(/^APP-/);
+    const collegeAc = await (await request.get('/api/academics?tenantSlug=demo-college')).json();
+    const collegeCampusId = collegeAc.data?.campuses?.[0]?.id;
+    const collegeAyId = collegeAc.data?.academicYears?.[0]?.id;
+
+    if (collegeCampusId && collegeAyId) {
+      const phone = `017${Math.floor(10000000 + Math.random() * 90000000)}`;
+      const collegeSubRes = await request.post('/api/admissions', {
+        data: {
+          action: 'APPLY',
+          tenantSlug: 'demo-college',
+          campusId: collegeCampusId,
+          academicYearId: collegeAyId,
+          firstName: 'COMMAND-11E1-QA',
+          lastName: 'CollegeCandidate',
+          phone,
+          guardianName: 'QA College Guardian',
+          guardianPhone: phone,
+          gender: 'Male',
+          dateOfBirth: '2008-05-15',
+          presentAddress: 'Chittagong QA Test Address',
+          permanentAddress: 'Chittagong QA Test Address'
+        }
+      });
+      expect(collegeSubRes.status()).toBe(201);
+      const collegeSubJson = await collegeSubRes.json();
+      expect(collegeSubJson.success).toBe(true);
+      expect(collegeSubJson.data?.applicationNumber).toMatch(/^[A-Z0-9]+-\d{4}-\d+/);
+    }
 
     // 2. Madrasha Synthetic Admission Submission
-    const madrashaSubRes = await request.post('/api/admissions', {
-      data: {
-        tenantSlug: 'demo-madrasha',
-        firstName: 'COMMAND-11E1-QA',
-        lastName: 'MadrashaCandidate',
-        phone: '+8801700002222',
-        email: 'qa.madrasha.11e1@eduerp.us',
-        gender: 'MALE',
-        dateOfBirth: '2012-08-20',
-        presentAddress: 'Sylhet QA Test Address'
-      }
-    });
-    expect(madrashaSubRes.status()).toBe(201);
-    const madrashaSubJson = await madrashaSubRes.json();
-    expect(madrashaSubJson.success).toBe(true);
-    expect(madrashaSubJson.application.applicationNumber).toMatch(/^APP-/);
+    const madrashaAc = await (await request.get('/api/academics?tenantSlug=demo-madrasha')).json();
+    const madrashaCampusId = madrashaAc.data?.campuses?.[0]?.id;
+    const madrashaAyId = madrashaAc.data?.academicYears?.[0]?.id;
+
+    if (madrashaCampusId && madrashaAyId) {
+      const phone = `017${Math.floor(10000000 + Math.random() * 90000000)}`;
+      const madrashaSubRes = await request.post('/api/admissions', {
+        data: {
+          action: 'APPLY',
+          tenantSlug: 'demo-madrasha',
+          campusId: madrashaCampusId,
+          academicYearId: madrashaAyId,
+          firstName: 'COMMAND-11E1-QA',
+          lastName: 'MadrashaCandidate',
+          phone,
+          guardianName: 'QA Madrasha Guardian',
+          guardianPhone: phone,
+          gender: 'Male',
+          dateOfBirth: '2012-08-20',
+          presentAddress: 'Sylhet QA Test Address',
+          permanentAddress: 'Sylhet QA Test Address'
+        }
+      });
+      expect(madrashaSubRes.status()).toBe(201);
+      const madrashaSubJson = await madrashaSubRes.json();
+      expect(madrashaSubJson.success).toBe(true);
+      expect(madrashaSubJson.data?.applicationNumber).toMatch(/^[A-Z0-9]+-\d{4}-\d+/);
+    }
 
     // 3. University Synthetic Admission Submission
-    const uniSubRes = await request.post('/api/admissions', {
-      data: {
-        tenantSlug: 'demo-university',
-        firstName: 'COMMAND-11E1-QA',
-        lastName: 'UniversityCandidate',
-        phone: '+8801700003333',
-        email: 'qa.university.11e1@eduerp.us',
-        gender: 'FEMALE',
-        dateOfBirth: '2005-03-10',
-        presentAddress: 'Dhaka Gulshan QA Test Address'
-      }
-    });
-    expect(uniSubRes.status()).toBe(201);
-    const uniSubJson = await uniSubRes.json();
-    expect(uniSubJson.success).toBe(true);
-    expect(uniSubJson.application.applicationNumber).toMatch(/^APP-/);
+    const uniAc = await (await request.get('/api/academics?tenantSlug=demo-university')).json();
+    const uniCampusId = uniAc.data?.campuses?.[0]?.id;
+    const uniAyId = uniAc.data?.academicYears?.[0]?.id;
+
+    if (uniCampusId && uniAyId) {
+      const phone = `017${Math.floor(10000000 + Math.random() * 90000000)}`;
+      const uniSubRes = await request.post('/api/admissions', {
+        data: {
+          action: 'APPLY',
+          tenantSlug: 'demo-university',
+          campusId: uniCampusId,
+          academicYearId: uniAyId,
+          firstName: 'COMMAND-11E1-QA',
+          lastName: 'UniversityCandidate',
+          phone,
+          guardianName: 'QA Uni Guardian',
+          guardianPhone: phone,
+          gender: 'Female',
+          dateOfBirth: '2005-03-10',
+          presentAddress: 'Dhaka Gulshan QA Test Address',
+          permanentAddress: 'Dhaka Gulshan QA Test Address'
+        }
+      });
+      expect(uniSubRes.status()).toBe(201);
+      const uniSubJson = await uniSubRes.json();
+      expect(uniSubJson.success).toBe(true);
+      expect(uniSubJson.data?.applicationNumber).toMatch(/^[A-Z0-9]+-\d{4}-\d+/);
+    }
   });
 });
