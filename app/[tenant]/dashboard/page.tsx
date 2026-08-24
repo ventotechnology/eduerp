@@ -2,7 +2,9 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { useTenant } from '@/lib/tenant-context';
+import { getTenantRouteSlug } from '@/lib/tenant/tenant-aliases';
 import { getTranslation } from '@/lib/i18n';
 import { evaluatePredictiveRisks } from '@/lib/ai-assistant';
 import {
@@ -37,7 +39,10 @@ import {
 } from 'recharts';
 
 export default function DashboardPage() {
+  const params = useParams();
   const { tenantSlug, branding, institutionType, institutionTypeConfig, language, campuses, activeCampusId } = useTenant();
+  const urlTenant = (params?.tenant as string) || '';
+  const routeSlug = getTenantRouteSlug(urlTenant, tenantSlug);
   const predictiveRisks = evaluatePredictiveRisks(tenantSlug);
 
   const activeCampus = campuses.find((c) => c.id === activeCampusId) || campuses[0];
@@ -88,21 +93,21 @@ export default function DashboardPage() {
         {/* Quick Actions */}
         <div className="flex flex-wrap items-center gap-2">
           <Link
-            href={`/${branding.shortName.toLowerCase()}/ai-assistant`}
+            href={`/${routeSlug}/ai-assistant`}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-md transition"
           >
             <Bot className="w-4 h-4" />
             <span>AI Copilot</span>
           </Link>
           <Link
-            href={`/${branding.shortName.toLowerCase()}/examination`}
+            href={`/${routeSlug}/examination`}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 transition"
           >
             <Award className="w-4 h-4" />
             <span>Exams & Marks</span>
           </Link>
           <Link
-            href={`/${branding.shortName.toLowerCase()}/finance`}
+            href={`/${routeSlug}/finance`}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 transition"
           >
             <DollarSign className="w-4 h-4" />
@@ -210,7 +215,7 @@ export default function DashboardPage() {
               </p>
             </div>
             <Link
-              href={`/${branding.shortName.toLowerCase()}/hifz`}
+              href={`/${routeSlug}/hifz`}
               className="px-4 py-2.5 rounded-xl bg-white text-emerald-900 font-bold text-xs hover:bg-emerald-50 transition shadow-md shrink-0 flex items-center gap-1.5"
             >
               <span>Open Hifz Manager</span>
@@ -238,7 +243,7 @@ export default function DashboardPage() {
               </p>
             </div>
             <Link
-              href={`/${branding.shortName.toLowerCase()}/faculty-research`}
+              href={`/${routeSlug}/faculty-research`}
               className="px-4 py-2.5 rounded-xl bg-white text-indigo-950 font-bold text-xs hover:bg-indigo-50 transition shadow-md shrink-0 flex items-center gap-1.5"
             >
               <span>Open Higher-Ed Portal</span>

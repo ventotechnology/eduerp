@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { createSessionToken, SESSION_COOKIE_NAME } from '@/lib/auth/session';
 import { getServerSession } from '@/lib/auth/server-auth';
 import { ENV } from '@/lib/env';
-import { TENANT_SLUG_ALIASES } from '@/lib/tenant/tenant-guard';
+import { resolveCanonicalTenantSlug } from '@/lib/tenant/tenant-guard';
 import { logAuditEvent } from '@/lib/audit/audit-logger';
 import { UserStatus } from '@/lib/auth/types';
 
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Locate target tenant in database
-    const targetSlug = TENANT_SLUG_ALIASES[tenantSlug] || tenantSlug;
+    const targetSlug = resolveCanonicalTenantSlug(tenantSlug);
     const tenant = await db.tenant.findFirst({
       where: {
         OR: [

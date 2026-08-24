@@ -12,6 +12,9 @@ import {
 } from './types';
 import { PRESET_DEMO_TENANTS, INSTITUTION_TYPE_CONFIGS, DEMO_USER_PERSONAS } from './constants';
 
+import { usePathname } from 'next/navigation';
+import { resolveCanonicalTenantSlug } from './tenant/tenant-aliases';
+
 interface TenantContextState {
   tenantSlug: string;
   institutionType: InstitutionType;
@@ -33,6 +36,7 @@ interface TenantContextState {
 const TenantContext = createContext<TenantContextState | undefined>(undefined);
 
 export function TenantProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [tenantSlug, setTenantSlug] = useState<string>('demo-school');
   const [activeRole, setActiveRole] = useState<UserRole>('PRINCIPAL');
   const [activeCampusId, setActiveCampusId] = useState<string>('CAMPUS-MAIN');
@@ -45,6 +49,24 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
     impersonator?: { userId: string; email: string; role: string } | null;
   } | null>(null);
 
+  // Sync with route URL on navigation
+  useEffect(() => {
+    if (pathname) {
+      const parts = pathname.split('/').filter(Boolean);
+      if (parts.length > 0) {
+        const publicNonTenantRoutes = [
+          'login', 'signup', 'super-admin', 'pricing', 'demo',
+          'contact', 'privacy', 'terms', 'checkout', 'payment',
+          'verify', 'apply', 'site', 'api', 'results'
+        ];
+        if (!publicNonTenantRoutes.includes(parts[0])) {
+          const canonical = resolveCanonicalTenantSlug(parts[0]);
+          setTenantSlug(canonical);
+        }
+      }
+    }
+  }, [pathname]);
+
   // Sync with server authentication state on mount
   useEffect(() => {
     async function syncAuth() {
@@ -56,7 +78,8 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
             setAuthenticatedUser(json.user);
             setActiveRole(json.user.role);
             if (json.user.tenantSlug) {
-              setTenantSlug(json.user.tenantSlug);
+              const canonical = resolveCanonicalTenantSlug(json.user.tenantSlug);
+              setTenantSlug(canonical);
             }
           }
         }

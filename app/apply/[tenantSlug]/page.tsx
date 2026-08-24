@@ -2,7 +2,7 @@ import React from 'react';
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
 import { getAdmissionSettings } from '@/lib/services/admission-service';
-import { TENANT_SLUG_ALIASES } from '@/lib/tenant/tenant-guard';
+import { resolveCanonicalTenantSlug } from '@/lib/tenant/tenant-guard';
 import ApplyClient from './apply-client';
 
 export const dynamic = 'force-dynamic';
@@ -13,7 +13,7 @@ interface ApplyPageProps {
 
 export default async function ApplyPage({ params }: ApplyPageProps) {
   const { tenantSlug: rawSlug } = await params;
-  const tenantSlug = TENANT_SLUG_ALIASES[rawSlug] || rawSlug;
+  const tenantSlug = resolveCanonicalTenantSlug(rawSlug);
 
   const tenant = await db.tenant.findFirst({
     where: {

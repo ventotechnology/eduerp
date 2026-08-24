@@ -2,7 +2,9 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { useTenant } from '@/lib/tenant-context';
+import { getTenantRouteSlug } from '@/lib/tenant/tenant-aliases';
 import { getTranslation } from '@/lib/i18n';
 import {
   Bell,
@@ -18,10 +20,14 @@ import {
 } from 'lucide-react';
 
 export function TenantHeader() {
-  const { branding, activeUser, activeCampusId, campuses, language } = useTenant();
+  const params = useParams();
+  const { tenantSlug, branding, activeUser, activeCampusId, campuses, language } = useTenant();
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
   const [emergencySent, setEmergencySent] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+
+  const urlTenant = (params?.tenant as string) || '';
+  const routeSlug = getTenantRouteSlug(urlTenant, tenantSlug);
 
   const activeCampus = campuses.find((c) => c.id === activeCampusId) || campuses[0];
 
@@ -50,7 +56,7 @@ export function TenantHeader() {
         {/* Middle: AI Search Trigger */}
         <div className="hidden md:flex items-center max-w-md w-full mx-4">
           <Link
-            href={`/${branding.shortName.toLowerCase()}/ai-assistant`}
+            href={`/${routeSlug}/ai-assistant`}
             className="w-full flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 text-xs border border-slate-200 dark:border-slate-700 transition"
           >
             <Bot className="w-4 h-4 text-purple-600 dark:text-purple-400 animate-pulse" />

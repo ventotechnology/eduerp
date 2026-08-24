@@ -1,13 +1,18 @@
 import { db } from '../db';
 import { TenantContext } from './types';
 import { SessionUser } from '../auth/types';
+import {
+  TENANT_SLUG_ALIASES,
+  resolveCanonicalTenantSlug,
+  isSameTenant,
+  getTenantRouteSlug
+} from './tenant-aliases';
 
-export const TENANT_SLUG_ALIASES: Record<string, string> = {
-  'dhaka-ideal-school': 'demo-school',
-  'dhaka-imperial-college': 'demo-college',
-  'al-jamiatul-islamia-madrasha': 'demo-madrasha',
-  'sylhet-madrasha': 'demo-madrasha',
-  'metropolitan-university': 'demo-university'
+export {
+  TENANT_SLUG_ALIASES,
+  resolveCanonicalTenantSlug,
+  isSameTenant,
+  getTenantRouteSlug
 };
 
 /**
@@ -15,7 +20,7 @@ export const TENANT_SLUG_ALIASES: Record<string, string> = {
  * Throws error if tenant does not exist or is inactive.
  */
 export async function requireTenant(tenantIdentifier: string): Promise<TenantContext> {
-  const canonicalIdentifier = TENANT_SLUG_ALIASES[tenantIdentifier] || tenantIdentifier;
+  const canonicalIdentifier = resolveCanonicalTenantSlug(tenantIdentifier);
 
   // 1. Try exact match first
   let tenant = await db.tenant.findFirst({
@@ -126,12 +131,13 @@ export async function resolveTenantContext(options: {
     const tenant = await requireTenant(session.tenantId);
 
     // If client supplied a tenantSlug, verify it matches the user's institution slug (accounting for aliases)
-    const canonicalReqSlug = tenantSlug ? (TENANT_SLUG_ALIASES[tenantSlug] || tenantSlug) : null;
-    if (canonicalReqSlug && canonicalReqSlug !== tenant.slug) {
+    const canonicalReqSlug = tenantSlug ? resolveCanonicalTenantSlug(tenantSlug) : null;
+    const canonicalUserSlug = resolveCanonicalTenantSlug(tenant.slug);
+    if (canonicalReqSlug && canonicalReqSlug !== canonicalUserSlug) {
       throw new Error('FORBIDDEN: Cross-tenant access is strictly prohibited.');
     }
     // If client supplied a tenantId, verify it matches either ID, slug, or alias
-    if (tenantId && tenantId !== tenant.tenantId && tenantId !== tenant.slug && (TENANT_SLUG_ALIASES[tenantId] || tenantId) !== tenant.slug) {
+    if (tenantId && tenantId !== tenant.tenantId && !isSameTenant(tenantId, tenant.slug)) {
       throw new Error('FORBIDDEN: Cross-tenant access is strictly prohibited.');
     }
 

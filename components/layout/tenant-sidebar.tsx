@@ -2,8 +2,9 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { useParams, usePathname } from 'next/navigation';
 import { useTenant } from '@/lib/tenant-context';
+import { getTenantRouteSlug } from '@/lib/tenant/tenant-aliases';
 import { getTranslation } from '@/lib/i18n';
 import {
   LayoutDashboard,
@@ -31,7 +32,11 @@ import {
 
 export function TenantSidebar() {
   const pathname = usePathname();
-  const { branding, institutionType, institutionTypeConfig, language, activeRole } = useTenant();
+  const params = useParams();
+  const { tenantSlug, branding, institutionType, institutionTypeConfig, language, activeRole } = useTenant();
+
+  const urlTenant = (params?.tenant as string) || '';
+  const routeSlug = getTenantRouteSlug(urlTenant, tenantSlug);
 
   const isMadrasha = institutionType === 'MADRASHA';
   const isUniversity = institutionType === 'UNIVERSITY';
@@ -40,25 +45,25 @@ export function TenantSidebar() {
   const navItems = [
     {
       label: getTranslation('dashboard', language),
-      href: `/${branding.shortName.toLowerCase()}/dashboard`,
+      href: `/${routeSlug}/dashboard`,
       icon: LayoutDashboard,
       roles: ['SUPER_ADMIN', 'PRINCIPAL', 'DEAN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'STUDENT', 'PARENT']
     },
     {
       label: getTranslation('admission', language),
-      href: `/${branding.shortName.toLowerCase()}/admission`,
+      href: `/${routeSlug}/admission`,
       icon: Compass,
       roles: ['SUPER_ADMIN', 'PRINCIPAL', 'DEAN', 'TEACHER']
     },
     {
       label: getTranslation('students', language),
-      href: `/${branding.shortName.toLowerCase()}/students`,
+      href: `/${routeSlug}/students`,
       icon: Users,
       roles: ['SUPER_ADMIN', 'PRINCIPAL', 'DEAN', 'TEACHER', 'ACCOUNTANT', 'PARENT']
     },
     {
       label: getTranslation('academics', language),
-      href: `/${branding.shortName.toLowerCase()}/academics`,
+      href: `/${routeSlug}/academics`,
       icon: BookOpen,
       roles: ['SUPER_ADMIN', 'PRINCIPAL', 'DEAN', 'TEACHER']
     },
@@ -67,7 +72,7 @@ export function TenantSidebar() {
       ? [
           {
             label: getTranslation('hifzTracker', language),
-            href: `/${branding.shortName.toLowerCase()}/hifz`,
+            href: `/${routeSlug}/hifz`,
             icon: BookCheck,
             badge: 'Hifz Engine',
             badgeColor: 'bg-emerald-700 text-emerald-100',
@@ -80,7 +85,7 @@ export function TenantSidebar() {
       ? [
           {
             label: getTranslation('higherEdFaculty', language),
-            href: `/${branding.shortName.toLowerCase()}/faculty-research`,
+            href: `/${routeSlug}/faculty-research`,
             icon: Microscope,
             badge: 'Higher-Ed',
             badgeColor: 'bg-indigo-700 text-indigo-100',
@@ -90,43 +95,43 @@ export function TenantSidebar() {
       : []),
     {
       label: getTranslation('examination', language),
-      href: `/${branding.shortName.toLowerCase()}/examination`,
+      href: `/${routeSlug}/examination`,
       icon: Award,
       roles: ['SUPER_ADMIN', 'PRINCIPAL', 'DEAN', 'TEACHER', 'STUDENT', 'PARENT']
     },
     {
       label: getTranslation('lms', language),
-      href: `/${branding.shortName.toLowerCase()}/lms`,
+      href: `/${routeSlug}/lms`,
       icon: Layers,
       roles: ['SUPER_ADMIN', 'PRINCIPAL', 'DEAN', 'TEACHER', 'STUDENT']
     },
     {
       label: getTranslation('finance', language),
-      href: `/${branding.shortName.toLowerCase()}/finance`,
+      href: `/${routeSlug}/finance`,
       icon: DollarSign,
       roles: ['SUPER_ADMIN', 'PRINCIPAL', 'ACCOUNTANT', 'STUDENT', 'PARENT']
     },
     {
       label: getTranslation('hrPayroll', language),
-      href: `/${branding.shortName.toLowerCase()}/hr`,
+      href: `/${routeSlug}/hr`,
       icon: Briefcase,
       roles: ['SUPER_ADMIN', 'PRINCIPAL', 'DEAN', 'ACCOUNTANT']
     },
     {
       label: getTranslation('facilities', language),
-      href: `/${branding.shortName.toLowerCase()}/facilities`,
+      href: `/${routeSlug}/facilities`,
       icon: Building,
       roles: ['SUPER_ADMIN', 'PRINCIPAL', 'LIBRARIAN', 'TEACHER', 'STUDENT', 'PARENT']
     },
     {
       label: getTranslation('communication', language),
-      href: `/${branding.shortName.toLowerCase()}/communication`,
+      href: `/${routeSlug}/communication`,
       icon: Radio,
       roles: ['SUPER_ADMIN', 'PRINCIPAL', 'DEAN', 'TEACHER', 'STUDENT', 'PARENT']
     },
     {
       label: getTranslation('aiAssistant', language),
-      href: `/${branding.shortName.toLowerCase()}/ai-assistant`,
+      href: `/${routeSlug}/ai-assistant`,
       icon: Bot,
       badge: 'AI Copilot',
       badgeColor: 'bg-gradient-to-r from-purple-600 to-pink-600 text-white',
@@ -134,13 +139,13 @@ export function TenantSidebar() {
     },
     {
       label: getTranslation('reports', language),
-      href: `/${branding.shortName.toLowerCase()}/custom-reports`,
+      href: `/${routeSlug}/custom-reports`,
       icon: FileText,
       roles: ['SUPER_ADMIN', 'PRINCIPAL', 'DEAN', 'ACCOUNTANT']
     },
     {
       label: getTranslation('settings', language),
-      href: `/${branding.shortName.toLowerCase()}/settings`,
+      href: `/${routeSlug}/settings`,
       icon: Settings,
       roles: ['SUPER_ADMIN', 'PRINCIPAL']
     }

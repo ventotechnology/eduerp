@@ -233,4 +233,58 @@ test.describe('COMMAND 11E.1 — Demo Tenant Session Binding, Isolation & 8/8 Ve
       expect(uniSubJson.data?.applicationNumber).toMatch(/^[A-Z0-9]+-\d{4}-\d+/);
     }
   });
+
+  test('6. [Friendly Alias Route Resolution] School Principal accesses /dims/dashboard, /dims/hr, /dims/admission, /dims/students (200 OK)', async ({ page }) => {
+    // 1. UI Login as School Principal
+    await page.goto('/login');
+    await page.locator('input[name="email"]').fill(schoolEmail);
+    await page.locator('input[name="password"]').fill(schoolPassword);
+    await page.getByRole('button', { name: /Sign in/i }).click();
+    await page.waitForURL(/\/demo-school\/dashboard/);
+
+    // 2. Visit /dims/dashboard (friendly alias)
+    await page.goto('/dims/dashboard');
+    await expect(page.getByRole('heading', { name: /You are signed into another institution/i })).not.toBeVisible();
+    await expect(page.getByRole('heading', { name: /Dhaka Ideal Model High School/i })).toBeVisible({ timeout: 15000 });
+
+    // 3. Visit /dims/hr (the exact owner screenshot path)
+    await page.goto('/dims/hr');
+    await expect(page.getByRole('heading', { name: /You are signed into another institution/i })).not.toBeVisible();
+    await expect(page.getByText(/Cross-tenant access is strictly prohibited/i)).not.toBeVisible();
+    await expect(page.getByRole('heading', { name: /HR & Payroll Management/i })).toBeVisible({ timeout: 15000 });
+
+    // 4. Visit /dims/admission
+    await page.goto('/dims/admission');
+    await expect(page.getByRole('heading', { name: /You are signed into another institution/i })).not.toBeVisible();
+    await expect(page.getByRole('heading', { name: /Online Admission & Enrollment Engine/i })).toBeVisible({ timeout: 15000 });
+
+    // 5. Visit /dims/students
+    await page.goto('/dims/students');
+    await expect(page.getByRole('heading', { name: /You are signed into another institution/i })).not.toBeVisible();
+    await expect(page.getByRole('heading', { name: /Student Information System \(SIS\)/i })).toBeVisible({ timeout: 15000 });
+  });
+
+  test('7. [Friendly Alias Cross-Tenant Denial] Madrasha Principal attempting /dims/hr, /dims/admission, /dims/students receives controlled security screen', async ({ page }) => {
+    // 1. UI Login as Madrasha Principal
+    await page.goto('/login');
+    await page.locator('input[name="email"]').fill(madrashaEmail);
+    await page.locator('input[name="password"]').fill(madrashaPassword);
+    await page.getByRole('button', { name: /Sign in/i }).click();
+    await page.waitForURL(/\/demo-madrasha\/dashboard/);
+
+    // 2. Attempt visiting /dims/hr (School alias) while logged into Madrasha
+    await page.goto('/dims/hr');
+    await expect(page.getByRole('heading', { name: /You are signed into another institution/i })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/Return to My Institution/i)).toBeVisible();
+
+    // 3. Attempt visiting /dims/admission
+    await page.goto('/dims/admission');
+    await expect(page.getByRole('heading', { name: /You are signed into another institution/i })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/Return to My Institution/i)).toBeVisible();
+
+    // 4. Attempt visiting /dims/students
+    await page.goto('/dims/students');
+    await expect(page.getByRole('heading', { name: /You are signed into another institution/i })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/Return to My Institution/i)).toBeVisible();
+  });
 });

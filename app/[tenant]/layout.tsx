@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { getServerSession } from '@/lib/auth/server-auth';
 import { TenantSidebar } from '@/components/layout/tenant-sidebar';
 import { TenantHeader } from '@/components/layout/tenant-header';
-import { TENANT_SLUG_ALIASES } from '@/lib/tenant/tenant-guard';
+import { resolveCanonicalTenantSlug } from '@/lib/tenant/tenant-guard';
 import { db } from '@/lib/db';
 import { ShieldAlert, ArrowLeft, LogOut } from 'lucide-react';
 
@@ -39,8 +39,8 @@ export default async function TenantAppLayout({
       }
     }
 
-    const canonicalUrlSlug = TENANT_SLUG_ALIASES[urlTenantSlug] || urlTenantSlug;
-    const canonicalUserSlug = userTenantSlug ? (TENANT_SLUG_ALIASES[userTenantSlug] || userTenantSlug) : null;
+    const canonicalUrlSlug = resolveCanonicalTenantSlug(urlTenantSlug);
+    const canonicalUserSlug = userTenantSlug ? resolveCanonicalTenantSlug(userTenantSlug) : null;
 
     if (canonicalUserSlug && canonicalUrlSlug !== canonicalUserSlug) {
       return (
