@@ -48,9 +48,9 @@ test.describe('COMMAND 11F & 11F.1 — Client Success, Security, SLA & Verificat
     await page.waitForLoadState('networkidle');
 
     await expect(page.getByRole('heading', { name: /5\. Data Protection Officer/i })).toBeVisible();
-    await expect(page.getByText('teamhimu@gmail.com')).toBeVisible();
-    await expect(page.getByText('+8801335556688')).toBeVisible();
-    await expect(page.getByText(/House 2\/B, Road 8, Nikunja-2/i)).toBeVisible();
+    await expect(page.locator('main').getByText('teamhimu@gmail.com')).toBeVisible();
+    await expect(page.locator('main').getByText('+8801335556688')).toBeVisible();
+    await expect(page.locator('main').getByText(/House 2\/B, Road 8, Nikunja-2/i)).toBeVisible();
   });
 
   test('4. Public Help Center loads categories and performs live search', async ({ page }) => {
