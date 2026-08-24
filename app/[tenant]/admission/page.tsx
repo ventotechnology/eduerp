@@ -392,7 +392,7 @@ export default function AdmissionPage() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && fetchApplications()}
-              className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-slate-50/50"
+              className="w-full pl-9 pr-3 py-2 text-xs bg-white text-slate-900 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none placeholder:text-slate-400"
             />
           </div>
 
@@ -400,11 +400,11 @@ export default function AdmissionPage() {
             <select
               value={selectedCampus}
               onChange={(e) => setSelectedCampus(e.target.value)}
-              className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-slate-50/50"
+              className="w-full px-3 py-2 text-xs bg-white text-slate-900 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none"
             >
-              <option value="">All Campuses</option>
+              <option value="" className="bg-white text-slate-900">All Campuses</option>
               {structure?.campuses?.map((c: any) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+                <option key={c.id} value={c.id} className="bg-white text-slate-900">{c.name}</option>
               ))}
             </select>
           </div>
@@ -413,11 +413,11 @@ export default function AdmissionPage() {
             <select
               value={selectedClass}
               onChange={(e) => setSelectedClass(e.target.value)}
-              className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-slate-50/50"
+              className="w-full px-3 py-2 text-xs bg-white text-slate-900 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none"
             >
-              <option value="">All Classes / Programs</option>
+              <option value="" className="bg-white text-slate-900">All Classes / Programs</option>
               {structure?.classes?.map((cls: any) => (
-                <option key={cls.id} value={cls.id}>{cls.name}</option>
+                <option key={cls.id} value={cls.id} className="bg-white text-slate-900">{cls.name}</option>
               ))}
             </select>
           </div>
@@ -1717,7 +1717,7 @@ function AdmissionSettingsModal({
                 min="0"
                 value={form.applicationFee}
                 onChange={(e) => setForm((p) => ({ ...p, applicationFee: e.target.value }))}
-                className="w-full p-2 border border-slate-200 rounded-lg font-mono font-bold"
+                className="w-full p-2 bg-white text-slate-900 border border-slate-300 rounded-lg font-mono font-bold placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
               />
             </div>
             <div>
@@ -1727,7 +1727,7 @@ function AdmissionSettingsModal({
                 min="0"
                 value={form.admissionFeeDefault}
                 onChange={(e) => setForm((p) => ({ ...p, admissionFeeDefault: e.target.value }))}
-                className="w-full p-2 border border-slate-200 rounded-lg font-mono font-bold"
+                className="w-full p-2 bg-white text-slate-900 border border-slate-300 rounded-lg font-mono font-bold placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
               />
             </div>
           </div>
@@ -1739,7 +1739,7 @@ function AdmissionSettingsModal({
                 type="text"
                 value={form.applicationNumberPrefix}
                 onChange={(e) => setForm((p) => ({ ...p, applicationNumberPrefix: e.target.value }))}
-                className="w-full p-2 border border-slate-200 rounded-lg font-mono"
+                className="w-full p-2 bg-white text-slate-900 border border-slate-300 rounded-lg font-mono placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
               />
             </div>
             <div>
@@ -1749,7 +1749,7 @@ function AdmissionSettingsModal({
                 min="1"
                 value={form.maxCapacityPerClass}
                 onChange={(e) => setForm((p) => ({ ...p, maxCapacityPerClass: e.target.value }))}
-                className="w-full p-2 border border-slate-200 rounded-lg font-mono"
+                className="w-full p-2 bg-white text-slate-900 border border-slate-300 rounded-lg font-mono placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
               />
             </div>
           </div>

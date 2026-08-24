@@ -144,7 +144,7 @@ export default function StudentsPage() {
               placeholder="Search by student name, ID number, roll, or phone..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50/50"
+              className="w-full pl-9 pr-4 py-2 text-xs bg-white text-slate-900 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 placeholder:text-slate-400"
             />
           </div>
 
@@ -152,11 +152,11 @@ export default function StudentsPage() {
             <select
               value={selectedCampus}
               onChange={(e) => setSelectedCampus(e.target.value)}
-              className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-slate-50/50"
+              className="w-full px-3 py-2 text-xs bg-white text-slate-900 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none"
             >
-              <option value="">All Campuses</option>
+              <option value="" className="bg-white text-slate-900">All Campuses</option>
               {structure?.campuses?.map((c: any) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+                <option key={c.id} value={c.id} className="bg-white text-slate-900">{c.name}</option>
               ))}
             </select>
           </div>
@@ -165,11 +165,11 @@ export default function StudentsPage() {
             <select
               value={selectedClass}
               onChange={(e) => setSelectedClass(e.target.value)}
-              className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-slate-50/50"
+              className="w-full px-3 py-2 text-xs bg-white text-slate-900 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none"
             >
-              <option value="">All Classes / Programs</option>
+              <option value="" className="bg-white text-slate-900">All Classes / Programs</option>
               {structure?.classes?.map((cls: any) => (
-                <option key={cls.id} value={cls.id}>{cls.name}</option>
+                <option key={cls.id} value={cls.id} className="bg-white text-slate-900">{cls.name}</option>
               ))}
             </select>
           </div>
@@ -769,7 +769,8 @@ function DirectAddStudentModal({
                   required
                   value={form.firstName}
                   onChange={(e) => update('firstName', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg"
+                  placeholder="e.g. Mahfuzur"
+                  className="w-full p-2 bg-white text-slate-900 border border-slate-300 rounded-lg placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 />
               </div>
               <div>
@@ -779,7 +780,8 @@ function DirectAddStudentModal({
                   required
                   value={form.lastName}
                   onChange={(e) => update('lastName', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg"
+                  placeholder="e.g. Rahman"
+                  className="w-full p-2 bg-white text-slate-900 border border-slate-300 rounded-lg placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 />
               </div>
             </div>
@@ -791,7 +793,7 @@ function DirectAddStudentModal({
                   required
                   value={form.dateOfBirth}
                   onChange={(e) => update('dateOfBirth', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg"
+                  className="w-full p-2 bg-white text-slate-900 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 />
               </div>
               <div>
@@ -799,10 +801,10 @@ function DirectAddStudentModal({
                 <select
                   value={form.gender}
                   onChange={(e) => update('gender', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg"
+                  className="w-full p-2 bg-white text-slate-900 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 >
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
+                  <option value="Male" className="bg-white text-slate-900">Male</option>
+                  <option value="Female" className="bg-white text-slate-900">Female</option>
                 </select>
               </div>
               <div>
@@ -810,17 +812,17 @@ function DirectAddStudentModal({
                 <select
                   value={form.bloodGroup}
                   onChange={(e) => update('bloodGroup', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg"
+                  className="w-full p-2 bg-white text-slate-900 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 >
-                  <option value="">Select</option>
-                  <option value="A+">A+</option>
-                  <option value="A-">A-</option>
-                  <option value="B+">B+</option>
-                  <option value="B-">B-</option>
-                  <option value="O+">O+</option>
-                  <option value="O-">O-</option>
-                  <option value="AB+">AB+</option>
-                  <option value="AB-">AB-</option>
+                  <option value="" className="bg-white text-slate-900">Select</option>
+                  <option value="A+" className="bg-white text-slate-900">A+</option>
+                  <option value="A-" className="bg-white text-slate-900">A-</option>
+                  <option value="B+" className="bg-white text-slate-900">B+</option>
+                  <option value="B-" className="bg-white text-slate-900">B-</option>
+                  <option value="O+" className="bg-white text-slate-900">O+</option>
+                  <option value="O-" className="bg-white text-slate-900">O-</option>
+                  <option value="AB+" className="bg-white text-slate-900">AB+</option>
+                  <option value="AB-" className="bg-white text-slate-900">AB-</option>
                 </select>
               </div>
             </div>
@@ -831,7 +833,8 @@ function DirectAddStudentModal({
                 required
                 value={form.presentAddress}
                 onChange={(e) => update('presentAddress', e.target.value)}
-                className="w-full p-2 border border-slate-200 rounded-lg"
+                placeholder="Village/House, Road, Thana, District"
+                className="w-full p-2 bg-white text-slate-900 border border-slate-300 rounded-lg placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -841,7 +844,8 @@ function DirectAddStudentModal({
                   type="tel"
                   value={form.phone}
                   onChange={(e) => update('phone', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg"
+                  placeholder="017XXXXXXXX"
+                  className="w-full p-2 bg-white text-slate-900 border border-slate-300 rounded-lg placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 />
               </div>
               <div>
@@ -850,7 +854,8 @@ function DirectAddStudentModal({
                   type="email"
                   value={form.email}
                   onChange={(e) => update('email', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg"
+                  placeholder="student@example.com"
+                  className="w-full p-2 bg-white text-slate-900 border border-slate-300 rounded-lg placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 />
               </div>
             </div>
@@ -868,7 +873,8 @@ function DirectAddStudentModal({
                   required
                   value={form.fatherName}
                   onChange={(e) => update('fatherName', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg"
+                  placeholder="Father's full name"
+                  className="w-full p-2 bg-white text-slate-900 border border-slate-300 rounded-lg placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 />
               </div>
               <div>
@@ -878,7 +884,8 @@ function DirectAddStudentModal({
                   required
                   value={form.fatherPhone}
                   onChange={(e) => update('fatherPhone', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg"
+                  placeholder="017XXXXXXXX"
+                  className="w-full p-2 bg-white text-slate-900 border border-slate-300 rounded-lg placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 />
               </div>
             </div>
@@ -889,7 +896,8 @@ function DirectAddStudentModal({
                   type="text"
                   value={form.motherName}
                   onChange={(e) => update('motherName', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg"
+                  placeholder="Mother's full name"
+                  className="w-full p-2 bg-white text-slate-900 border border-slate-300 rounded-lg placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 />
               </div>
               <div>
@@ -898,7 +906,8 @@ function DirectAddStudentModal({
                   type="tel"
                   value={form.motherPhone}
                   onChange={(e) => update('motherPhone', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg"
+                  placeholder="017XXXXXXXX"
+                  className="w-full p-2 bg-white text-slate-900 border border-slate-300 rounded-lg placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 />
               </div>
             </div>
@@ -908,12 +917,12 @@ function DirectAddStudentModal({
                 <select
                   value={form.guardianRelation}
                   onChange={(e) => update('guardianRelation', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg"
+                  className="w-full p-2 bg-white text-slate-900 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 >
-                  <option value="Father">Father</option>
-                  <option value="Mother">Mother</option>
-                  <option value="Legal Guardian">Legal Guardian</option>
-                  <option value="Other">Other</option>
+                  <option value="Father" className="bg-white text-slate-900">Father</option>
+                  <option value="Mother" className="bg-white text-slate-900">Mother</option>
+                  <option value="Legal Guardian" className="bg-white text-slate-900">Legal Guardian</option>
+                  <option value="Other" className="bg-white text-slate-900">Other</option>
                 </select>
               </div>
               <div>
@@ -922,7 +931,8 @@ function DirectAddStudentModal({
                   type="text"
                   value={form.fatherProfession}
                   onChange={(e) => update('fatherProfession', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg"
+                  placeholder="e.g. Business / Service / Teacher"
+                  className="w-full p-2 bg-white text-slate-900 border border-slate-300 rounded-lg placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 />
               </div>
             </div>
@@ -938,10 +948,10 @@ function DirectAddStudentModal({
                 <select
                   value={form.campusId}
                   onChange={(e) => update('campusId', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg"
+                  className="w-full p-2 bg-white text-slate-900 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 >
                   {structure?.campuses?.map((c: any) => (
-                    <option key={c.id} value={c.id}>
+                    <option key={c.id} value={c.id} className="bg-white text-slate-900">
                       {c.name} ({c.type})
                     </option>
                   ))}
@@ -952,10 +962,10 @@ function DirectAddStudentModal({
                 <select
                   value={form.academicYearId}
                   onChange={(e) => update('academicYearId', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg"
+                  className="w-full p-2 bg-white text-slate-900 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 >
                   {structure?.academicYears?.map((y: any) => (
-                    <option key={y.id} value={y.id}>
+                    <option key={y.id} value={y.id} className="bg-white text-slate-900">
                       {y.name} {y.isCurrent ? '(Current)' : ''}
                     </option>
                   ))}
@@ -969,11 +979,11 @@ function DirectAddStudentModal({
                 <select
                   value={form.classId}
                   onChange={(e) => update('classId', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg"
+                  className="w-full p-2 bg-white text-slate-900 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 >
-                  <option value="">Select Class</option>
+                  <option value="" className="bg-white text-slate-900">Select Class</option>
                   {structure?.classes?.map((cls: any) => (
-                    <option key={cls.id} value={cls.id}>
+                    <option key={cls.id} value={cls.id} className="bg-white text-slate-900">
                       {cls.name}
                     </option>
                   ))}
@@ -984,13 +994,13 @@ function DirectAddStudentModal({
                 <select
                   value={form.sectionId}
                   onChange={(e) => update('sectionId', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg"
+                  className="w-full p-2 bg-white text-slate-900 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 >
-                  <option value="">Auto / Unassigned</option>
+                  <option value="" className="bg-white text-slate-900">Auto / Unassigned</option>
                   {structure?.sections
                     ?.filter((s: any) => !form.classId || s.classId === form.classId)
                     ?.map((sec: any) => (
-                      <option key={sec.id} value={sec.id}>
+                      <option key={sec.id} value={sec.id} className="bg-white text-slate-900">
                         {sec.name}
                       </option>
                     ))}
@@ -1001,11 +1011,11 @@ function DirectAddStudentModal({
                 <select
                   value={form.shiftId}
                   onChange={(e) => update('shiftId', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg"
+                  className="w-full p-2 bg-white text-slate-900 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 >
-                  <option value="">None</option>
+                  <option value="" className="bg-white text-slate-900">None</option>
                   {structure?.shifts?.map((sh: any) => (
-                    <option key={sh.id} value={sh.id}>
+                    <option key={sh.id} value={sh.id} className="bg-white text-slate-900">
                       {sh.name}
                     </option>
                   ))}
@@ -1021,7 +1031,7 @@ function DirectAddStudentModal({
                   placeholder="Leave blank for auto-generate"
                   value={form.rollNumber}
                   onChange={(e) => update('rollNumber', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg font-mono"
+                  className="w-full p-2 bg-white text-slate-900 border border-slate-300 rounded-lg font-mono placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 />
               </div>
               <div>
@@ -1030,7 +1040,7 @@ function DirectAddStudentModal({
                   type="number"
                   value={form.admissionFeeAmount}
                   onChange={(e) => update('admissionFeeAmount', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg font-mono"
+                  className="w-full p-2 bg-white text-slate-900 border border-slate-300 rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 />
               </div>
             </div>
@@ -1165,7 +1175,8 @@ function EditStudentModal({
                 type="text"
                 value={form.firstName}
                 onChange={(e) => setForm((p) => ({ ...p, firstName: e.target.value }))}
-                className="w-full p-2 border border-slate-200 rounded-lg"
+                placeholder="First name"
+                className="w-full p-2 bg-white text-slate-900 border border-slate-300 rounded-lg placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
               />
             </div>
             <div>
@@ -1174,7 +1185,8 @@ function EditStudentModal({
                 type="text"
                 value={form.lastName}
                 onChange={(e) => setForm((p) => ({ ...p, lastName: e.target.value }))}
-                className="w-full p-2 border border-slate-200 rounded-lg"
+                placeholder="Last name"
+                className="w-full p-2 bg-white text-slate-900 border border-slate-300 rounded-lg placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
               />
             </div>
           </div>
@@ -1186,7 +1198,8 @@ function EditStudentModal({
                 type="text"
                 value={form.rollNumber}
                 onChange={(e) => setForm((p) => ({ ...p, rollNumber: e.target.value }))}
-                className="w-full p-2 border border-slate-200 rounded-lg font-mono font-bold"
+                placeholder="Roll number"
+                className="w-full p-2 bg-white text-slate-900 border border-slate-300 rounded-lg font-mono font-bold placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
               />
             </div>
             <div>
@@ -1194,13 +1207,13 @@ function EditStudentModal({
               <select
                 value={form.status}
                 onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}
-                className="w-full p-2 border border-slate-200 rounded-lg"
+                className="w-full p-2 bg-white text-slate-900 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
               >
-                <option value="ACTIVE">ACTIVE</option>
-                <option value="SUSPENDED">SUSPENDED</option>
-                <option value="TRANSFERRED">TRANSFERRED</option>
-                <option value="GRADUATED">GRADUATED</option>
-                <option value="DROPPED_OUT">DROPPED_OUT</option>
+                <option value="ACTIVE" className="bg-white text-slate-900">ACTIVE</option>
+                <option value="SUSPENDED" className="bg-white text-slate-900">SUSPENDED</option>
+                <option value="TRANSFERRED" className="bg-white text-slate-900">TRANSFERRED</option>
+                <option value="GRADUATED" className="bg-white text-slate-900">GRADUATED</option>
+                <option value="DROPPED_OUT" className="bg-white text-slate-900">DROPPED_OUT</option>
               </select>
             </div>
           </div>
@@ -1211,7 +1224,8 @@ function EditStudentModal({
               type="tel"
               value={form.phone}
               onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
-              className="w-full p-2 border border-slate-200 rounded-lg"
+              placeholder="017XXXXXXXX"
+              className="w-full p-2 bg-white text-slate-900 border border-slate-300 rounded-lg placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
             />
           </div>
 
@@ -1221,7 +1235,8 @@ function EditStudentModal({
               rows={2}
               value={form.presentAddress}
               onChange={(e) => setForm((p) => ({ ...p, presentAddress: e.target.value }))}
-              className="w-full p-2 border border-slate-200 rounded-lg"
+              placeholder="Full present address"
+              className="w-full p-2 bg-white text-slate-900 border border-slate-300 rounded-lg placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
             />
           </div>
         </div>
