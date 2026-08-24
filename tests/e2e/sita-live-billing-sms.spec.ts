@@ -3,8 +3,8 @@ import { test, expect, Page } from '@playwright/test';
 const BASE_URL = process.env.PLAYWRIGHT_TEST_BASE_URL || 'https://eduerp.us';
 const SITA_EMAIL = process.env.E2E_SITA_EMAIL || 'contact@scholarsita.com';
 const SITA_PASSWORD = process.env.E2E_SITA_PASSWORD || 'Password@123';
-const SUPER_ADMIN_EMAIL = process.env.E2E_SUPER_ADMIN_EMAIL || 'admin@eduerp.us';
-const SUPER_ADMIN_PASSWORD = process.env.E2E_SUPER_ADMIN_PASSWORD || 'Admin@123';
+const SUPER_ADMIN_EMAIL = process.env.E2E_SUPER_ADMIN_EMAIL || 'bloodsoft24@gmail.com';
+const SUPER_ADMIN_PASSWORD = process.env.E2E_SUPER_ADMIN_PASSWORD || 'Wallet.047890';
 
 async function loginAsPrincipal(page: Page) {
   await page.goto(`${BASE_URL}/login`);
@@ -39,8 +39,9 @@ test.describe('Command 12A.4: SITA Live Billing Recovery, Zero-Hardcode Engine &
     expect(bodyText).not.toMatch(/Objects are not valid as a React child/i);
 
     // Ensure real subscription data is displayed
-    expect(bodyText).toMatch(/Subscription & Commercial Billing|Active Operating Plan|Included Resources/i);
-    expect(bodyText).toMatch(/SMS Quota|Storage|Students/i);
+    expect(bodyText).toMatch(/Subscription & Billing Operations|Active Package/i);
+    expect(bodyText).toMatch(/SMS Quota|Student Capacity|Available Subscription Packages/i);
+    expect(bodyText).toMatch(/Enterprise|Professional|Standard|Starter/i);
   });
 
   test('2. SITA Billing Page resolves properly on alias route /sita/settings/billing', async ({ page }) => {
@@ -50,7 +51,7 @@ test.describe('Command 12A.4: SITA Live Billing Recovery, Zero-Hardcode Engine &
 
     const bodyText = await page.textContent('body');
     expect(bodyText).not.toMatch(/This page couldn['’]t load/i);
-    expect(bodyText).toMatch(/Subscription & Commercial Billing/i);
+    expect(bodyText).toMatch(/Subscription & Billing Operations|Active Package/i);
   });
 
   test('3. SITA SMS Settings Page loads with provider routing options', async ({ page }) => {
@@ -61,8 +62,8 @@ test.describe('Command 12A.4: SITA Live Billing Recovery, Zero-Hardcode Engine &
     expect(page.url()).toContain('/settings/sms');
 
     const bodyText = await page.textContent('body');
-    expect(bodyText).toMatch(/SMS Gateway Architecture|Outbound Strategy|Platform Universal SMS|Institution-Owned Gateway/i);
-    expect(bodyText).toMatch(/Remaining Balance|Delivery Logs|Connected Provider/i);
+    expect(bodyText).toMatch(/SMS Gateway & Messaging Architecture|Service Mode|EduERP Universal SMS|Institution's Own SMS Gateway/i);
+    expect(bodyText).toMatch(/Included Quota|Available Credits|Test Active Gateway Connectivity/i);
   });
 
   test('4. SITA Communication Page displays live SMS segment counter & gateway status', async ({ page }) => {
@@ -91,7 +92,7 @@ test.describe('Command 12A.4: SITA Live Billing Recovery, Zero-Hardcode Engine &
     expect(page.url()).toContain('/super-admin/sms');
 
     const bodyText = await page.textContent('body');
-    expect(bodyText).toMatch(/Universal SMS Gateways & Add-on Packages|Platform Universal Providers|SMS Add-on Bundles/i);
+    expect(bodyText).toMatch(/Platform Universal SMS Gateway|Configured Platform Providers|SMS Credit Add-On Packages/i);
   });
 
 });
