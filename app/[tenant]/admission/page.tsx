@@ -34,6 +34,7 @@ import {
   Sliders,
   DollarSign
 } from 'lucide-react';
+import { PhotoUploader } from '@/components/media/photo-uploader';
 import confetti from 'canvas-confetti';
 
 export default function AdmissionPage() {
@@ -496,8 +497,23 @@ export default function AdmissionPage() {
                   <tr key={app.id} className="hover:bg-slate-50/70 transition-colors">
                     <td className="py-3.5 px-4 font-mono font-bold text-indigo-600">{app.applicationNumber}</td>
                     <td className="py-3.5 px-4 font-semibold text-slate-900">
-                      {app.firstName} {app.middleName ? `${app.middleName} ` : ''}{app.lastName}
-                      <span className="block text-[10px] font-normal text-slate-400 font-mono">{app.phone}</span>
+                      <div className="flex items-center gap-2.5">
+                        {app.photoUrl ? (
+                          <img
+                            src={app.photoUrl}
+                            alt={app.firstName}
+                            className="w-7 h-7 rounded-full object-cover border border-slate-200 shrink-0"
+                          />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 flex items-center justify-center font-bold text-xs shrink-0">
+                            {app.firstName[0]}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <div>{app.firstName} {app.middleName ? `${app.middleName} ` : ''}{app.lastName}</div>
+                          <span className="block text-[10px] font-normal text-slate-400 font-mono">{app.phone}</span>
+                        </div>
+                      </div>
                     </td>
                     <td className="py-3.5 px-4 font-medium text-slate-800">
                       {app.desiredClass?.name || app.desiredProgram?.name || 'General'}
@@ -587,11 +603,24 @@ export default function AdmissionPage() {
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-              <div>
-                <span className="text-xs font-mono font-bold text-indigo-600">{selectedApp.applicationNumber}</span>
-                <h3 className="text-lg font-bold text-slate-900">
-                  {selectedApp.firstName} {selectedApp.lastName}
-                </h3>
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-14 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0 flex items-center justify-center">
+                  {selectedApp.photoUrl ? (
+                    <img
+                      src={selectedApp.photoUrl}
+                      alt={selectedApp.firstName}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-xl font-bold text-slate-400">{selectedApp.firstName[0]}</span>
+                  )}
+                </div>
+                <div>
+                  <span className="text-xs font-mono font-bold text-indigo-600">{selectedApp.applicationNumber}</span>
+                  <h3 className="text-lg font-bold text-slate-900">
+                    {selectedApp.firstName} {selectedApp.lastName}
+                  </h3>
+                </div>
               </div>
               <button
                 onClick={() => setSelectedApp(null)}
@@ -968,6 +997,7 @@ function InternalApplicationWizardModal({
   const defaultClassId = structure?.classes?.[0]?.id || '';
 
   const [form, setForm] = useState({
+    photoUrl: '',
     firstName: '',
     middleName: '',
     lastName: '',
@@ -1087,6 +1117,7 @@ function InternalApplicationWizardModal({
     try {
       const payload = {
         tenantSlug,
+        photoUrl: form.photoUrl || null,
         campusId: form.campusId,
         academicYearId: form.academicYearId,
         firstName: form.firstName.trim(),
@@ -1170,6 +1201,19 @@ function InternalApplicationWizardModal({
         {step === 1 && (
           <div className="space-y-4 text-xs">
             <h4 className="font-bold text-emerald-400 uppercase tracking-wider">1. Student Details</h4>
+
+            {/* Photo Uploader */}
+            <div className="p-3 bg-slate-950/70 rounded-xl border border-slate-800">
+              <PhotoUploader
+                label="Applicant Photograph"
+                initialUrl={form.photoUrl}
+                tenantSlug={tenantSlug}
+                entityType="ADMISSION_APPLICATION"
+                category="PROFILE_PHOTO"
+                onChange={(url) => update('photoUrl', url || '')}
+                hint="Upload or capture passport-style student photograph"
+              />
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="font-semibold text-slate-300 block mb-1">First Name *</label>

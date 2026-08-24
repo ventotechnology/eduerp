@@ -79,6 +79,7 @@ model Tenant {
   smsConfig            TenantSmsConfig?
   smsBroadcasts        SmsBroadcast[]
   smsUsageLedgers      SmsUsageLedger[]
+  mediaAssets          MediaAsset[]
 
   @@index([slug])
   @@index([isActive])
@@ -1221,6 +1222,10 @@ model Guardian {
   guardianRelation String  @default("Father")
   address          String?
   emergencyContact String?
+  photoUrl         String?
+  fatherPhotoUrl   String?
+  motherPhotoUrl   String?
+  guardianPhotoUrl String?
 
   students     Student[]
   studentLinks StudentGuardian[]
@@ -1247,29 +1252,34 @@ model StudentGuardian {
 // ----------------------------------------------------
 
 model AdmissionSetting {
-  id                      String        @id @default(uuid())
-  institutionId           String        @unique
-  institution             Institution   @relation(fields: [institutionId], references: [id], onDelete: Cascade)
-  isOnlineAdmissionOpen   Boolean       @default(true)
-  applicationStartDate    DateTime?
-  applicationEndDate      DateTime?
-  academicYearId          String?
-  academicYear            AcademicYear? @relation(fields: [academicYearId], references: [id])
-  applicationFee          Float         @default(0)
-  admissionFeeDefault     Float         @default(0)
-  isTestRequired          Boolean       @default(false)
-  isInterviewRequired     Boolean       @default(false)
-  autoMeritCalculation    Boolean       @default(true)
-  testWeight              Float         @default(50) // %
-  previousResultWeight    Float         @default(30) // %
-  interviewWeight         Float         @default(20) // %
-  maxCapacityPerClass     Int           @default(40)
-  allowPortalUserCreation Boolean       @default(true)
-  instructionsText        String?
-  requiredDocumentsJson   String? // JSON array of required doc names
-  applicationNumberPrefix String        @default("APP")
-  createdAt               DateTime      @default(now())
-  updatedAt               DateTime      @updatedAt
+  id                              String        @id @default(uuid())
+  institutionId                   String        @unique
+  institution                     Institution   @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  isOnlineAdmissionOpen           Boolean       @default(true)
+  applicationStartDate            DateTime?
+  applicationEndDate              DateTime?
+  academicYearId                  String?
+  academicYear                    AcademicYear? @relation(fields: [academicYearId], references: [id])
+  applicationFee                  Float         @default(0)
+  admissionFeeDefault             Float         @default(0)
+  isTestRequired                  Boolean       @default(false)
+  isInterviewRequired             Boolean       @default(false)
+  autoMeritCalculation            Boolean       @default(true)
+  testWeight                      Float         @default(50) // %
+  previousResultWeight            Float         @default(30) // %
+  interviewWeight                 Float         @default(20) // %
+  maxCapacityPerClass             Int           @default(40)
+  allowPortalUserCreation         Boolean       @default(true)
+  instructionsText                String?
+  requiredDocumentsJson           String? // JSON array of required doc names
+  applicationNumberPrefix         String        @default("APP")
+  requireStudentPhotoOnAdmission  Boolean       @default(false)
+  requireStudentPhotoOnEnrollment Boolean       @default(false)
+  requireStudentPhotoOnIdCard     Boolean       @default(false)
+  maxUploadSizeMb                 Int           @default(5)
+  allowCameraCapture              Boolean       @default(true)
+  createdAt                       DateTime      @default(now())
+  updatedAt                       DateTime      @updatedAt
 
   @@index([institutionId])
 }
@@ -6934,4 +6944,35 @@ model SmsUsageLedger {
 
   @@index([tenantId, createdAt])
   @@index([billingPeriod])
+}
+
+// ----------------------------------------------------
+// 27. Media & Storage Architecture (Command 12A.5)
+// ----------------------------------------------------
+
+model MediaAsset {
+  id               String   @id @default(uuid())
+  tenantId         String
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  entityType       String // "STUDENT" | "GUARDIAN" | "ADMISSION_APPLICATION" | "STAFF" | "INSTITUTION"
+  entityId         String?
+  category         String // "PROFILE_PHOTO" | "FATHER_PHOTO" | "MOTHER_PHOTO" | "GUARDIAN_PHOTO" | "DOCUMENT" | "ID_CARD_PHOTO"
+  objectKey        String // "tenants/{tenantId}/students/{studentId}/profile/{randomId}.webp"
+  filePath         String // Relative path on storage volume
+  thumbnailPath    String? // Relative path to generated thumbnail
+  fileName         String
+  mimeType         String
+  fileSize         Int
+  checksum         String? // SHA-256
+  width            Int?
+  height           Int?
+  uploadedByUserId String?
+  source           String?  @default("DIRECT_UPLOAD") // "ADMISSION_PORTAL" | "SIS_DIRECT" | "STUDENT_PROFILE" | "GUARDIAN_PROFILE"
+  metadataJson     String? // JSON string for additional metadata
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([tenantId, entityType, entityId])
+  @@index([objectKey])
+  @@index([createdAt])
 }

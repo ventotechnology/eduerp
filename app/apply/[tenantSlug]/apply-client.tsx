@@ -25,6 +25,7 @@ import {
   ShieldCheck,
   Download
 } from 'lucide-react';
+import { PhotoUploader } from '@/components/media/photo-uploader';
 import confetti from 'canvas-confetti';
 
 interface ApplyClientProps {
@@ -47,7 +48,8 @@ export default function ApplyClient({
 
   // Form State
   const [formData, setFormData] = useState({
-    // Step 1: Student Demographics
+    // Step 1: Student Demographics & Photo
+    photoUrl: '',
     firstName: '',
     middleName: '',
     lastName: '',
@@ -177,6 +179,7 @@ export default function ApplyClient({
     try {
       const payload = {
         tenantSlug,
+        photoUrl: formData.photoUrl || null,
         campusId: formData.campusId,
         academicYearId: formData.academicYearId,
         firstName: formData.firstName.trim(),
@@ -255,14 +258,25 @@ export default function ApplyClient({
           </div>
 
           <div className="p-8 space-y-6">
-            <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 text-center space-y-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Official Tracking Number</span>
-              <div className="text-3xl font-extrabold text-indigo-600 tracking-wider font-mono">
-                {submittedApp.applicationNumber}
+            <div className="flex flex-col sm:flex-row items-center gap-4 bg-slate-50 p-6 rounded-xl border border-slate-200">
+              {submittedApp.photoUrl && (
+                <div className="w-20 h-24 rounded-xl overflow-hidden border-2 border-indigo-200 shadow-sm shrink-0">
+                  <img
+                    src={submittedApp.photoUrl}
+                    alt={submittedApp.firstName}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+              <div className="text-center sm:text-left space-y-1 flex-1">
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Official Tracking Number</span>
+                <div className="text-3xl font-extrabold text-indigo-600 tracking-wider font-mono">
+                  {submittedApp.applicationNumber}
+                </div>
+                <p className="text-xs text-slate-500">
+                  Please save or print this number. You will need it to check your status, admission test, and interview schedule.
+                </p>
               </div>
-              <p className="text-xs text-slate-500">
-                Please save or print this number. You will need it to check your status, admission test, and interview schedule.
-              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4 text-sm">
@@ -354,7 +368,7 @@ export default function ApplyClient({
             </div>
             <div className={`flex items-center gap-2 ${currentStep >= 4 ? 'text-indigo-600 font-bold' : ''}`}>
               <span className={`w-6 h-6 rounded-full flex items-center justify-center ${currentStep >= 4 ? 'bg-indigo-600 text-white' : 'bg-slate-100'}`}>4</span>
-              <span>Background</span>
+              <span>Previous</span>
             </div>
             <div className={`flex items-center gap-2 ${currentStep >= 5 ? 'text-indigo-600 font-bold' : ''}`}>
               <span className={`w-6 h-6 rounded-full flex items-center justify-center ${currentStep >= 5 ? 'bg-indigo-600 text-white' : 'bg-slate-100'}`}>5</span>
@@ -363,17 +377,19 @@ export default function ApplyClient({
           </div>
         </div>
 
-        {/* Error Alert */}
-        {errorMessage && (
-          <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-3 text-sm text-rose-700">
-            <AlertCircle className="w-5 h-5 flex-shrink-0 text-rose-500" />
-            <span>{errorMessage}</span>
-          </div>
-        )}
+        {/* Form Container */}
+        <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-sm">
+          {errorMessage && (
+            <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-3 text-rose-700 text-sm">
+              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold block">Please fix the following:</span>
+                <span>{errorMessage}</span>
+              </div>
+            </div>
+          )}
 
-        {/* Wizard Form Card */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
-          {/* Honeypot for bots */}
+          {/* Honeypot field */}
           <input
             type="text"
             name="website_url_hp"
@@ -393,6 +409,19 @@ export default function ApplyClient({
                   Student Personal Details
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">Please provide accurate information as per Birth Certificate or NID.</p>
+              </div>
+
+              {/* Student Photo Uploader */}
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                <PhotoUploader
+                  label="Applicant Photograph"
+                  initialUrl={formData.photoUrl}
+                  tenantSlug={tenantSlug}
+                  entityType="ADMISSION_APPLICATION"
+                  category="PROFILE_PHOTO"
+                  onChange={(url) => updateField('photoUrl', url || '')}
+                  hint="Upload a recent passport-style portrait photo (JPG, PNG, WebP up to 5 MB)"
+                />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

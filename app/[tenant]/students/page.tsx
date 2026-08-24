@@ -29,6 +29,7 @@ import {
   Building2,
   GraduationCap
 } from 'lucide-react';
+import { PhotoUploader } from '@/components/media/photo-uploader';
 import confetti from 'canvas-confetti';
 
 export default function StudentsPage() {
@@ -248,8 +249,23 @@ export default function StudentsPage() {
                     <tr key={student.id} className="hover:bg-slate-50/70 transition-colors">
                       <td className="py-3.5 px-4 font-mono font-bold text-indigo-600">{student.studentIdNumber}</td>
                       <td className="py-3.5 px-4 font-semibold text-slate-900">
-                        {student.firstName} {student.lastName}
-                        {student.phone && <span className="block text-[10px] font-normal text-slate-400 font-mono">{student.phone}</span>}
+                        <div className="flex items-center gap-2.5">
+                          {student.photoUrl ? (
+                            <img
+                              src={student.photoUrl}
+                              alt={student.firstName}
+                              className="w-7 h-7 rounded-full object-cover border border-slate-200 shrink-0"
+                            />
+                          ) : (
+                            <div className="w-7 h-7 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 flex items-center justify-center font-bold text-xs shrink-0">
+                              {student.firstName[0]}
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <div>{student.firstName} {student.lastName}</div>
+                            {student.phone && <span className="block text-[10px] font-normal text-slate-400 font-mono">{student.phone}</span>}
+                          </div>
+                        </div>
                       </td>
                       <td className="py-3.5 px-4 font-medium text-slate-800">
                         {placement}
@@ -337,15 +353,48 @@ export default function StudentsPage() {
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-6 text-xs">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <span className="font-mono font-bold text-indigo-600">{selectedStudent.studentIdNumber}</span>
-                <h3 className="text-lg font-bold text-slate-900">
-                  {selectedStudent.firstName} {selectedStudent.lastName}
-                </h3>
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-14 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0 flex items-center justify-center">
+                  {selectedStudent.photoUrl ? (
+                    <img
+                      src={selectedStudent.photoUrl}
+                      alt={selectedStudent.firstName}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-xl font-bold text-slate-400">{selectedStudent.firstName[0]}</span>
+                  )}
+                </div>
+                <div>
+                  <span className="font-mono font-bold text-indigo-600">{selectedStudent.studentIdNumber}</span>
+                  <h3 className="text-lg font-bold text-slate-900">
+                    {selectedStudent.firstName} {selectedStudent.lastName}
+                  </h3>
+                </div>
               </div>
               <button onClick={() => setSelectedStudent(null)} className="p-2 text-slate-400 hover:text-slate-600 rounded-lg">
                 <X className="w-5 h-5" />
               </button>
+            </div>
+
+            {/* Student Photo Management */}
+            <div className="p-4 bg-indigo-50/50 rounded-xl border border-indigo-100">
+              <PhotoUploader
+                label="Student Profile Photograph"
+                initialUrl={selectedStudent.photoUrl}
+                tenantSlug={tenantSlug}
+                entityType="STUDENT"
+                entityId={selectedStudent.id}
+                category="PROFILE_PHOTO"
+                onChange={async (newUrl) => {
+                  if (!newUrl) {
+                    await fetch(`/api/students/${selectedStudent.id}/photo?tenantSlug=${tenantSlug}`, { method: 'DELETE' });
+                  }
+                  setSelectedStudent((prev: any) => (prev ? { ...prev, photoUrl: newUrl } : null));
+                  fetchStudents();
+                }}
+                hint="Official student portrait photograph. Used automatically on Student ID Cards and printable documents."
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
@@ -382,18 +431,90 @@ export default function StudentsPage() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <h4 className="font-bold text-slate-700 uppercase tracking-wider text-[11px]">Guardian Contact</h4>
-              <div className="p-3 bg-slate-50 rounded-lg border border-slate-100 grid grid-cols-2 gap-3">
-                <div>
-                  <span className="text-slate-400 block text-[10px]">Father / Guardian</span>
-                  <span className="font-semibold text-slate-800">{selectedStudent.guardian?.fatherName || selectedStudent.guardian?.guardianName}</span>
-                  <span className="text-slate-500 block font-mono">{selectedStudent.guardian?.fatherPhone || selectedStudent.guardian?.guardianPhone}</span>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="font-bold text-slate-700 uppercase tracking-wider text-[11px]">Guardians & Parents</h4>
+                <span className="text-[10px] text-slate-400">Guardian photos are optional</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Father */}
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-200 shrink-0 flex items-center justify-center">
+                      {selectedStudent.guardian?.fatherPhotoUrl ? (
+                        <img src={selectedStudent.guardian.fatherPhotoUrl} alt="Father" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-xs font-bold text-slate-500">F</span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[9px] font-bold uppercase text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">Father</span>
+                      <h5 className="font-bold text-slate-800 text-xs truncate">{selectedStudent.guardian?.fatherName || selectedStudent.guardian?.guardianName || 'Not recorded'}</h5>
+                      <span className="text-[10px] text-slate-500 block font-mono">{selectedStudent.guardian?.fatherPhone || selectedStudent.guardian?.guardianPhone || ''}</span>
+                    </div>
+                  </div>
+                  {selectedStudent.guardianId && (
+                    <PhotoUploader
+                      label="Father's Photo"
+                      initialUrl={selectedStudent.guardian?.fatherPhotoUrl}
+                      tenantSlug={tenantSlug}
+                      entityType="GUARDIAN"
+                      entityId={selectedStudent.guardianId}
+                      category="FATHER_PHOTO"
+                      aspectRatio="1/1"
+                      allowCamera={false}
+                      onChange={async (newUrl) => {
+                        if (!newUrl) {
+                          await fetch(`/api/guardians/${selectedStudent.guardianId}/photo?tenantSlug=${tenantSlug}&relationRole=FATHER`, { method: 'DELETE' });
+                        }
+                        setSelectedStudent((prev: any) =>
+                          prev ? { ...prev, guardian: { ...prev.guardian, fatherPhotoUrl: newUrl } } : null
+                        );
+                        fetchStudents();
+                      }}
+                      hint="Optional father portrait"
+                    />
+                  )}
                 </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px]">Mother</span>
-                  <span className="font-semibold text-slate-800">{selectedStudent.guardian?.motherName || 'N/A'}</span>
-                  <span className="text-slate-500 block font-mono">{selectedStudent.guardian?.motherPhone || ''}</span>
+
+                {/* Mother */}
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-200 shrink-0 flex items-center justify-center">
+                      {selectedStudent.guardian?.motherPhotoUrl ? (
+                        <img src={selectedStudent.guardian.motherPhotoUrl} alt="Mother" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-xs font-bold text-slate-500">M</span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[9px] font-bold uppercase text-pink-600 bg-pink-50 px-1.5 py-0.5 rounded">Mother</span>
+                      <h5 className="font-bold text-slate-800 text-xs truncate">{selectedStudent.guardian?.motherName || 'Not recorded'}</h5>
+                      <span className="text-[10px] text-slate-500 block font-mono">{selectedStudent.guardian?.motherPhone || ''}</span>
+                    </div>
+                  </div>
+                  {selectedStudent.guardianId && (
+                    <PhotoUploader
+                      label="Mother's Photo"
+                      initialUrl={selectedStudent.guardian?.motherPhotoUrl}
+                      tenantSlug={tenantSlug}
+                      entityType="GUARDIAN"
+                      entityId={selectedStudent.guardianId}
+                      category="MOTHER_PHOTO"
+                      aspectRatio="1/1"
+                      allowCamera={false}
+                      onChange={async (newUrl) => {
+                        if (!newUrl) {
+                          await fetch(`/api/guardians/${selectedStudent.guardianId}/photo?tenantSlug=${tenantSlug}&relationRole=MOTHER`, { method: 'DELETE' });
+                        }
+                        setSelectedStudent((prev: any) =>
+                          prev ? { ...prev, guardian: { ...prev.guardian, motherPhotoUrl: newUrl } } : null
+                        );
+                        fetchStudents();
+                      }}
+                      hint="Optional mother portrait"
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -427,7 +548,7 @@ export default function StudentsPage() {
             </div>
 
             {/* ID Card Front View */}
-            <div className="bg-gradient-to-br from-indigo-700 via-indigo-800 to-slate-900 text-white p-6 rounded-2xl shadow-xl space-y-4 relative overflow-hidden text-left">
+            <div className="bg-gradient-to-br from-indigo-700 via-indigo-800 to-slate-900 text-white p-6 rounded-2xl shadow-xl space-y-4 relative overflow-hidden text-left print:shadow-none print:border print:border-slate-300">
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-[9px] uppercase tracking-widest text-indigo-300 font-bold block">EduERP Smart SIS</span>
@@ -437,8 +558,16 @@ export default function StudentsPage() {
               </div>
 
               <div className="flex items-center gap-3 pt-2">
-                <div className="w-16 h-16 bg-white/20 rounded-xl border border-white/30 flex items-center justify-center text-2xl font-bold">
-                  {showIdCard.firstName[0]}
+                <div className="w-16 h-20 bg-white/20 rounded-xl border border-white/30 overflow-hidden flex items-center justify-center font-bold relative shrink-0">
+                  {showIdCard.photoUrl ? (
+                    <img
+                      src={showIdCard.photoUrl}
+                      alt={`${showIdCard.firstName} ${showIdCard.lastName}`}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="text-2xl text-white font-bold">{showIdCard.firstName[0]}</div>
+                  )}
                 </div>
                 <div>
                   <h5 className="font-bold text-sm leading-snug">{showIdCard.firstName} {showIdCard.lastName}</h5>
@@ -498,6 +627,7 @@ function DirectAddStudentModal({
   const [error, setError] = useState<string | null>(null);
 
   const [form, setForm] = useState({
+    photoUrl: '',
     firstName: '',
     middleName: '',
     lastName: '',
@@ -548,6 +678,7 @@ function DirectAddStudentModal({
         rollNumber: form.rollNumber.trim() || null,
         hifzProgram: form.hifzProgram,
 
+        photoUrl: form.photoUrl || null,
         firstName: form.firstName.trim(),
         middleName: form.middleName.trim() || null,
         lastName: form.lastName.trim(),
@@ -616,6 +747,20 @@ function DirectAddStudentModal({
         {step === 1 && (
           <div className="space-y-4 text-xs">
             <h4 className="font-bold text-slate-700 uppercase tracking-wider">1. Student Details</h4>
+
+            {/* Photo Uploader */}
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+              <PhotoUploader
+                label="Student Photograph"
+                initialUrl={form.photoUrl}
+                tenantSlug={tenantSlug}
+                entityType="STUDENT"
+                category="PROFILE_PHOTO"
+                onChange={(url) => update('photoUrl', url || '')}
+                hint="Passport-style portrait photograph. Optional during creation."
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="font-semibold text-slate-700 block mb-1">First Name *</label>
@@ -689,12 +834,32 @@ function DirectAddStudentModal({
                 className="w-full p-2 border border-slate-200 rounded-lg"
               />
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Phone</label>
+                <input
+                  type="tel"
+                  value={form.phone}
+                  onChange={(e) => update('phone', e.target.value)}
+                  className="w-full p-2 border border-slate-200 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Email</label>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => update('email', e.target.value)}
+                  className="w-full p-2 border border-slate-200 rounded-lg"
+                />
+              </div>
+            </div>
           </div>
         )}
 
         {step === 2 && (
           <div className="space-y-4 text-xs">
-            <h4 className="font-bold text-slate-700 uppercase tracking-wider">2. Guardian Details</h4>
+            <h4 className="font-bold text-slate-700 uppercase tracking-wider">2. Guardian & Relationship</h4>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="font-semibold text-slate-700 block mb-1">Father Name *</label>
@@ -719,10 +884,9 @@ function DirectAddStudentModal({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Mother Name *</label>
+                <label className="font-semibold text-slate-700 block mb-1">Mother Name</label>
                 <input
                   type="text"
-                  required
                   value={form.motherName}
                   onChange={(e) => update('motherName', e.target.value)}
                   className="w-full p-2 border border-slate-200 rounded-lg"
@@ -738,12 +902,36 @@ function DirectAddStudentModal({
                 />
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Primary Guardian Relation</label>
+                <select
+                  value={form.guardianRelation}
+                  onChange={(e) => update('guardianRelation', e.target.value)}
+                  className="w-full p-2 border border-slate-200 rounded-lg"
+                >
+                  <option value="Father">Father</option>
+                  <option value="Mother">Mother</option>
+                  <option value="Legal Guardian">Legal Guardian</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Guardian Profession</label>
+                <input
+                  type="text"
+                  value={form.fatherProfession}
+                  onChange={(e) => update('fatherProfession', e.target.value)}
+                  className="w-full p-2 border border-slate-200 rounded-lg"
+                />
+              </div>
+            </div>
           </div>
         )}
 
         {step === 3 && (
           <div className="space-y-4 text-xs">
-            <h4 className="font-bold text-slate-700 uppercase tracking-wider">3. Academic Enrollment</h4>
+            <h4 className="font-bold text-slate-700 uppercase tracking-wider">3. Academic Placement & Fees</h4>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="font-semibold text-slate-700 block mb-1">Campus *</label>
@@ -753,7 +941,9 @@ function DirectAddStudentModal({
                   className="w-full p-2 border border-slate-200 rounded-lg"
                 >
                   {structure?.campuses?.map((c: any) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.type})
+                    </option>
                   ))}
                 </select>
               </div>
@@ -764,8 +954,10 @@ function DirectAddStudentModal({
                   onChange={(e) => update('academicYearId', e.target.value)}
                   className="w-full p-2 border border-slate-200 rounded-lg"
                 >
-                  {structure?.academicYears?.map((ay: any) => (
-                    <option key={ay.id} value={ay.id}>{ay.name}</option>
+                  {structure?.academicYears?.map((y: any) => (
+                    <option key={y.id} value={y.id}>
+                      {y.name} {y.isCurrent ? '(Current)' : ''}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -773,81 +965,120 @@ function DirectAddStudentModal({
 
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Class / Program *</label>
+                <label className="font-semibold text-slate-700 block mb-1">Class / Marhala *</label>
                 <select
                   value={form.classId}
                   onChange={(e) => update('classId', e.target.value)}
                   className="w-full p-2 border border-slate-200 rounded-lg"
                 >
+                  <option value="">Select Class</option>
                   {structure?.classes?.map((cls: any) => (
-                    <option key={cls.id} value={cls.id}>{cls.name}</option>
+                    <option key={cls.id} value={cls.id}>
+                      {cls.name}
+                    </option>
                   ))}
                 </select>
               </div>
               <div>
+                <label className="font-semibold text-slate-700 block mb-1">Section</label>
+                <select
+                  value={form.sectionId}
+                  onChange={(e) => update('sectionId', e.target.value)}
+                  className="w-full p-2 border border-slate-200 rounded-lg"
+                >
+                  <option value="">Auto / Unassigned</option>
+                  {structure?.sections
+                    ?.filter((s: any) => !form.classId || s.classId === form.classId)
+                    ?.map((sec: any) => (
+                      <option key={sec.id} value={sec.id}>
+                        {sec.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Shift</label>
+                <select
+                  value={form.shiftId}
+                  onChange={(e) => update('shiftId', e.target.value)}
+                  className="w-full p-2 border border-slate-200 rounded-lg"
+                >
+                  <option value="">None</option>
+                  {structure?.shifts?.map((sh: any) => (
+                    <option key={sh.id} value={sh.id}>
+                      {sh.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
                 <label className="font-semibold text-slate-700 block mb-1">Roll Number</label>
                 <input
                   type="text"
-                  placeholder="Auto if blank"
+                  placeholder="Leave blank for auto-generate"
                   value={form.rollNumber}
                   onChange={(e) => update('rollNumber', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg font-mono font-bold"
+                  className="w-full p-2 border border-slate-200 rounded-lg font-mono"
                 />
               </div>
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Initial Admission Fee</label>
+                <label className="font-semibold text-slate-700 block mb-1">Initial Admission Fee (BDT)</label>
                 <input
                   type="number"
-                  min="0"
                   value={form.admissionFeeAmount}
                   onChange={(e) => update('admissionFeeAmount', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg font-mono font-bold"
+                  className="w-full p-2 border border-slate-200 rounded-lg font-mono"
                 />
               </div>
             </div>
 
             {institutionType === 'MADRASHA' && (
-              <label className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-xl cursor-pointer">
+              <label className="flex items-center gap-2 p-3 bg-emerald-50 text-emerald-900 rounded-xl border border-emerald-200 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={form.hifzProgram}
                   onChange={(e) => update('hifzProgram', e.target.checked)}
-                  className="w-4 h-4 text-emerald-600 rounded"
+                  className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4"
                 />
-                <span className="font-bold text-emerald-900">Enroll in Hifzul Quran Department</span>
+                <span className="font-bold">Enroll in 30-Para Hifzul Quran Progress Engine</span>
               </label>
             )}
           </div>
         )}
 
-        <div className="border-t border-slate-100 pt-4 flex items-center justify-between">
+        <div className="flex items-center justify-between border-t border-slate-100 pt-4">
           {step > 1 ? (
             <button
               type="button"
-              onClick={() => setStep((p) => p - 1)}
-              className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold"
+              onClick={() => setStep((s) => s - 1)}
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold"
             >
               Previous
             </button>
-          ) : <div />}
+          ) : (
+            <div />
+          )}
 
           {step < 3 ? (
             <button
               type="button"
-              onClick={() => setStep((p) => p + 1)}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-sm"
+              onClick={() => setStep((s) => s + 1)}
+              className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md shadow-indigo-100"
             >
-              Next Step
+              Continue to Step {step + 1}
             </button>
           ) : (
             <button
               type="button"
-              disabled={submitting}
               onClick={handleSubmit}
-              className="px-6 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-100 flex items-center gap-2"
+              disabled={submitting}
+              className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl font-bold shadow-md shadow-emerald-100 flex items-center gap-2"
             >
               {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-              Save & Enroll Student
+              Complete Enrollment
             </button>
           )}
         </div>
@@ -873,6 +1104,7 @@ function EditStudentModal({
   onSuccess: () => void;
 }) {
   const [form, setForm] = useState({
+    photoUrl: student.photoUrl || '',
     firstName: student.firstName || '',
     lastName: student.lastName || '',
     rollNumber: student.rollNumber || '',
@@ -915,6 +1147,17 @@ function EditStudentModal({
         </div>
 
         <div className="space-y-3">
+          <PhotoUploader
+            label="Student Photograph"
+            initialUrl={form.photoUrl}
+            tenantSlug={tenantSlug}
+            entityType="STUDENT"
+            entityId={student.id}
+            category="PROFILE_PHOTO"
+            onChange={(url) => setForm((p) => ({ ...p, photoUrl: url || '' }))}
+            hint="Update portrait photograph"
+          />
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="font-semibold text-slate-700 block mb-1">First Name</label>

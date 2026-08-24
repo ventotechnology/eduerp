@@ -614,6 +614,7 @@ export async function convertApplicantToStudent(
           rollNumber,
           firstName: application.firstName,
           lastName: application.lastName,
+          photoUrl: application.photoUrl || null,
           dateOfBirth: application.dateOfBirth,
           gender: application.gender,
           bloodGroup: application.bloodGroup,

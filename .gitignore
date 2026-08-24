@@ -43,6 +43,8 @@ dev.db-journal
 *.sqlite3
 backups/
 logs/
+uploads/
+/uploads
 
 # QA Credentials & Private Exports
 EDUERP-ONLINE-TEST-CREDENTIALS.txt
