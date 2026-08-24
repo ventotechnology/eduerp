@@ -507,3 +507,14 @@ export async function seedClientSuccessData() {
 
   console.log('✅ EduERP Client Success, Help, Training & Support successfully seeded.');
 }
+
+if (require.main === module || process.argv[1]?.includes('seed-client-success')) {
+  seedClientSuccess()
+    .then(() => {
+      process.exit(0);
+    })
+    .catch((err) => {
+      console.error('❌ Seed error:', err);
+      process.exit(1);
+    });
+}

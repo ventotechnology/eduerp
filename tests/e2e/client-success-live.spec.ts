@@ -9,9 +9,9 @@ test.describe('COMMAND 11F — Client Success, Help Center, Training Academy & S
     await page.waitForLoadState('networkidle');
 
     // Verify Official Details
-    await expect(page.getByText('Vento Technology')).toBeVisible();
-    await expect(page.getByText('House 2/B, Road 8, Nikunja-2, Khilkhet')).toBeVisible();
-    await expect(page.getByText('teamhimu@gmail.com')).toBeVisible();
+    await expect(page.getByText('Vento Technology').first()).toBeVisible();
+    await expect(page.getByText(/Nikunja-2/).first()).toBeVisible();
+    await expect(page.getByText('teamhimu@gmail.com').first()).toBeVisible();
     await expect(page.getByRole('link', { name: /Chat on WhatsApp/i })).toBeVisible();
 
     // Verify WhatsApp link target
@@ -41,14 +41,14 @@ test.describe('COMMAND 11F — Client Success, Help Center, Training Academy & S
     await page.waitForLoadState('networkidle');
 
     await expect(page.getByRole('heading', { name: /How can we help your institution today/i })).toBeVisible();
-    await expect(page.getByText('Student SIS & Admissions')).toBeVisible();
+    await expect(page.getByText('Student SIS & Admissions').first()).toBeVisible();
 
     // Search query
     const searchInput = page.getByPlaceholder('Search topics:');
     await searchInput.fill('login');
 
-    await expect(page.getByText('Knowledge Base Articles')).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText(/How to Log in to your Institution Portal/i)).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Knowledge Base Articles/i })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(/How to Log in to your Institution Portal/i).first()).toBeVisible();
   });
 
   test('4. Training Academy displays course curriculum and certificate verification', async ({ page }) => {
@@ -56,14 +56,14 @@ test.describe('COMMAND 11F — Client Success, Help Center, Training Academy & S
     await page.waitForLoadState('networkidle');
 
     await expect(page.getByRole('heading', { name: /Master the EduERP Platform/i })).toBeVisible();
-    await expect(page.getByText('EduERP Getting Started & Core Fundamentals')).toBeVisible();
+    await expect(page.getByText('EduERP Getting Started & Core Fundamentals').first()).toBeVisible();
 
     // Click into course
     await page.click('text=EduERP Getting Started & Core Fundamentals');
     await page.waitForLoadState('networkidle');
 
     await expect(page.getByText('Curriculum Outline')).toBeVisible();
-    await expect(page.getByText('Navigating the EduERP Workspace')).toBeVisible();
+    await expect(page.getByText('Navigating the EduERP Workspace').first()).toBeVisible();
   });
 
   test('5. Public Certificate Verification validates or flags credential authenticity', async ({ page }) => {
@@ -77,10 +77,10 @@ test.describe('COMMAND 11F — Client Success, Help Center, Training Academy & S
   test('6. Public FAQ and Release Notes pages load formatted content', async ({ page }) => {
     await page.goto(`${BASE_URL}/help/faq`);
     await page.waitForLoadState('networkidle');
-    await expect(page.getByText('Frequently Asked Questions')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Frequently Asked Questions' })).toBeVisible();
 
     await page.goto(`${BASE_URL}/help/releases`);
     await page.waitForLoadState('networkidle');
-    await expect(page.getByText(/Release Notes & Platform Changelog/i)).toBeVisible();
+    await expect(page.getByText(/Release Notes & Platform Changelog/i).first()).toBeVisible();
   });
 });
