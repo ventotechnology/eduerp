@@ -8,7 +8,7 @@ export async function seedAllInstitutionStructures() {
       campuses: true,
       shifts: true,
       classes: true,
-      admissionSettings: true
+      admissionSetting: true
     }
   });
 
@@ -101,7 +101,7 @@ export async function seedAllInstitutionStructures() {
     }
 
     // 5. Admission Setting
-    if (!inst.admissionSettings) {
+    if (!inst.admissionSetting) {
       await db.admissionSetting.create({
         data: {
           institutionId: inst.id,
