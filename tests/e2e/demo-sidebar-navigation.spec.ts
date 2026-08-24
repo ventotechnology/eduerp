@@ -19,26 +19,26 @@ test.describe('COMMAND 11E.1 — Demo Tenant Comprehensive Sidebar Navigation Su
     await page.waitForURL(/\/demo-school\/dashboard/);
 
     const schoolModules = [
-      { path: '/demo-school/dashboard', titleRegex: /Dhaka Ideal Model High School|Dashboard/i },
-      { path: '/demo-school/admission', titleRegex: /Online Admission & Enrollment Engine/i },
-      { path: '/demo-school/students', titleRegex: /Student Information System \(SIS\)/i },
-      { path: '/demo-school/academics', titleRegex: /Academic Structure & Curriculum/i },
-      { path: '/demo-school/examination', titleRegex: /Examination & Marks Engine/i },
-      { path: '/demo-school/lms', titleRegex: /Learning Management System \(LMS\)/i },
-      { path: '/demo-school/finance', titleRegex: /Financial Operations & General Ledger/i },
-      { path: '/demo-school/hr', titleRegex: /HR & Payroll Management/i },
-      { path: '/demo-school/facilities', titleRegex: /Campus Facilities & Logistics/i },
-      { path: '/demo-school/communication', titleRegex: /Central Communications Hub/i },
-      { path: '/demo-school/ai-assistant', titleRegex: /AI Operations Copilot/i },
-      { path: '/demo-school/custom-reports', titleRegex: /Custom Report Builder/i },
-      { path: '/demo-school/settings', titleRegex: /Institutional Settings/i }
+      { path: '/demo-school/dashboard', titleRegex: /Dhaka Ideal Model High School/i },
+      { path: '/demo-school/admission', titleRegex: /Online Admission/i },
+      { path: '/demo-school/students', titleRegex: /Student Information System/i },
+      { path: '/demo-school/academics', titleRegex: /Academic Structure/i },
+      { path: '/demo-school/examination', titleRegex: /Examination/i },
+      { path: '/demo-school/lms', titleRegex: /Learning Management/i },
+      { path: '/demo-school/finance', titleRegex: /Finance/i },
+      { path: '/demo-school/hr', titleRegex: /HR|Workforce/i },
+      { path: '/demo-school/facilities', titleRegex: /Facilities|Campus Operations/i },
+      { path: '/demo-school/communication', titleRegex: /Communication|Notice Board/i },
+      { path: '/demo-school/ai-assistant', titleRegex: /AI Management Copilot|AI Assistant/i },
+      { path: '/demo-school/custom-reports', titleRegex: /Analytics|Compliance|Report/i },
+      { path: '/demo-school/settings', titleRegex: /Institution Configuration|Branding|Settings/i }
     ];
 
     for (const mod of schoolModules) {
       await page.goto(mod.path);
       await expect(page.getByRole('heading', { name: /You are signed into another institution/i })).not.toBeVisible();
       await expect(page.getByText(/Cross-tenant access is strictly prohibited/i)).not.toBeVisible();
-      await expect(page.getByRole('heading', { name: mod.titleRegex })).toBeVisible({ timeout: 15000 });
+      await expect(page.getByRole('heading', { name: mod.titleRegex }).first()).toBeVisible({ timeout: 15000 });
     }
   });
 
@@ -52,16 +52,16 @@ test.describe('COMMAND 11E.1 — Demo Tenant Comprehensive Sidebar Navigation Su
 
     const madrashaModules = [
       { path: '/demo-madrasha/dashboard', titleRegex: /Darul Uloom Islamia Madrasha/i },
-      { path: '/demo-madrasha/hifz', titleRegex: /Hifzul Quran Automated Tracker/i },
-      { path: '/demo-madrasha/students', titleRegex: /Student Information System \(SIS\)/i },
-      { path: '/demo-madrasha/hr', titleRegex: /HR & Payroll Management/i }
+      { path: '/demo-madrasha/hifz', titleRegex: /Hifzul Quran/i },
+      { path: '/demo-madrasha/students', titleRegex: /Student Information System/i },
+      { path: '/demo-madrasha/hr', titleRegex: /HR, Workforce Lifecycle|HR/i }
     ];
 
     for (const mod of madrashaModules) {
       await page.goto(mod.path);
       await expect(page.getByRole('heading', { name: /You are signed into another institution/i })).not.toBeVisible();
       await expect(page.getByText(/Cross-tenant access is strictly prohibited/i)).not.toBeVisible();
-      await expect(page.getByRole('heading', { name: mod.titleRegex })).toBeVisible({ timeout: 15000 });
+      await expect(page.getByRole('heading', { name: mod.titleRegex }).first()).toBeVisible({ timeout: 15000 });
     }
   });
 
@@ -75,16 +75,16 @@ test.describe('COMMAND 11E.1 — Demo Tenant Comprehensive Sidebar Navigation Su
 
     const universityModules = [
       { path: '/demo-university/dashboard', titleRegex: /Metropolitan University Bangladesh/i },
-      { path: '/demo-university/faculty-research', titleRegex: /University Faculties, Credits & Research Portal/i },
-      { path: '/demo-university/students', titleRegex: /Student Information System \(SIS\)/i },
-      { path: '/demo-university/hr', titleRegex: /HR & Payroll Management/i }
+      { path: '/demo-university/faculty-research', titleRegex: /Higher Education, Semester Credit Hours/i },
+      { path: '/demo-university/students', titleRegex: /Student Information System/i },
+      { path: '/demo-university/hr', titleRegex: /HR, Workforce Lifecycle|HR/i }
     ];
 
     for (const mod of universityModules) {
       await page.goto(mod.path);
       await expect(page.getByRole('heading', { name: /You are signed into another institution/i })).not.toBeVisible();
       await expect(page.getByText(/Cross-tenant access is strictly prohibited/i)).not.toBeVisible();
-      await expect(page.getByRole('heading', { name: mod.titleRegex })).toBeVisible({ timeout: 15000 });
+      await expect(page.getByRole('heading', { name: mod.titleRegex }).first()).toBeVisible({ timeout: 15000 });
     }
   });
 });

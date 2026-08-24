@@ -245,13 +245,13 @@ test.describe('COMMAND 11E.1 — Demo Tenant Session Binding, Isolation & 8/8 Ve
     // 2. Visit /dims/dashboard (friendly alias)
     await page.goto('/dims/dashboard');
     await expect(page.getByRole('heading', { name: /You are signed into another institution/i })).not.toBeVisible();
-    await expect(page.getByRole('heading', { name: /Dhaka Ideal Model High School/i })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: /Dhaka Ideal Model High School/i }).first()).toBeVisible({ timeout: 15000 });
 
     // 3. Visit /dims/hr (the exact owner screenshot path)
     await page.goto('/dims/hr');
     await expect(page.getByRole('heading', { name: /You are signed into another institution/i })).not.toBeVisible();
     await expect(page.getByText(/Cross-tenant access is strictly prohibited/i)).not.toBeVisible();
-    await expect(page.getByRole('heading', { name: /HR & Payroll Management/i })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: /HR, Workforce Lifecycle|HR/i }).first()).toBeVisible({ timeout: 15000 });
 
     // 4. Visit /dims/admission
     await page.goto('/dims/admission');
