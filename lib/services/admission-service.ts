@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { db } from '../db';
 import { AppError } from '../errors/app-error';
 import { logAuditEvent } from '../audit/audit-logger';
@@ -164,90 +165,98 @@ export async function createAdmissionApplication(
   const yearName = academicYear.name.replace(/[^0-9]/g, '').slice(0, 4) || new Date().getFullYear().toString();
   const prefix = settings.applicationNumberPrefix || 'APP';
 
-  let appNumber = '';
-  let counter = 0;
-  while (!appNumber) {
-    const candidate = `${prefix}-${yearName}-${(count + 1 + counter).toString().padStart(4, '0')}`;
-    const existing = await db.admissionApplication.findUnique({
-      where: { applicationNumber: candidate }
-    });
-    if (!existing) {
-      appNumber = candidate;
-    } else {
-      counter++;
-    }
-  }
-
   const appFee = validated.applicationFeeAmount ?? settings.applicationFee ?? 0;
   const initialFeeStatus = appFee > 0 ? 'PENDING' : 'NOT_REQUIRED';
 
-  const application = await db.admissionApplication.create({
-    data: {
-      institutionId: tenant.institutionId,
-      campusId: validated.campusId,
-      academicYearId: validated.academicYearId,
-      applicationNumber: appNumber,
-      firstName: validated.firstName,
-      middleName: validated.middleName || null,
-      lastName: validated.lastName,
-      photoUrl: validated.photoUrl || null,
-      dateOfBirth: new Date(validated.dateOfBirth),
-      gender: validated.gender,
-      bloodGroup: validated.bloodGroup || null,
-      religion: validated.religion || null,
-      nationality: validated.nationality || 'Bangladeshi',
-      nidBirthCertNumber: validated.nidBirthCertNumber || null,
-      phone: validated.phone,
-      email: validated.email || null,
-      presentAddress: validated.presentAddress,
-      permanentAddress: validated.permanentAddress,
+  let application;
+  let counter = 1;
 
-      // Academic placement
-      desiredClassId: validated.desiredClassId || null,
-      desiredProgramId: validated.desiredProgramId || null,
-      shiftId: validated.shiftId || null,
-      sectionId: validated.sectionId || null,
-      academicGroupId: validated.academicGroupId || null,
-      subjectCombinationId: validated.subjectCombinationId || null,
-      technologyTradeId: validated.technologyTradeId || null,
-      batchId: validated.batchId || null,
-      hifzProgram: validated.hifzProgram ?? false,
+  while (!application) {
+    const candidate = `${prefix}-${yearName}-${(count + counter).toString().padStart(4, '0')}`;
+    const existing = await db.admissionApplication.findUnique({
+      where: { applicationNumber: candidate }
+    });
 
-      // Guardian
-      guardianName: validated.guardianName,
-      guardianPhone: validated.guardianPhone,
-      guardianRelation: validated.guardianRelation || 'Father',
-      guardianOccupation: validated.guardianOccupation || null,
-      fatherName: validated.fatherName || null,
-      fatherPhone: validated.fatherPhone || null,
-      fatherProfession: validated.fatherProfession || null,
-      motherName: validated.motherName || null,
-      motherPhone: validated.motherPhone || null,
-      motherProfession: validated.motherProfession || null,
-
-      // Previous Education & Documents
-      previousSchool: validated.previousSchool || null,
-      previousClass: validated.previousClass || null,
-      previousGpa: validated.previousGpa || null,
-      documentsJson: validated.documentsJson || null,
-
-      // Fee
-      applicationFeeStatus: initialFeeStatus,
-      applicationFeeAmount: appFee,
-      admissionFeeStatus: 'PENDING',
-      admissionFeeAmount: validated.admissionFeeAmount ?? settings.admissionFeeDefault ?? 0,
-      waiverPercentage: validated.waiverPercentage ?? 0,
-
-      status: 'SUBMITTED'
-    },
-    include: {
-      campus: true,
-      desiredClass: true,
-      desiredProgram: true,
-      shift: true,
-      academicYear: true
+    if (existing) {
+      counter++;
+      continue;
     }
-  });
+
+    try {
+      application = await db.admissionApplication.create({
+        data: {
+          institutionId: tenant.institutionId,
+          campusId: validated.campusId,
+          academicYearId: validated.academicYearId,
+          applicationNumber: candidate,
+          firstName: validated.firstName,
+          middleName: validated.middleName || null,
+          lastName: validated.lastName,
+          photoUrl: validated.photoUrl || null,
+          dateOfBirth: new Date(validated.dateOfBirth),
+          gender: validated.gender,
+          bloodGroup: validated.bloodGroup || null,
+          religion: validated.religion || null,
+          nationality: validated.nationality || 'Bangladeshi',
+          nidBirthCertNumber: validated.nidBirthCertNumber || null,
+          phone: validated.phone,
+          email: validated.email || null,
+          presentAddress: validated.presentAddress,
+          permanentAddress: validated.permanentAddress,
+
+          // Academic placement
+          desiredClassId: validated.desiredClassId || null,
+          desiredProgramId: validated.desiredProgramId || null,
+          shiftId: validated.shiftId || null,
+          sectionId: validated.sectionId || null,
+          academicGroupId: validated.academicGroupId || null,
+          subjectCombinationId: validated.subjectCombinationId || null,
+          technologyTradeId: validated.technologyTradeId || null,
+          batchId: validated.batchId || null,
+          hifzProgram: validated.hifzProgram ?? false,
+
+          // Guardian
+          guardianName: validated.guardianName,
+          guardianPhone: validated.guardianPhone,
+          guardianRelation: validated.guardianRelation || 'Father',
+          guardianOccupation: validated.guardianOccupation || null,
+          fatherName: validated.fatherName || null,
+          fatherPhone: validated.fatherPhone || null,
+          fatherProfession: validated.fatherProfession || null,
+          motherName: validated.motherName || null,
+          motherPhone: validated.motherPhone || null,
+          motherProfession: validated.motherProfession || null,
+
+          // Previous education & documents
+          previousSchool: validated.previousSchool || null,
+          previousClass: validated.previousClass || null,
+          previousGpa: validated.previousGpa ?? null,
+          documentsJson: validated.documentsJson || null,
+
+          // Initial status
+          status: 'SUBMITTED',
+          applicationFeeStatus: initialFeeStatus,
+          applicationFeeAmount: appFee,
+          admissionFeeStatus: 'PENDING',
+          admissionFeeAmount: validated.admissionFeeAmount ?? settings.admissionFeeDefault ?? 0,
+          waiverPercentage: 0
+        },
+        include: {
+          campus: true,
+          desiredClass: true,
+          desiredProgram: true,
+          shift: true,
+          academicYear: true
+        }
+      });
+    } catch (err: any) {
+      if (err.code === 'P2002' || err.message?.includes('Unique constraint failed')) {
+        counter++;
+        continue;
+      }
+      throw err;
+    }
+  }
 
   if (actor) {
     await logAuditEvent({
@@ -582,13 +591,13 @@ export async function convertApplicantToStudent(
         rollNumber = (classEnrollmentCount + 1).toString().padStart(2, '0');
       }
 
-      // 3. Create Real Guardian Record (no placeholder names)
+      // 3. Create Real Guardian Record
       const guardian = await tx.guardian.create({
         data: {
           fatherName: application.fatherName || application.guardianName,
           fatherPhone: application.fatherPhone || application.guardianPhone,
           fatherProfession: application.fatherProfession || application.guardianOccupation || null,
-          motherName: application.motherName || 'Not Provided',
+          motherName: application.motherName || application.guardianName || 'Guardian',
           motherPhone: application.motherPhone || null,
           guardianName: application.guardianName,
           guardianPhone: application.guardianPhone,
@@ -691,7 +700,8 @@ export async function convertApplicantToStudent(
         const studentEmail = application.email || `student.${student.studentIdNumber.toLowerCase()}@${tenant.slug}.eduerp.us`;
         const existingUser = await tx.user.findFirst({ where: { email: studentEmail } });
         if (!existingUser) {
-          const defaultPassword = hashPassword('Student@1234');
+          const tempPassword = crypto.randomBytes(16).toString('hex');
+          const defaultPassword = hashPassword(tempPassword);
           const user = await tx.user.create({
             data: {
               email: studentEmail,

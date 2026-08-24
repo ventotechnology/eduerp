@@ -31,13 +31,36 @@ interface TenantContextState {
 const TenantContext = createContext<TenantContextState | undefined>(undefined);
 
 export function TenantProvider({ children }: { children: React.ReactNode }) {
-  const [tenantSlug, setTenantSlug] = useState<string>('dhaka-ideal-school');
+  const [tenantSlug, setTenantSlug] = useState<string>('demo-school');
   const [activeRole, setActiveRole] = useState<UserRole>('PRINCIPAL');
   const [activeCampusId, setActiveCampusId] = useState<string>('CAMPUS-MAIN');
   const [language, setLanguage] = useState<LanguageCode>('en');
+  const [authenticatedUser, setAuthenticatedUser] = useState<{ id: string; name: string; email: string; role: UserRole } | null>(null);
+
+  // Sync with server authentication state on mount
+  useEffect(() => {
+    async function syncAuth() {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.authenticated && json.user) {
+            setAuthenticatedUser(json.user);
+            setActiveRole(json.user.role);
+            if (json.user.tenantSlug) {
+              setTenantSlug(json.user.tenantSlug);
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Failed to sync auth in TenantProvider', e);
+      }
+    }
+    syncAuth();
+  }, []);
 
   const activePreset = PRESET_DEMO_TENANTS.find((t) => t.slug === tenantSlug) || PRESET_DEMO_TENANTS[0];
-  const institutionTypeConfig = INSTITUTION_TYPE_CONFIGS[activePreset.type];
+  const institutionTypeConfig = INSTITUTION_TYPE_CONFIGS[activePreset.type] || INSTITUTION_TYPE_CONFIGS['SCHOOL'];
 
   const branding: InstitutionBranding = {
     name: activePreset.name,
@@ -65,36 +88,53 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
       isMain: true,
       studentCount: activePreset.type === 'UNIVERSITY' ? 4200 : 1850,
       teacherCount: activePreset.type === 'UNIVERSITY' ? 195 : 78
-    },
-    {
-      id: 'CAMPUS-BRANCH-01',
-      name: `${activePreset.shortName} Dhanmondi Branch Campus`,
-      code: 'CMP-02',
-      type: 'Branch Campus',
-      address: 'Road 8/A, Dhanmondi, Dhaka',
-      phone: '+880 2-9118944',
-      isMain: false,
-      studentCount: 840,
-      teacherCount: 42
     }
   ];
 
   const persona = DEMO_USER_PERSONAS.find((p) => p.role === activeRole) || DEMO_USER_PERSONAS[1];
   const activeUser: UserModel = {
-    id: `USR-${activeRole}`,
-    name: persona.name,
-    email: `${activeRole.toLowerCase()}@${activePreset.slug}.edu.bd`,
+    id: authenticatedUser?.id || `USR-${activeRole}`,
+    name: authenticatedUser?.name || persona.name,
+    email: authenticatedUser?.email || `${activeRole.toLowerCase()}@${activePreset.slug}.edu.bd`,
     role: activeRole,
     designation: persona.title,
     department: 'Academic Administration'
   };
 
-  const switchTenant = (slug: string) => {
+  const switchTenant = async (slug: string) => {
     setTenantSlug(slug);
+    try {
+      const res = await fetch('/api/auth/demo-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantSlug: slug, role: activeRole }),
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (data.success && data.redirectUrl) {
+        window.location.href = data.redirectUrl;
+      }
+    } catch (e) {
+      console.error('Failed to switch tenant session', e);
+    }
   };
 
-  const switchRole = (role: UserRole) => {
+  const switchRole = async (role: UserRole) => {
     setActiveRole(role);
+    try {
+      const res = await fetch('/api/auth/demo-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantSlug, role }),
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (data.success && data.redirectUrl) {
+        window.location.href = data.redirectUrl;
+      }
+    } catch (e) {
+      console.error('Failed to switch role session', e);
+    }
   };
 
   const switchCampus = (campusId: string) => {

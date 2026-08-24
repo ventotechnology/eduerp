@@ -106,7 +106,7 @@ export default function HrWorkforcePage() {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const slug = tenantSlug || 'dhaka-national-school';
+      const slug = tenantSlug || 'demo-school';
       const [ovRes, dirRes, recRes, attRes, lvRes, talRes] = await Promise.all([
         fetch(`/api/hr?tenantId=${slug}&tab=overview`),
         fetch(`/api/hr?tenantId=${slug}&tab=directory&search=${searchTerm}&category=${categoryFilter}&status=${statusFilter}`),
@@ -148,7 +148,7 @@ export default function HrWorkforcePage() {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const slug = tenantSlug || 'dhaka-national-school';
+      const slug = tenantSlug || 'demo-school';
       const campusId = overviewData?.recentEmployees?.[0]?.campusId || 'main-campus';
 
       const res = await fetch('/api/hr', {
@@ -181,7 +181,7 @@ export default function HrWorkforcePage() {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const slug = tenantSlug || 'dhaka-national-school';
+      const slug = tenantSlug || 'demo-school';
       const res = await fetch('/api/hr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -210,7 +210,7 @@ export default function HrWorkforcePage() {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const slug = tenantSlug || 'dhaka-national-school';
+      const slug = tenantSlug || 'demo-school';
       const res = await fetch('/api/hr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -239,7 +239,7 @@ export default function HrWorkforcePage() {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const slug = tenantSlug || 'dhaka-national-school';
+      const slug = tenantSlug || 'demo-school';
       const res = await fetch('/api/hr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

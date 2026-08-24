@@ -70,4 +70,8 @@ export class AppError extends Error {
       403
     );
   }
+
+  static internal(msg = 'Internal server error'): AppError {
+    return new AppError(msg, 'INTERNAL_SERVER_ERROR', 500);
+  }
 }

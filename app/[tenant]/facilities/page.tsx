@@ -55,7 +55,9 @@ export default function FacilitiesPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/facilities?tenantId=${tenantSlug}&tab=${activeTab}&search=${encodeURIComponent(searchQuery)}`);
+      const res = await fetch(`/api/facilities?tenantId=${tenantSlug}&tab=${activeTab}&search=${encodeURIComponent(searchQuery)}`, {
+        credentials: 'include'
+      });
       const json = await res.json();
       if (json.success) {
         setData(json.data);

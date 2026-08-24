@@ -1032,7 +1032,7 @@ function InternalApplicationWizardModal({
         previousSchool: form.previousSchool.trim() || null,
         previousClass: form.previousClass.trim() || null,
         previousGpa: form.previousGpa ? parseFloat(form.previousGpa) : null,
-        admissionFeeAmount: form.admissionFeeAmount ? parseFloat(form.admissionFeeAmount as any) : 0
+        admissionFeeAmount: form.admissionFeeAmount ? Number(form.admissionFeeAmount.toString().replace(/^0+([1-9])/, '$1')) : 0
       };
 
       const res = await fetch('/api/admissions', {
@@ -1042,7 +1042,12 @@ function InternalApplicationWizardModal({
       });
 
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.error?.message || 'Failed to submit application.');
+      if (!res.ok || !json.success) {
+        const detailMsg = Array.isArray(json.details) && json.details.length > 0
+          ? json.details.map((d: any) => `${d.field ? d.field + ': ' : ''}${d.message}`).join(', ')
+          : null;
+        throw new Error(detailMsg || json.error || 'Failed to submit application.');
+      }
 
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
       onSuccess();

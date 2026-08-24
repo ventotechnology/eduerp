@@ -2,12 +2,23 @@ import { db } from '../db';
 import { TenantContext } from './types';
 import { SessionUser } from '../auth/types';
 
+export const TENANT_SLUG_ALIASES: Record<string, string> = {
+  'dhaka-ideal-school': 'demo-school',
+  'dhaka-imperial-college': 'demo-college',
+  'al-jamiatul-islamia-madrasha': 'demo-madrasha',
+  'sylhet-madrasha': 'demo-madrasha',
+  'metropolitan-university': 'demo-university'
+};
+
 /**
- * Resolves and validates an active tenant by slug or ID.
+ * Resolves and validates an active tenant by slug or ID with alias normalization.
  * Throws error if tenant does not exist or is inactive.
  */
 export async function requireTenant(tenantIdentifier: string): Promise<TenantContext> {
-  const tenant = await db.tenant.findFirst({
+  const canonicalIdentifier = TENANT_SLUG_ALIASES[tenantIdentifier] || tenantIdentifier;
+
+  // 1. Try exact match first
+  let tenant = await db.tenant.findFirst({
     where: {
       OR: [
         { id: tenantIdentifier },
@@ -18,6 +29,21 @@ export async function requireTenant(tenantIdentifier: string): Promise<TenantCon
       institution: true
     }
   });
+
+  // 2. If not found, fallback to canonical alias
+  if (!tenant && canonicalIdentifier !== tenantIdentifier) {
+    tenant = await db.tenant.findFirst({
+      where: {
+        OR: [
+          { id: canonicalIdentifier },
+          { slug: canonicalIdentifier }
+        ]
+      },
+      include: {
+        institution: true
+      }
+    });
+  }
 
   if (!tenant) {
     throw new Error(`NOT_FOUND: Educational institution tenant '${tenantIdentifier}' not found.`);
@@ -99,12 +125,13 @@ export async function resolveTenantContext(options: {
 
     const tenant = await requireTenant(session.tenantId);
 
-    // If client supplied a tenantSlug, verify it matches the user's institution slug
-    if (tenantSlug && tenantSlug !== tenant.slug) {
+    // If client supplied a tenantSlug, verify it matches the user's institution slug (accounting for aliases)
+    const canonicalReqSlug = tenantSlug ? (TENANT_SLUG_ALIASES[tenantSlug] || tenantSlug) : null;
+    if (canonicalReqSlug && canonicalReqSlug !== tenant.slug) {
       throw new Error('FORBIDDEN: Cross-tenant access is strictly prohibited.');
     }
-    // If client supplied a tenantId, verify it matches either ID or slug
-    if (tenantId && tenantId !== tenant.tenantId && tenantId !== tenant.slug) {
+    // If client supplied a tenantId, verify it matches either ID, slug, or alias
+    if (tenantId && tenantId !== tenant.tenantId && tenantId !== tenant.slug && (TENANT_SLUG_ALIASES[tenantId] || tenantId) !== tenant.slug) {
       throw new Error('FORBIDDEN: Cross-tenant access is strictly prohibited.');
     }
 

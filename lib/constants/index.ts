@@ -165,7 +165,7 @@ export const BANGLADESH_EDUCATION_BOARDS = [
 
 export const PRESET_DEMO_TENANTS = [
   {
-    slug: 'dhaka-ideal-school',
+    slug: 'demo-school',
     name: 'Dhaka Ideal Model High School',
     shortName: 'DIMS',
     type: 'SCHOOL' as InstitutionType,
@@ -173,9 +173,122 @@ export const PRESET_DEMO_TENANTS = [
     secondaryColor: '#0f172a',
     eiin: '108421',
     board: 'Dhaka Education Board',
-    headTitle: 'Headmaster',
-    headName: 'Prof. Mohammad Rafiqul Islam',
-    address: 'Motijheel, Dhaka-1000',
+    headTitle: 'Headmaster / Principal',
+    headName: 'Dr. Rafiqul Islam',
+    address: '12/A Dhanmondi, Dhaka',
+    description: 'Leading school providing Play-10 education with Morning & Day shifts and Science/Commerce/Arts streams.'
+  },
+  {
+    slug: 'demo-college',
+    name: 'Chittagong Model College',
+    shortName: 'CMC',
+    type: 'COLLEGE' as InstitutionType,
+    primaryColor: '#7c2d12', // Crimson / Amber
+    secondaryColor: '#1e1b4b',
+    eiin: '132104',
+    board: 'Chattogram Education Board',
+    headTitle: 'Principal',
+    headName: 'Dr. Shahinur Rahman',
+    address: 'GEC Circle, Chattogram',
+    description: 'Premier HSC college specializing in Science, Business Studies & Humanities with practical lab management.'
+  },
+  {
+    slug: 'demo-school-college',
+    name: 'Rajshahi Model School & College',
+    shortName: 'RMSC',
+    type: 'SCHOOL_AND_COLLEGE' as InstitutionType,
+    primaryColor: '#0284c7', // Sky Blue
+    secondaryColor: '#0c4a6e',
+    eiin: '125601',
+    board: 'Rajshahi Education Board',
+    headTitle: 'Principal',
+    headName: 'Prof. Anisur Rahman',
+    address: 'Kazihata, Rajshahi',
+    description: 'Integrated K-12 and Higher Secondary institution with unified campus operations.'
+  },
+  {
+    slug: 'demo-madrasha',
+    name: 'Darul Uloom Islamia Madrasha & Hifz Complex',
+    shortName: 'DUIM',
+    type: 'MADRASHA' as InstitutionType,
+    primaryColor: '#065f46', // Islamic Emerald Green
+    secondaryColor: '#064e3b',
+    eiin: '119852',
+    board: 'Bangladesh Madrasha Education Board (BMEB)',
+    headTitle: 'Principal / Muhtamim',
+    headName: 'Allama Mufti Abdul Quddus',
+    address: 'Dargah Gate, Sylhet',
+    description: 'Full Islamic complex with Dakhil, Alim, Kamil curriculum and an automated 30-Para Hifzul Quran tracker.'
+  },
+  {
+    slug: 'demo-university',
+    name: 'Metropolitan University Bangladesh',
+    shortName: 'MUB',
+    type: 'UNIVERSITY' as InstitutionType,
+    primaryColor: '#4338ca', // Indigo / Purple
+    secondaryColor: '#312e81',
+    eiin: 'UGC-884',
+    board: 'University Grants Commission (UGC)',
+    headTitle: 'Vice Chancellor',
+    headName: 'Prof. Dr. Anwar Hossain Choudhury',
+    address: 'Gulshan 2, Dhaka',
+    description: 'Modern higher-ed campus with Faculties, Semester Credit Hours, Add/Drop, Thesis Defense & Research grants.'
+  },
+  {
+    slug: 'demo-polytechnic',
+    name: 'Dhaka Polytechnic Institute',
+    shortName: 'DPI',
+    type: 'POLYTECHNIC' as InstitutionType,
+    primaryColor: '#d97706', // Amber / Orange
+    secondaryColor: '#78350f',
+    eiin: '133001',
+    board: 'Bangladesh Technical Education Board (BTEB)',
+    headTitle: 'Principal',
+    headName: 'Engr. Kazi Mizanur Rahman',
+    address: 'Tejgaon I/A, Dhaka',
+    description: '4-Year Diploma Engineering with Computer, Electrical, Civil & Mechanical technologies.'
+  },
+  {
+    slug: 'demo-vocational',
+    name: 'Bangladesh Technical Vocational Academy',
+    shortName: 'BTVA',
+    type: 'TECHNICAL_INSTITUTE' as InstitutionType,
+    primaryColor: '#0d9488', // Teal
+    secondaryColor: '#134e4a',
+    eiin: '135502',
+    board: 'Bangladesh Technical Education Board (BTEB)',
+    headTitle: 'Principal',
+    headName: 'Engr. Shamsul Haque',
+    address: 'Board Bazar, Gazipur',
+    description: 'BTEB certified vocational and trade courses with workshop log tracking.'
+  },
+  {
+    slug: 'demo-training',
+    name: 'National Institute of Professional Training',
+    shortName: 'NIPT',
+    type: 'TRAINING_INSTITUTE' as InstitutionType,
+    primaryColor: '#6366f1', // Indigo
+    secondaryColor: '#312e81',
+    eiin: 'NIP-101',
+    board: 'National Skills Development Authority (NSDA)',
+    headTitle: 'Director General',
+    headName: 'Dr. Tariqul Islam',
+    address: 'Panthapath, Dhaka',
+    description: 'Professional certificates, cohort batches, and corporate development programs.'
+  },
+  // Legacy aliases for backward compatibility
+  {
+    slug: 'dhaka-ideal-school',
+    name: 'Dhaka Ideal Model High School',
+    shortName: 'DIMS',
+    type: 'SCHOOL' as InstitutionType,
+    primaryColor: '#1e40af',
+    secondaryColor: '#0f172a',
+    eiin: '108421',
+    board: 'Dhaka Education Board',
+    headTitle: 'Headmaster / Principal',
+    headName: 'Dr. Rafiqul Islam',
+    address: '12/A Dhanmondi, Dhaka',
     description: 'Leading school providing Play-10 education with Morning & Day shifts and Science/Commerce/Arts streams.'
   },
   {
@@ -183,7 +296,7 @@ export const PRESET_DEMO_TENANTS = [
     name: 'Dhaka Imperial College',
     shortName: 'DIC',
     type: 'COLLEGE' as InstitutionType,
-    primaryColor: '#7c2d12', // Crimson / Amber
+    primaryColor: '#7c2d12',
     secondaryColor: '#1e1b4b',
     eiin: '132104',
     board: 'Dhaka Education Board',
@@ -197,7 +310,7 @@ export const PRESET_DEMO_TENANTS = [
     name: 'Al-Jamiatul Islamia Madrasha & Hifz Complex',
     shortName: 'AIMC',
     type: 'MADRASHA' as InstitutionType,
-    primaryColor: '#065f46', // Islamic Emerald Green
+    primaryColor: '#065f46',
     secondaryColor: '#064e3b',
     eiin: '119852',
     board: 'Bangladesh Madrasha Education Board (BMEB)',
@@ -211,7 +324,7 @@ export const PRESET_DEMO_TENANTS = [
     name: 'Metropolitan University of Science & Technology',
     shortName: 'MUST',
     type: 'UNIVERSITY' as InstitutionType,
-    primaryColor: '#4338ca', // Indigo / Purple
+    primaryColor: '#4338ca',
     secondaryColor: '#312e81',
     eiin: 'UGC-884',
     board: 'University Grants Commission (UGC)',

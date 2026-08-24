@@ -57,6 +57,7 @@ import {
   overrideGradebookScore,
   syncLmsGradeToOfficialExam,
 } from '@/lib/services/gradebook-service';
+import { getServerSession } from '@/lib/auth/server-auth';
 import {
   getStudentLearningDashboard,
   getTeacherLmsDashboard,
@@ -64,7 +65,9 @@ import {
   getCourseLearningAnalytics,
 } from '@/lib/services/learning-analytics-service';
 
-function getActor(req: NextRequest, tenantId: string): SessionUser {
+async function getActor(req: NextRequest, tenantId: string): Promise<SessionUser> {
+  const session = await getServerSession(req);
+  if (session) return session;
   return {
     id: req.headers.get('x-user-id') || 'demo-actor-id',
     name: req.headers.get('x-user-name') || 'Demo Instructor',
@@ -79,7 +82,7 @@ function getActor(req: NextRequest, tenantId: string): SessionUser {
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const tenantSlug = searchParams.get('tenant') || 'dhaka-ideal-school';
+    const tenantSlug = searchParams.get('tenant') || 'demo-school';
     const action = searchParams.get('action') || 'COURSES';
     const courseId = searchParams.get('courseId');
     const studentId = searchParams.get('studentId');
@@ -88,7 +91,7 @@ export async function GET(req: NextRequest) {
     const quizId = searchParams.get('quizId');
     const discussionId = searchParams.get('discussionId');
 
-    const actor = getActor(req, tenantSlug);
+    const actor = await getActor(req, tenantSlug);
 
     switch (action) {
       case 'COURSES': {
@@ -165,10 +168,10 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const tenantSlug = searchParams.get('tenant') || 'dhaka-ideal-school';
+    const tenantSlug = searchParams.get('tenant') || 'demo-school';
     const action = searchParams.get('action') || 'CREATE_COURSE';
 
-    const actor = getActor(req, tenantSlug);
+    const actor = await getActor(req, tenantSlug);
     const body = await req.json();
 
     let result;

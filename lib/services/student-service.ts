@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { db } from '../db';
 import { AppError } from '../errors/app-error';
 import { logAuditEvent } from '../audit/audit-logger';
@@ -374,7 +375,8 @@ export async function createTenantStudent(tenantIdentifier: string, rawData: any
         const studentEmail = validated.email || `student.${student.studentIdNumber.toLowerCase()}@${tenant.slug}.eduerp.us`;
         const existingUser = await tx.user.findFirst({ where: { email: studentEmail } });
         if (!existingUser) {
-          const defaultPassword = hashPassword('Student@1234');
+          const tempPassword = crypto.randomBytes(16).toString('hex');
+          const defaultPassword = hashPassword(tempPassword);
           const user = await tx.user.create({
             data: {
               email: studentEmail,

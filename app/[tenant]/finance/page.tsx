@@ -68,7 +68,7 @@ export default function FinancePage() {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const res = await fetch(`/api/finance?tenantId=${tenantSlug || 'dhaka-national-school'}&tab=overview`);
+      const res = await fetch(`/api/finance?tenantId=${tenantSlug || 'demo-school'}&tab=overview`);
       const json = await res.json();
       if (json.success) {
         setFinanceData(json.data);
@@ -84,7 +84,7 @@ export default function FinancePage() {
   const loadTrialBalance = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/finance?tenantId=${tenantSlug || 'dhaka-national-school'}&tab=trial_balance`);
+      const res = await fetch(`/api/finance?tenantId=${tenantSlug || 'demo-school'}&tab=trial_balance`);
       const json = await res.json();
       if (json.success) {
         setTrialBalanceData(json.data);
@@ -100,8 +100,8 @@ export default function FinancePage() {
     setLoading(true);
     try {
       const [isRes, bsRes] = await Promise.all([
-        fetch(`/api/finance?tenantId=${tenantSlug || 'dhaka-national-school'}&tab=income_statement`),
-        fetch(`/api/finance?tenantId=${tenantSlug || 'dhaka-national-school'}&tab=balance_sheet`),
+        fetch(`/api/finance?tenantId=${tenantSlug || 'demo-school'}&tab=income_statement`),
+        fetch(`/api/finance?tenantId=${tenantSlug || 'demo-school'}&tab=balance_sheet`),
       ]);
       const isJson = await isRes.json();
       const bsJson = await bsRes.json();
@@ -135,7 +135,7 @@ export default function FinancePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'RECORD_PAYMENT',
-          tenantId: tenantSlug || 'dhaka-national-school',
+          tenantId: tenantSlug || 'demo-school',
           invoiceId: selectedInvoice.id,
           amount: selectedInvoice.dueAmount || selectedInvoice.totalAmount,
           gateway: selectedGateway,
@@ -179,7 +179,7 @@ export default function FinancePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'POST_JOURNAL_VOUCHER',
-          tenantId: tenantSlug || 'dhaka-national-school',
+          tenantId: tenantSlug || 'demo-school',
           description: journalDesc,
           lines: journalLines.map((l) => ({
             accountId: l.accountId,
