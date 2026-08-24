@@ -7,11 +7,28 @@ test.describe('Public Online Admission & Real Pipeline Persistence Suite', () =>
   });
 
   test('public application submission is visible in tenant admissions API after real login', async ({ request }) => {
-    // 1. Submit public application
+    // 1. Fetch academic metadata for required campusId & academicYearId
+    const acRes = await request.get('/api/academics?tenantSlug=demo-school');
+    expect(acRes.status()).toBe(200);
+    const acJson = await acRes.json();
+    expect(acJson.success).toBe(true);
+
+    const campusId = acJson.data?.campuses?.[0]?.id;
+    const academicYearId = acJson.data?.academicYears?.[0]?.id;
+    const classId = acJson.data?.classes?.[0]?.id;
+
+    expect(campusId).toBeTruthy();
+    expect(academicYearId).toBeTruthy();
+
+    // 2. Submit public application
     const phone = `017${Math.floor(10000000 + Math.random() * 90000000)}`;
-    const submitRes = await request.post('/api/admissions/public', {
+    const submitRes = await request.post('/api/admissions', {
       data: {
-        tenantSlug: 'dhaka-ideal-school',
+        action: 'APPLY',
+        tenantSlug: 'demo-school',
+        campusId,
+        academicYearId,
+        desiredClassId: classId,
         firstName: 'E2ETest',
         lastName: 'Applicant',
         phone,
@@ -30,8 +47,8 @@ test.describe('Public Online Admission & Real Pipeline Persistence Suite', () =>
     expect(submitJson.data?.applicationNumber).toBeTruthy();
     const createdAppNum = submitJson.data.applicationNumber;
 
-    // 2. Perform REAL login as Admission Officer
-    const admissionEmail = process.env.E2E_ADMISSION_EMAIL || 'admission.demo-school@eduerp.us';
+    // 3. Perform REAL login as Admission Officer
+    const admissionEmail = process.env.E2E_ADMISSION_EMAIL || 'admission-officer.demo-school@eduerp.us';
     const admissionPass = process.env.E2E_ADMISSION_PASSWORD;
     expect(admissionPass).toBeTruthy();
 
@@ -40,18 +57,18 @@ test.describe('Public Online Admission & Real Pipeline Persistence Suite', () =>
     });
     expect(loginRes.status()).toBe(200);
 
-    // 3. Query admissions pipeline with authenticated session
+    // 4. Query admissions pipeline with authenticated session
     const listRes = await request.get('/api/admissions?tenantSlug=demo-school');
     expect(listRes.status()).toBe(200);
     const listJson = await listRes.json();
     expect(listJson.success).toBe(true);
 
-    // 4. Verify the new application is persisted
+    // 5. Verify the new application is persisted
     const foundCreated = listJson.data.find((a: any) => a.applicationNumber === createdAppNum);
     expect(foundCreated).toBeTruthy();
     expect(foundCreated.firstName).toBe('E2ETest');
 
-    // 5. Verify the owner's application (APP-2026-0002) is preserved and intact
+    // 6. Verify the owner's application (APP-2026-0002) is preserved and intact
     const ownerApp = listJson.data.find((a: any) => a.applicationNumber === 'APP-2026-0002');
     expect(ownerApp).toBeTruthy();
     expect(ownerApp.firstName).toBe('Md Humayun');

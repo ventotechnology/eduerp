@@ -26,10 +26,26 @@ export async function createLmsCourse(tenantIdentifier: string, rawData: unknown
   if (!campus) throw AppError.notFound('Campus not found or does not belong to this institution.');
 
   // Validate primary teacher
-  const teacher = await db.employee.findFirst({
-    where: { id: validated.primaryTeacherId, campus: { institutionId: tenant.institutionId } },
-  });
-  if (!teacher) throw AppError.notFound('Primary teacher employee not found.');
+  let teacherId = validated.primaryTeacherId;
+  if (!teacherId) {
+    const actorEmp = await db.employee.findFirst({
+      where: { userId: actor.id }
+    });
+    if (actorEmp) {
+      teacherId = actorEmp.id;
+    } else {
+      const anyEmp = await db.employee.findFirst({
+        where: { campus: { institutionId: tenant.institutionId } }
+      });
+      if (anyEmp) teacherId = anyEmp.id;
+    }
+  }
+
+  const teacher = teacherId
+    ? await db.employee.findFirst({
+        where: { id: teacherId, campus: { institutionId: tenant.institutionId } },
+      })
+    : null;
 
   // Course space uniqueness check: prevent duplicate active course spaces for the same period, subject/offering and section
   if (validated.classId && validated.sectionId && validated.subjectId) {

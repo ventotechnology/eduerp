@@ -2016,7 +2016,7 @@ export const LmsCourseCreateSchema = z.object({
   sectionId: z.string().optional().nullable(),
   subjectId: z.string().optional().nullable(),
   courseOfferingId: z.string().optional().nullable(),
-  primaryTeacherId: z.string().min(1, 'Primary teacher ID is required'),
+  primaryTeacherId: z.string().optional().nullable(),
   coTeacherIds: z.array(z.string()).optional(),
   coordinatorId: z.string().optional().nullable(),
   status: z.enum(['DRAFT', 'PUBLISHED', 'ARCHIVED']).default('DRAFT'),

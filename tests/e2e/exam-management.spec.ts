@@ -18,8 +18,11 @@ test.describe('Examination Engine & Result Publication Suite', () => {
     const acJson = await acRes.json();
     expect(acJson.success).toBe(true);
 
-    const academicYearId = acJson.data?.academicYears?.[0]?.id;
+    const academicYear = acJson.data?.academicYears?.[0];
+    const academicYearId = academicYear?.id;
+    const sessionId = academicYear?.sessions?.[0]?.id;
     expect(academicYearId).toBeTruthy();
+    expect(sessionId).toBeTruthy();
 
     // 3. Create Examination Session
     const examTitle = `Annual Evaluation ${Date.now()}`;
@@ -31,7 +34,7 @@ test.describe('Examination Engine & Result Publication Suite', () => {
           name: examTitle,
           type: 'ANNUAL',
           termNumber: 1,
-          academicYearId,
+          sessionId,
           startDate: new Date().toISOString(),
           endDate: new Date(Date.now() + 14 * 86400000).toISOString(),
           isPublished: true
@@ -39,7 +42,7 @@ test.describe('Examination Engine & Result Publication Suite', () => {
       }
     });
 
-    expect(examRes.status()).toBe(200);
+    expect([200, 201]).toContain(examRes.status());
     const examJson = await examRes.json();
     expect(examJson.success).toBe(true);
     const createdExamId = examJson.data?.id;

@@ -726,6 +726,22 @@ export async function provisionQAUsers(options: { rotatePasswords?: boolean } = 
       },
     });
 
+    // Ensure Academic Session
+    const existingSession = await db.session.findFirst({
+      where: { academicYearId: ay.id }
+    });
+    if (!existingSession) {
+      await db.session.create({
+        data: {
+          academicYearId: ay.id,
+          name: 'Annual Session 2026',
+          type: 'ANNUAL',
+          startDate: new Date('2026-01-01'),
+          endDate: new Date('2026-12-31'),
+        }
+      });
+    }
+
     // Ensure Shifts
     const morningShift = await db.shift.upsert({
       where: { institutionId_code: { institutionId: institution.id, code: 'SFT-MORN' } },
@@ -821,7 +837,7 @@ export async function provisionQAUsers(options: { rotatePasswords?: boolean } = 
     const randomPassword = generateSecurePassword();
     const passwordHash = hashPassword(randomPassword);
 
-    await db.user.upsert({
+    const user = await db.user.upsert({
       where: { email: acct.email },
       update: {
         passwordHash,
@@ -838,6 +854,46 @@ export async function provisionQAUsers(options: { rotatePasswords?: boolean } = 
         status: 'ACTIVE',
       },
     });
+
+    if (user && tenantId) {
+      const tenantInst = await db.tenant.findUnique({
+        where: { id: tenantId },
+        include: { institution: { include: { campuses: true } } }
+      });
+      const campus = tenantInst?.institution?.campuses[0];
+      if (campus && (acct.role === 'TEACHER' || acct.role === 'FACULTY' || acct.role === 'PRINCIPAL' || acct.role === 'HR_MANAGER' || acct.role === 'ACCOUNTANT')) {
+        const emp = await db.employee.upsert({
+          where: { userId: user.id },
+          update: { campusId: campus.id },
+          create: {
+            campusId: campus.id,
+            userId: user.id,
+            employeeCode: `EMP-${acct.role.slice(0, 3)}-${acct.tenantSlug.slice(0, 4)}`,
+            firstName: acct.name.split(' ')[0],
+            lastName: acct.name.split(' ').slice(1).join(' ') || 'Staff',
+            designation: acct.role === 'TEACHER' ? 'Senior Teacher' : acct.role,
+            department: 'Academic Administration',
+            email: acct.email,
+            phone: '01711223344',
+            basicSalary: 40000,
+            joiningDate: new Date('2020-01-01'),
+            status: 'ACTIVE',
+          }
+        });
+
+        if (acct.role === 'TEACHER' || acct.role === 'FACULTY') {
+          await db.teacher.upsert({
+            where: { employeeId: emp.id },
+            update: {},
+            create: {
+              employeeId: emp.id,
+              specialization: 'General Studies',
+              qualification: 'Master of Education',
+            }
+          });
+        }
+      }
+    }
 
     generatedCredentials.push({
       ...acct,

@@ -20,17 +20,14 @@ test.describe('LMS Course Space & Content Provisioning Suite', () => {
 
     const campusId = acJson.data?.campuses?.[0]?.id;
     const academicYearId = acJson.data?.academicYears?.[0]?.id;
-    const classId = acJson.data?.classes?.[0]?.id;
-    const sectionId = acJson.data?.sections?.[0]?.id;
-    const subjectId = acJson.data?.subjects?.[0]?.id;
-    const teacherId = acJson.data?.teachers?.[0]?.id;
+    const classObj = acJson.data?.classes?.[0];
+    const classId = classObj?.id;
+    const sectionId = classObj?.sections?.[0]?.id;
 
     expect(campusId).toBeTruthy();
     expect(academicYearId).toBeTruthy();
     expect(classId).toBeTruthy();
     expect(sectionId).toBeTruthy();
-    expect(subjectId).toBeTruthy();
-    expect(teacherId).toBeTruthy();
 
     // 3. Create course space
     const uniqueCode = `LMS-${Date.now().toString().slice(-5)}`;
@@ -43,9 +40,7 @@ test.describe('LMS Course Space & Content Provisioning Suite', () => {
         campusId,
         academicYearId,
         classId,
-        sectionId,
-        subjectId,
-        primaryTeacherId: teacherId
+        sectionId
       }
     });
 

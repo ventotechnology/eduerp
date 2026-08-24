@@ -17,7 +17,8 @@ test.describe('Finance & Invoice Workflow Suite', () => {
     expect(ovRes.status()).toBe(200);
     const ovJson = await ovRes.json();
     expect(ovJson.success).toBe(true);
-    expect(ovJson.data).toHaveProperty('metrics');
+    expect(ovJson.data).toHaveProperty('invoices');
+    expect(ovJson.data).toHaveProperty('summary');
 
     // 3. Query trial balance tab
     const tbRes = await request.get('/api/finance?tenantId=demo-school&tab=trial_balance');

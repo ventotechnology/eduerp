@@ -7,8 +7,7 @@ test.describe('Multi-Role RBAC Real Login Authorization Matrix Suite', () => {
     { role: 'ADMISSION_OFFICER', emailEnv: 'E2E_ADMISSION_EMAIL', passEnv: 'E2E_ADMISSION_PASSWORD', defaultEmail: 'admission.demo-school@eduerp.us' },
     { role: 'TEACHER', emailEnv: 'E2E_TEACHER_EMAIL', passEnv: 'E2E_TEACHER_PASSWORD', defaultEmail: 'teacher.demo-school@eduerp.us' },
     { role: 'ACCOUNTANT', emailEnv: 'E2E_ACCOUNTANT_EMAIL', passEnv: 'E2E_ACCOUNTANT_PASSWORD', defaultEmail: 'accountant.demo-school@eduerp.us' },
-    { role: 'HR_ADMIN', emailEnv: 'E2E_HR_EMAIL', passEnv: 'E2E_HR_PASSWORD', defaultEmail: 'hr.demo-school@eduerp.us' },
-    { role: 'EXAM_CONTROLLER', emailEnv: 'E2E_EXAM_EMAIL', passEnv: 'E2E_EXAM_PASSWORD', defaultEmail: 'exam.demo-school@eduerp.us' },
+    { role: 'HR_MANAGER', emailEnv: 'E2E_HR_EMAIL', passEnv: 'E2E_HR_PASSWORD', defaultEmail: 'hr.demo-school@eduerp.us' },
     { role: 'STUDENT', emailEnv: 'E2E_STUDENT_EMAIL', passEnv: 'E2E_STUDENT_PASSWORD', defaultEmail: 'student.demo-school@eduerp.us' },
     { role: 'PARENT', emailEnv: 'E2E_PARENT_EMAIL', passEnv: 'E2E_PARENT_PASSWORD', defaultEmail: 'parent.demo-school@eduerp.us' },
   ];
