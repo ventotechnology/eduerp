@@ -46,6 +46,7 @@ export async function getServerSession(req?: NextRequest): Promise<SessionUser |
     name: payload.email.split('@')[0],
     role: payload.role,
     tenantId: payload.tenantId,
+    tenantSlug: payload.tenantSlug || null,
     status: UserStatus.ACTIVE,
     isPlatformAdmin,
     impersonator: payload.impersonator || null

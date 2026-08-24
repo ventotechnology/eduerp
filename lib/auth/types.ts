@@ -19,6 +19,7 @@ export interface SessionUser {
   name: string;
   role: UserRole;
   tenantId: string | null;
+  tenantSlug?: string | null;
   status: UserStatus;
   isPlatformAdmin: boolean;
   impersonator?: ImpersonatorInfo | null;
@@ -29,7 +30,9 @@ export interface AuthSessionPayload {
   email: string;
   role: UserRole;
   tenantId: string | null;
+  tenantSlug?: string | null;
   issuedAt: number;
   expiresAt: number;
   impersonator?: ImpersonatorInfo | null;
 }
+

@@ -153,6 +153,7 @@ export async function POST(req: NextRequest) {
         email: targetUser.email,
         role: targetUser.role as any,
         tenantId: tenant.id,
+        tenantSlug: tenant.slug,
         impersonator: originalActor
       },
       IMPERSONATION_EXPIRY_SECONDS

@@ -50,7 +50,8 @@ export async function POST(req: NextRequest) {
       userId: user.id,
       email: user.email,
       role: user.role as any,
-      tenantId: user.tenantId
+      tenantId: user.tenantId,
+      tenantSlug: user.tenant?.slug || null
     });
 
     const isPlatform = user.role.startsWith('PLATFORM_') || user.role === 'SUPER_ADMIN';

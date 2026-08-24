@@ -51,4 +51,33 @@ describe("COMMAND 10.1: Production Authentication & QA Credential Cryptographic 
     const tamperedPayload = verifySessionToken(tampered);
     expect(tamperedPayload).toBeNull();
   });
+
+  it("4. Verifies all QA account definitions map strictly to their matching tenant and landing URLs", async () => {
+    const { QA_ACCOUNT_DEFINITIONS } = await import("@/lib/demo/demo-account-definitions");
+    expect(QA_ACCOUNT_DEFINITIONS.length).toBe(48);
+
+    for (const acc of QA_ACCOUNT_DEFINITIONS) {
+      if (acc.tenantSlug === 'platform') {
+        expect(acc.expectedLandingUrl).toBe('https://eduerp.us/super-admin');
+      } else {
+        expect(acc.expectedLandingUrl).toBe(`https://eduerp.us/${acc.tenantSlug}/dashboard`);
+        expect(acc.email).toContain(acc.tenantSlug);
+      }
+    }
+  });
+
+  it("5. Verifies session payload correctly persists tenantSlug for institution session binding", () => {
+    const token = createSessionToken({
+      userId: "user-school-1",
+      email: "principal.demo-school@eduerp.us",
+      role: "PRINCIPAL",
+      tenantId: "tenant-school-1",
+      tenantSlug: "demo-school"
+    });
+
+    const payload = verifySessionToken(token);
+    expect(payload).toBeDefined();
+    expect(payload?.tenantId).toBe("tenant-school-1");
+    expect(payload?.tenantSlug).toBe("demo-school");
+  });
 });
