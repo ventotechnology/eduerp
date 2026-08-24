@@ -25,6 +25,7 @@ export function TenantHeader() {
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
   const [emergencySent, setEmergencySent] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   const urlTenant = (params?.tenant as string) || '';
   const routeSlug = getTenantRouteSlug(urlTenant, tenantSlug);
@@ -37,6 +38,15 @@ export function TenantHeader() {
       setEmergencySent(false);
       setShowEmergencyModal(false);
     }, 2000);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // Ignore network error and proceed with client redirect
+    }
+    window.location.href = `/login?tenant=${tenantSlug || 'sita'}`;
   };
 
   return (
@@ -111,15 +121,84 @@ export function TenantHeader() {
             )}
           </div>
 
-          {/* User Profile Card */}
-          <div className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-800">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold flex items-center justify-center text-xs shadow-xs">
-              {activeUser.name.slice(0, 1)}
-            </div>
-            <div className="hidden lg:block text-left">
-              <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-tight">{activeUser.name}</p>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 capitalize">{activeUser.role.toLowerCase().replace(/_/g, ' ')}</p>
-            </div>
+          {/* User Profile Card Dropdown */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setUserMenuOpen((p) => !p)}
+              className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-800 text-left hover:opacity-80 transition cursor-pointer"
+            >
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold flex items-center justify-center text-xs shadow-xs">
+                {activeUser.name.slice(0, 1)}
+              </div>
+              <div className="hidden lg:block text-left">
+                <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-tight">{activeUser.name}</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 capitalize">{activeUser.role.toLowerCase().replace(/_/g, ' ')}</p>
+              </div>
+            </button>
+
+            {userMenuOpen && (
+              <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 p-2 z-50 animate-in fade-in-50 text-xs">
+                <div className="p-2 border-b border-slate-100 dark:border-slate-800 mb-1">
+                  <p className="font-bold text-slate-900 dark:text-white leading-snug">{activeUser.name}</p>
+                  <p className="text-[11px] text-slate-500 capitalize">{activeUser.role.toLowerCase().replace(/_/g, ' ')}</p>
+                  <p className="text-[10px] text-slate-400 font-mono mt-0.5">{activeCampus ? activeCampus.name : 'Main Campus'}</p>
+                </div>
+
+                <div className="space-y-0.5">
+                  <Link
+                    href={`/${routeSlug}/settings?tab=profile`}
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                  >
+                    <span>My Profile</span>
+                  </Link>
+
+                  <Link
+                    href={`/${routeSlug}/settings?tab=institution`}
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                  >
+                    <span>Institution Profile</span>
+                  </Link>
+
+                  <Link
+                    href={`/${routeSlug}/settings?tab=security`}
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                  >
+                    <span>Security & Password</span>
+                  </Link>
+
+                  <Link
+                    href={`/${routeSlug}/settings/billing`}
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                  >
+                    <span>Subscription & Billing</span>
+                    <span className="text-[10px] font-bold text-emerald-500 uppercase">Self-Service</span>
+                  </Link>
+
+                  <Link
+                    href={`/help`}
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                  >
+                    <span>Help & Knowledge Base</span>
+                  </Link>
+                </div>
+
+                <div className="pt-1 mt-1 border-t border-slate-100 dark:border-slate-800">
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="w-full text-left flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-bold transition"
+                  >
+                    <span>Sign Out / Logout</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </header>

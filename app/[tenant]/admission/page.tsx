@@ -17,6 +17,7 @@ import {
   Loader2,
   RefreshCw,
   AlertCircle,
+  AlertTriangle,
   Link as LinkIcon,
   Copy,
   Check,
@@ -835,6 +836,7 @@ export default function AdmissionPage() {
           structure={structure}
           settings={settings}
           institutionType={institutionTypeConfig?.type || 'SCHOOL'}
+          onRefreshStructure={fetchStructureAndSettings}
           onClose={() => setShowNewAppModal(false)}
           onSuccess={() => {
             setShowNewAppModal(false);
@@ -937,6 +939,7 @@ function InternalApplicationWizardModal({
   structure,
   settings,
   institutionType,
+  onRefreshStructure,
   onClose,
   onSuccess
 }: {
@@ -944,12 +947,25 @@ function InternalApplicationWizardModal({
   structure: any;
   settings: any;
   institutionType: string;
+  onRefreshStructure?: () => void;
   onClose: () => void;
   onSuccess: () => void;
 }) {
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Quick Setup Modals
+  const [showQuickYearModal, setShowQuickYearModal] = useState(false);
+  const [showQuickClassModal, setShowQuickClassModal] = useState(false);
+  const [quickLoading, setQuickLoading] = useState(false);
+
+  const [quickYearName, setQuickYearName] = useState('2026');
+  const [quickClassName, setQuickClassName] = useState('Hifz Beginner');
+  const [quickClassStage, setQuickClassStage] = useState('HIFZ');
+
+  const defaultYearId = structure?.academicYears?.find((y: any) => y.isCurrent)?.id || structure?.academicYears?.[0]?.id || '';
+  const defaultClassId = structure?.classes?.[0]?.id || '';
 
   const [form, setForm] = useState({
     firstName: '',
@@ -974,8 +990,8 @@ function InternalApplicationWizardModal({
     guardianRelation: 'Father',
 
     campusId: structure?.campuses?.[0]?.id || '',
-    academicYearId: structure?.academicYears?.[0]?.id || '',
-    desiredClassId: structure?.classes?.[0]?.id || '',
+    academicYearId: defaultYearId,
+    desiredClassId: defaultClassId,
     desiredProgramId: structure?.departments?.[0]?.programs?.[0]?.id || '',
     shiftId: structure?.shifts?.[0]?.id || '',
     sectionId: '',
@@ -990,7 +1006,79 @@ function InternalApplicationWizardModal({
     admissionFeeAmount: settings?.admissionFeeDefault || 0
   });
 
+  useEffect(() => {
+    if (!form.academicYearId && structure?.academicYears?.length > 0) {
+      const activeYear = structure.academicYears.find((y: any) => y.isCurrent) || structure.academicYears[0];
+      setForm((p) => ({ ...p, academicYearId: activeYear.id }));
+    }
+    if (!form.desiredClassId && structure?.classes?.length > 0) {
+      setForm((p) => ({ ...p, desiredClassId: structure.classes[0].id }));
+    }
+    if (!form.campusId && structure?.campuses?.length > 0) {
+      setForm((p) => ({ ...p, campusId: structure.campuses[0].id }));
+    }
+  }, [structure]);
+
   const update = (f: string, v: any) => setForm((p) => ({ ...p, [f]: v }));
+
+  const handleQuickCreateYear = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setQuickLoading(true);
+    try {
+      const res = await fetch('/api/academics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'CREATE_ACADEMIC_YEAR',
+          tenantId: tenantSlug,
+          name: quickYearName,
+          code: `AY-${quickYearName}`,
+          startDate: `${quickYearName}-01-01`,
+          endDate: `${quickYearName}-12-31`,
+          status: 'ACTIVE',
+          isCurrent: true
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Failed to create academic year');
+      if (onRefreshStructure) await onRefreshStructure();
+      if (data.data?.id) update('academicYearId', data.data.id);
+      setShowQuickYearModal(false);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setQuickLoading(false);
+    }
+  };
+
+  const handleQuickCreateClass = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setQuickLoading(true);
+    try {
+      const res = await fetch('/api/academics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'CREATE_CLASS',
+          tenantId: tenantSlug,
+          name: quickClassName,
+          numericValue: 1,
+          sequence: (structure?.classes?.length || 0) + 1,
+          stage: quickClassStage,
+          shift: 'Morning'
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Failed to create class');
+      if (onRefreshStructure) await onRefreshStructure();
+      if (data.data?.id) update('desiredClassId', data.data.id);
+      setShowQuickClassModal(false);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setQuickLoading(false);
+    }
+  };
 
   const handleSubmit = async () => {
     setSubmitting(true);
@@ -1122,28 +1210,63 @@ function InternalApplicationWizardModal({
                   onChange={(e) => update('gender', e.target.value)}
                   className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-emerald-500"
                 >
-                  <option value="Male" className="bg-slate-900 text-white">Male</option>
-                  <option value="Female" className="bg-slate-900 text-white">Female</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
                 </select>
               </div>
               <div>
-                <label className="font-semibold text-slate-300 block mb-1">Contact Phone *</label>
+                <label className="font-semibold text-slate-300 block mb-1">Blood Group</label>
+                <select
+                  value={form.bloodGroup}
+                  onChange={(e) => update('bloodGroup', e.target.value)}
+                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="">Unknown</option>
+                  <option value="A+">A+</option>
+                  <option value="A-">A-</option>
+                  <option value="B+">B+</option>
+                  <option value="B-">B-</option>
+                  <option value="O+">O+</option>
+                  <option value="O-">O-</option>
+                  <option value="AB+">AB+</option>
+                  <option value="AB-">AB-</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="font-semibold text-slate-300 block mb-1">Primary Mobile Phone *</label>
                 <input
                   type="tel"
                   required
                   value={form.phone}
                   onChange={(e) => update('phone', e.target.value)}
+                  placeholder="017XXXXXXXX"
+                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="font-semibold text-slate-300 block mb-1">Email Address</label>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => update('email', e.target.value)}
+                  placeholder="candidate@example.com"
                   className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                 />
               </div>
             </div>
+
             <div>
               <label className="font-semibold text-slate-300 block mb-1">Present Address *</label>
               <textarea
-                rows={2}
                 required
+                rows={2}
                 value={form.presentAddress}
                 onChange={(e) => update('presentAddress', e.target.value)}
+                placeholder="House, Road, Area, Thana, District"
                 className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs placeholder-slate-500 focus:outline-none focus:border-emerald-500"
               />
             </div>
@@ -1203,6 +1326,41 @@ function InternalApplicationWizardModal({
         {step === 3 && (
           <div className="space-y-4 text-xs">
             <h4 className="font-bold text-emerald-400 uppercase tracking-wider">3. Academic Placement & Fee</h4>
+
+            {/* Empty Academic Year Warning & Quick Setup Trigger */}
+            {(!structure?.academicYears || structure.academicYears.length === 0) && (
+              <div className="p-3 bg-amber-950/70 border border-amber-800/80 rounded-xl text-xs text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span>No academic year has been configured.</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowQuickYearModal(true)}
+                  className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg text-[11px] shadow-sm shrink-0"
+                >
+                  + Create Academic Year
+                </button>
+              </div>
+            )}
+
+            {/* Empty Class / Program Warning & Quick Setup Trigger */}
+            {(!structure?.classes || structure.classes.length === 0) && (
+              <div className="p-3 bg-amber-950/70 border border-amber-800/80 rounded-xl text-xs text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span>No classes/programs configured for this academic year.</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowQuickClassModal(true)}
+                  className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg text-[11px] shadow-sm shrink-0"
+                >
+                  + Configure Classes / Programs
+                </button>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="font-semibold text-slate-300 block mb-1">Campus *</label>
@@ -1217,14 +1375,28 @@ function InternalApplicationWizardModal({
                 </select>
               </div>
               <div>
-                <label className="font-semibold text-slate-300 block mb-1">Academic Year *</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-semibold text-slate-300">Academic Year *</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowQuickYearModal(true)}
+                    className="text-[10px] text-blue-400 hover:underline"
+                  >
+                    + New Year
+                  </button>
+                </div>
                 <select
                   value={form.academicYearId}
                   onChange={(e) => update('academicYearId', e.target.value)}
                   className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-emerald-500"
                 >
+                  {structure?.academicYears?.length === 0 && (
+                    <option value="">No Academic Year Available</option>
+                  )}
                   {structure?.academicYears?.map((ay: any) => (
-                    <option key={ay.id} value={ay.id} className="bg-slate-900 text-white">{ay.name}</option>
+                    <option key={ay.id} value={ay.id} className="bg-slate-900 text-white">
+                      {ay.name} {ay.isCurrent ? '(Current)' : ''}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -1232,14 +1404,28 @@ function InternalApplicationWizardModal({
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="font-semibold text-slate-300 block mb-1">Target Class / Program *</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-semibold text-slate-300">Target Class / Program *</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowQuickClassModal(true)}
+                    className="text-[10px] text-purple-400 hover:underline"
+                  >
+                    + New Class
+                  </button>
+                </div>
                 <select
                   value={form.desiredClassId}
                   onChange={(e) => update('desiredClassId', e.target.value)}
                   className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-emerald-500"
                 >
+                  {structure?.classes?.length === 0 && (
+                    <option value="">No Classes Configured</option>
+                  )}
                   {structure?.classes?.map((cls: any) => (
-                    <option key={cls.id} value={cls.id} className="bg-slate-900 text-white">{cls.name}</option>
+                    <option key={cls.id} value={cls.id} className="bg-slate-900 text-white">
+                      {cls.name} {cls.stage ? `(${cls.stage})` : ''}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -1279,7 +1465,7 @@ function InternalApplicationWizardModal({
           ) : (
             <button
               type="button"
-              disabled={submitting}
+              disabled={submitting || !form.academicYearId || !form.desiredClassId}
               onClick={handleSubmit}
               className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md flex items-center gap-2 disabled:opacity-50"
             >
@@ -1289,6 +1475,103 @@ function InternalApplicationWizardModal({
           )}
         </div>
       </div>
+
+      {/* QUICK MODAL: Academic Year */}
+      {showQuickYearModal && (
+        <div className="fixed inset-0 bg-black/80 z-60 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-xl p-5 max-w-sm w-full space-y-3 text-white">
+            <h4 className="text-sm font-bold flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-blue-400" />
+              <span>Quick Create Academic Year</span>
+            </h4>
+            <form onSubmit={handleQuickCreateYear} className="space-y-3 text-xs">
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Academic Year Name</label>
+                <input
+                  type="text"
+                  required
+                  value={quickYearName}
+                  onChange={(e) => setQuickYearName(e.target.value)}
+                  placeholder="e.g. 2026"
+                  className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-white"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowQuickYearModal(false)}
+                  className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={quickLoading}
+                  className="px-3 py-1.5 bg-blue-600 text-white font-bold rounded-lg"
+                >
+                  {quickLoading ? 'Creating...' : 'Save Year'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* QUICK MODAL: Class / Level */}
+      {showQuickClassModal && (
+        <div className="fixed inset-0 bg-black/80 z-60 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-xl p-5 max-w-sm w-full space-y-3 text-white">
+            <h4 className="text-sm font-bold flex items-center gap-2">
+              <GraduationCap className="w-4 h-4 text-purple-400" />
+              <span>Quick Configure Class / Level</span>
+            </h4>
+            <form onSubmit={handleQuickCreateClass} className="space-y-3 text-xs">
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Class / Level Name</label>
+                <input
+                  type="text"
+                  required
+                  value={quickClassName}
+                  onChange={(e) => setQuickClassName(e.target.value)}
+                  placeholder="e.g. Hifz Beginner, Dakhil 6"
+                  className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Stage</label>
+                <select
+                  value={quickClassStage}
+                  onChange={(e) => setQuickClassStage(e.target.value)}
+                  className="w-full p-2 bg-slate-950 border border-slate-700 rounded-lg text-white"
+                >
+                  <option value="HIFZ">Hifz / Tahfiz</option>
+                  <option value="NAZERA">Nazera</option>
+                  <option value="EBTEDAYEE">Ebtedayee</option>
+                  <option value="DAKHIL">Dakhil</option>
+                  <option value="PRIMARY">Primary</option>
+                  <option value="SECONDARY">Secondary</option>
+                </select>
+              </div>
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowQuickClassModal(false)}
+                  className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={quickLoading}
+                  className="px-3 py-1.5 bg-purple-600 text-white font-bold rounded-lg"
+                >
+                  {quickLoading ? 'Creating...' : 'Save Class'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

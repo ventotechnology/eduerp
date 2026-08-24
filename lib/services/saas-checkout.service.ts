@@ -266,6 +266,117 @@ export class SaasCheckoutService {
   }
 
   /**
+   * Validates if a tenant is allowed to downgrade to a target plan based on current active student usage
+   */
+  static async validateDowngradeEligibility(tenantId: string, targetPlanId: string) {
+    const targetPlan = await db.subscriptionPlan.findUnique({
+      where: { id: targetPlanId }
+    });
+
+    if (!targetPlan) {
+      throw new Error('Target subscription plan not found.');
+    }
+
+    const currentStudents = await db.student.count({
+      where: {
+        campus: {
+          institution: {
+            tenantId
+          }
+        },
+        status: 'ACTIVE' as any
+      }
+    });
+
+    if (currentStudents > targetPlan.maxStudents) {
+      return {
+        allowed: false,
+        currentStudents,
+        maxStudents: targetPlan.maxStudents,
+        reason: 'DOWNGRADE_BLOCKED_BY_USAGE',
+        message: `Cannot downgrade to ${targetPlan.name}. Your institution currently has ${currentStudents} active students, which exceeds the limit of ${targetPlan.maxStudents} for this tier. Please archive or graduate students before requesting this plan.`
+      };
+    }
+
+    return {
+      allowed: true,
+      currentStudents,
+      maxStudents: targetPlan.maxStudents,
+      targetPlanName: targetPlan.name
+    };
+  }
+
+  /**
+   * Creates a subscription order for an existing tenant (Self-service Upgrade/Downgrade)
+   */
+  static async createTenantSubscriptionOrder(params: {
+    tenantId: string;
+    planId: string;
+    billingCycle: 'MONTHLY' | 'ANNUAL';
+    gateway?: string;
+  }) {
+    const { tenantId, planId, billingCycle, gateway } = params;
+
+    const tenant = await db.tenant.findUnique({
+      where: { id: tenantId },
+      include: {
+        subscriptions: {
+          where: { status: 'ACTIVE' },
+          include: { plan: true },
+          take: 1
+        }
+      }
+    });
+
+    if (!tenant) throw new Error('Tenant not found.');
+
+    const targetPlan = await db.subscriptionPlan.findUnique({
+      where: { id: planId }
+    });
+
+    if (!targetPlan) throw new Error('Subscription plan not found.');
+
+    // Check downgrade usage guard
+    const currentSub = tenant.subscriptions[0];
+    if (currentSub && currentSub.plan && targetPlan.maxStudents < currentSub.plan.maxStudents) {
+      const eligibility = await this.validateDowngradeEligibility(tenantId, planId);
+      if (!eligibility.allowed) {
+        throw new Error(eligibility.message);
+      }
+    }
+
+    const isAnnual = billingCycle === 'ANNUAL';
+    const subtotal = isAnnual ? targetPlan.annualPrice : targetPlan.monthlyPrice;
+    const discount = 0;
+    const totalAmount = subtotal - discount;
+
+    const orderNumber = `ORD-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
+    const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000); // 72 hours window
+
+    const order = await db.subscriptionOrder.create({
+      data: {
+        orderNumber,
+        tenantId: tenant.id,
+        planId: targetPlan.id,
+        billingCycle,
+        subtotal,
+        discount,
+        totalAmount,
+        currency: targetPlan.currency || 'BDT',
+        status: 'PENDING',
+        gateway: gateway || 'BKASH',
+        expiresAt
+      },
+      include: {
+        plan: true,
+        tenant: true
+      }
+    });
+
+    return order;
+  }
+
+  /**
    * Approves a manual payment (Platform Billing Admin / Super Admin only)
    */
   static async approveManualPayment(orderId: string, verifiedByUserId: string) {
@@ -283,5 +394,75 @@ export class SaasCheckoutService {
       amount: order.totalAmount,
       providerReference: `Verified by user ID: ${verifiedByUserId}`
     });
+  }
+
+  /**
+   * Rejects a manual payment with stated rejection reason
+   */
+  static async rejectManualPayment(orderId: string, rejectionReason: string, verifiedByUserId: string) {
+    const order = await db.subscriptionOrder.findUnique({
+      where: { id: orderId }
+    });
+
+    if (!order) {
+      throw new Error('Order not found.');
+    }
+
+    await db.subscriptionOrder.update({
+      where: { id: order.id },
+      data: {
+        status: 'CANCELLED'
+      }
+    });
+
+    await db.subscriptionPaymentTransaction.updateMany({
+      where: { orderId: order.id },
+      data: {
+        status: 'REJECTED',
+        providerResponseRef: `Rejected by ${verifiedByUserId}. Reason: ${rejectionReason}`
+      }
+    });
+
+    return {
+      success: true,
+      orderNumber: order.orderNumber,
+      status: 'REJECTED',
+      rejectionReason
+    };
+  }
+
+  /**
+   * Marks a manual payment as failed
+   */
+  static async markManualPaymentFailed(orderId: string, failureReason: string, verifiedByUserId: string) {
+    const order = await db.subscriptionOrder.findUnique({
+      where: { id: orderId }
+    });
+
+    if (!order) {
+      throw new Error('Order not found.');
+    }
+
+    await db.subscriptionOrder.update({
+      where: { id: order.id },
+      data: {
+        status: 'FAILED'
+      }
+    });
+
+    await db.subscriptionPaymentTransaction.updateMany({
+      where: { orderId: order.id },
+      data: {
+        status: 'FAILED',
+        providerResponseRef: `Failed: ${failureReason} (Inspected by ${verifiedByUserId})`
+      }
+    });
+
+    return {
+      success: true,
+      orderNumber: order.orderNumber,
+      status: 'FAILED',
+      failureReason
+    };
   }
 }

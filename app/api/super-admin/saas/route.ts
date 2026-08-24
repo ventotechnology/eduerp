@@ -6,6 +6,7 @@ import { hashPassword, generateSecurePassword } from '@/lib/auth/password';
 import { logAuditEvent } from '@/lib/audit/audit-logger';
 import { QA_ACCOUNT_DEFINITIONS } from '@/lib/demo/demo-account-definitions';
 import { SaasPlanService } from '@/lib/services/saas-plan.service';
+import { SaasCheckoutService } from '@/lib/services/saas-checkout.service';
 import { SubscriptionEntitlementService } from '@/lib/services/subscription-entitlement-service';
 import { requirePlatformPermission } from '@/lib/rbac/platform-guard';
 
@@ -720,6 +721,36 @@ export async function POST(request: NextRequest) {
       });
 
       return NextResponse.json({ success: true, ...result });
+    }
+
+    if (action === 'VERIFY_OFFLINE_PAYMENT') {
+      requirePlatformPermission(session, 'PAYMENT_MANAGE');
+      const { orderId } = body;
+      if (!orderId) {
+        return NextResponse.json({ success: false, error: 'Order ID is required.' }, { status: 400 });
+      }
+      const result = await SaasCheckoutService.approveManualPayment(orderId, session.name || session.id);
+      return NextResponse.json({ success: true, ...(result as any) });
+    }
+
+    if (action === 'REJECT_OFFLINE_PAYMENT') {
+      requirePlatformPermission(session, 'PAYMENT_MANAGE');
+      const { orderId, reason } = body;
+      if (!orderId || !reason) {
+        return NextResponse.json({ success: false, error: 'Order ID and rejection reason are required.' }, { status: 400 });
+      }
+      const result = await SaasCheckoutService.rejectManualPayment(orderId, reason, session.name || session.id);
+      return NextResponse.json(result);
+    }
+
+    if (action === 'MARK_OFFLINE_PAYMENT_FAILED') {
+      requirePlatformPermission(session, 'PAYMENT_MANAGE');
+      const { orderId, reason } = body;
+      if (!orderId) {
+        return NextResponse.json({ success: false, error: 'Order ID is required.' }, { status: 400 });
+      }
+      const result = await SaasCheckoutService.markManualPaymentFailed(orderId, reason || 'Payment unverified/failed', session.name || session.id);
+      return NextResponse.json(result);
     }
 
     // 6. Set Feature Override

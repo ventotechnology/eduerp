@@ -780,3 +780,345 @@ export async function duplicateAcademicYearStructure(
 
   return newYear;
 }
+
+export async function setCurrentAcademicYear(tenantIdentifier: string, academicYearId: string, actor: SessionUser) {
+  const tenant = await requireTenant(tenantIdentifier);
+
+  const target = await db.academicYear.findFirst({
+    where: { id: academicYearId, institutionId: tenant.institutionId }
+  });
+  if (!target) throw AppError.notFound('Academic Year not found.');
+
+  await db.academicYear.updateMany({
+    where: { institutionId: tenant.institutionId, isCurrent: true },
+    data: { isCurrent: false }
+  });
+
+  const updated = await db.academicYear.update({
+    where: { id: target.id },
+    data: { isCurrent: true, status: 'ACTIVE' }
+  });
+
+  await logAuditEvent({
+    tenantId: tenant.tenantId,
+    actor,
+    action: 'ACADEMIC_YEAR_SET_CURRENT',
+    resourceType: 'AcademicYear',
+    resourceId: target.id,
+    newState: { name: target.name, isCurrent: true }
+  });
+
+  return updated;
+}
+
+export async function updateAcademicYear(tenantIdentifier: string, academicYearId: string, rawData: any, actor: SessionUser) {
+  const tenant = await requireTenant(tenantIdentifier);
+
+  const target = await db.academicYear.findFirst({
+    where: { id: academicYearId, institutionId: tenant.institutionId }
+  });
+  if (!target) throw AppError.notFound('Academic Year not found.');
+
+  if (rawData.isCurrent) {
+    await db.academicYear.updateMany({
+      where: { institutionId: tenant.institutionId, isCurrent: true },
+      data: { isCurrent: false }
+    });
+  }
+
+  const updated = await db.academicYear.update({
+    where: { id: target.id },
+    data: {
+      name: rawData.name ?? target.name,
+      code: rawData.code ?? target.code,
+      startDate: rawData.startDate ? new Date(rawData.startDate) : target.startDate,
+      endDate: rawData.endDate ? new Date(rawData.endDate) : target.endDate,
+      admissionStartDate: rawData.admissionStartDate ? new Date(rawData.admissionStartDate) : target.admissionStartDate,
+      admissionEndDate: rawData.admissionEndDate ? new Date(rawData.admissionEndDate) : target.admissionEndDate,
+      status: rawData.status ?? target.status,
+      isCurrent: rawData.isCurrent ?? target.isCurrent
+    }
+  });
+
+  await logAuditEvent({
+    tenantId: tenant.tenantId,
+    actor,
+    action: 'ACADEMIC_YEAR_UPDATED',
+    resourceType: 'AcademicYear',
+    resourceId: target.id,
+    newState: { name: updated.name, status: updated.status }
+  });
+
+  return updated;
+}
+
+export async function deleteAcademicYear(tenantIdentifier: string, academicYearId: string, actor: SessionUser) {
+  const tenant = await requireTenant(tenantIdentifier);
+
+  const target = await db.academicYear.findFirst({
+    where: { id: academicYearId, institutionId: tenant.institutionId }
+  });
+  if (!target) throw AppError.notFound('Academic Year not found.');
+
+  // Guard against deleting if students or applications are enrolled
+  const appCount = await db.admissionApplication.count({ where: { academicYearId: target.id } });
+  if (appCount > 0) {
+    throw AppError.conflict(`Cannot delete academic year '${target.name}' because ${appCount} admission applications are associated with it.`);
+  }
+
+  await db.academicYear.delete({ where: { id: target.id } });
+
+  await logAuditEvent({
+    tenantId: tenant.tenantId,
+    actor,
+    action: 'ACADEMIC_YEAR_DELETED',
+    resourceType: 'AcademicYear',
+    resourceId: target.id,
+    newState: { name: target.name }
+  });
+
+  return { success: true, message: `Academic Year '${target.name}' deleted successfully.` };
+}
+
+export async function deleteSchoolClass(tenantIdentifier: string, classId: string, actor: SessionUser) {
+  const tenant = await requireTenant(tenantIdentifier);
+
+  const target = await db.class.findFirst({
+    where: { id: classId, institutionId: tenant.institutionId }
+  });
+  if (!target) throw AppError.notFound('Class not found.');
+
+  await db.class.delete({ where: { id: target.id } });
+
+  await logAuditEvent({
+    tenantId: tenant.tenantId,
+    actor,
+    action: 'CLASS_DELETED',
+    resourceType: 'Class',
+    resourceId: target.id,
+    newState: { name: target.name }
+  });
+
+  return { success: true, message: `Class '${target.name}' deleted successfully.` };
+}
+
+export async function deleteSchoolSection(tenantIdentifier: string, sectionId: string, actor: SessionUser) {
+  const tenant = await requireTenant(tenantIdentifier);
+
+  const target = await db.section.findFirst({
+    where: { id: sectionId, class: { institutionId: tenant.institutionId } }
+  });
+  if (!target) throw AppError.notFound('Section not found.');
+
+  await db.section.delete({ where: { id: target.id } });
+
+  await logAuditEvent({
+    tenantId: tenant.tenantId,
+    actor,
+    action: 'SECTION_DELETED',
+    resourceType: 'Section',
+    resourceId: target.id,
+    newState: { name: target.name }
+  });
+
+  return { success: true, message: `Section '${target.name}' deleted successfully.` };
+}
+
+export async function deleteSchoolSubject(tenantIdentifier: string, subjectId: string, actor: SessionUser) {
+  const tenant = await requireTenant(tenantIdentifier);
+
+  const target = await db.subject.findFirst({
+    where: { id: subjectId, class: { institutionId: tenant.institutionId } }
+  });
+  if (!target) throw AppError.notFound('Subject not found.');
+
+  await db.subject.delete({ where: { id: target.id } });
+
+  await logAuditEvent({
+    tenantId: tenant.tenantId,
+    actor,
+    action: 'SUBJECT_DELETED',
+    resourceType: 'Subject',
+    resourceId: target.id,
+    newState: { name: target.name }
+  });
+
+  return { success: true, message: `Subject '${target.name}' deleted successfully.` };
+}
+
+/**
+ * Applies the standard Bangladesh Madrasha Starter Academic Structure Template.
+ * Creates an authoritative Academic Year (2026), Sessions, Madrasha Levels (Hifz Beginner/Intermediate/Advanced, Ebtedayee 1-5, Dakhil 6-10),
+ * standard sections, and Madrasha curriculum subjects without creating fake students or results.
+ */
+export async function applyMadrashaStarterTemplate(tenantIdentifier: string, actor: SessionUser) {
+  const tenant = await requireTenant(tenantIdentifier);
+  const institutionId = tenant.institutionId;
+
+  // 1. Create or Find Academic Year 2026
+  let academicYear = await db.academicYear.findFirst({
+    where: { institutionId, name: '2026' }
+  });
+
+  if (!academicYear) {
+    // Unmark any previous active years if needed
+    await db.academicYear.updateMany({
+      where: { institutionId, isCurrent: true },
+      data: { isCurrent: false }
+    });
+
+    academicYear = await db.academicYear.create({
+      data: {
+        institutionId,
+        name: '2026',
+        code: 'AY-2026',
+        startDate: new Date('2026-01-01'),
+        endDate: new Date('2026-12-31'),
+        admissionStartDate: new Date('2025-11-01'),
+        admissionEndDate: new Date('2026-03-31'),
+        classStartDate: new Date('2026-01-10'),
+        status: 'ACTIVE',
+        isCurrent: true
+      }
+    });
+
+    // Create default session
+    await db.session.create({
+      data: {
+        academicYearId: academicYear.id,
+        name: 'Academic Session 2026',
+        type: 'ANNUAL',
+        startDate: new Date('2026-01-01'),
+        endDate: new Date('2026-12-31'),
+        status: 'ACTIVE',
+        isCurrent: true
+      }
+    });
+  }
+
+  // 2. Ensure Primary Shift exists
+  let shift = await db.shift.findFirst({
+    where: { institutionId, code: 'SFT-MORN' }
+  });
+  if (!shift) {
+    shift = await db.shift.create({
+      data: {
+        institutionId,
+        name: 'Morning Shift',
+        code: 'SFT-MORN',
+        startTime: '07:30',
+        endTime: '13:00'
+      }
+    });
+  }
+
+  // 3. Madrasha Levels & Classes definitions
+  const madrashaClasses = [
+    { name: 'Hifz Beginner', numericValue: 1, sequence: 1, stage: 'HIFZ' },
+    { name: 'Hifz Intermediate', numericValue: 2, sequence: 2, stage: 'HIFZ' },
+    { name: 'Hifz Advanced / Dawra-e-Quran', numericValue: 3, sequence: 3, stage: 'HIFZ' },
+    { name: 'Nazera', numericValue: 4, sequence: 4, stage: 'NAZERA' },
+    { name: 'Ebtedayee Grade 1', numericValue: 5, sequence: 5, stage: 'EBTEDAYEE' },
+    { name: 'Ebtedayee Grade 5', numericValue: 9, sequence: 9, stage: 'EBTEDAYEE' },
+    { name: 'Dakhil 6', numericValue: 10, sequence: 10, stage: 'DAKHIL' },
+    { name: 'Dakhil 10', numericValue: 14, sequence: 14, stage: 'DAKHIL' }
+  ];
+
+  const standardSubjects = [
+    { name: 'Quran Mazid & Tajweed', code: 'QRN-101', type: 'COMPULSORY', fullMarks: 100, passMarks: 40, theoryMarks: 50, practicalMarks: 50 },
+    { name: 'Hadith Sharif', code: 'HDT-102', type: 'COMPULSORY', fullMarks: 100, passMarks: 40, theoryMarks: 80, practicalMarks: 0 },
+    { name: 'Fiqh & Islamic Jurisprudence', code: 'FQH-103', type: 'COMPULSORY', fullMarks: 100, passMarks: 40, theoryMarks: 80, practicalMarks: 0 },
+    { name: 'Arabic Language & Grammar', code: 'ARB-104', type: 'COMPULSORY', fullMarks: 100, passMarks: 33, theoryMarks: 70, practicalMarks: 0 },
+    { name: 'Bangla Literature', code: 'BNG-105', type: 'COMPULSORY', fullMarks: 100, passMarks: 33, theoryMarks: 70, practicalMarks: 0 },
+    { name: 'English Language', code: 'ENG-106', type: 'COMPULSORY', fullMarks: 100, passMarks: 33, theoryMarks: 70, practicalMarks: 0 },
+    { name: 'General Mathematics', code: 'MTH-107', type: 'COMPULSORY', fullMarks: 100, passMarks: 33, theoryMarks: 70, practicalMarks: 0 }
+  ];
+
+  let classesCreated = 0;
+  let sectionsCreated = 0;
+  let subjectsCreated = 0;
+
+  for (const cDef of madrashaClasses) {
+    let cls = await db.class.findFirst({
+      where: { institutionId, name: cDef.name, shift: 'Morning' }
+    });
+
+    if (!cls) {
+      cls = await db.class.create({
+        data: {
+          institutionId,
+          name: cDef.name,
+          numericValue: cDef.numericValue,
+          sequence: cDef.sequence,
+          stage: cDef.stage,
+          shift: 'Morning'
+        }
+      });
+      classesCreated++;
+    }
+
+    // Ensure Section A exists
+    let section = await db.section.findFirst({
+      where: { classId: cls.id, name: 'A' }
+    });
+    if (!section) {
+      await db.section.create({
+        data: {
+          classId: cls.id,
+          name: 'A',
+          capacity: 40
+        }
+      });
+      sectionsCreated++;
+    }
+
+    // Ensure Subjects exist
+    for (const sDef of standardSubjects) {
+      const subjectCode = `${sDef.code}-${cls.numericValue}`;
+      const sub = await db.subject.findFirst({
+        where: { classId: cls.id, code: subjectCode }
+      });
+      if (!sub) {
+        await db.subject.create({
+          data: {
+            classId: cls.id,
+            name: sDef.name,
+            code: subjectCode,
+            type: sDef.type,
+            fullMarks: sDef.fullMarks,
+            passMarks: sDef.passMarks,
+            theoryMarks: sDef.theoryMarks,
+            practicalMarks: sDef.practicalMarks,
+            assignmentMarks: 20,
+            attendanceMarks: 10
+          }
+        });
+        subjectsCreated++;
+      }
+    }
+  }
+
+  await logAuditEvent({
+    tenantId: tenant.tenantId,
+    actor,
+    action: 'MADRASHA_TEMPLATE_APPLIED',
+    resourceType: 'AcademicStructure',
+    resourceId: academicYear.id,
+    newState: {
+      academicYear: academicYear.name,
+      classesCreated,
+      sectionsCreated,
+      subjectsCreated
+    }
+  });
+
+  return {
+    success: true,
+    academicYear,
+    classesCreated,
+    sectionsCreated,
+    subjectsCreated,
+    message: 'Madrasha Starter Template applied successfully with draft academic structure.'
+  };
+}
+

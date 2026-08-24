@@ -5,13 +5,19 @@ import { resolveTenantContext } from '@/lib/tenant/tenant-guard';
 import {
   getTenantAcademicStructure,
   createAcademicYear,
+  updateAcademicYear,
+  deleteAcademicYear,
+  setCurrentAcademicYear,
   createAcademicSession,
   createShift,
   createAcademicGroup,
   createSubjectCombination,
   createSchoolClass,
+  deleteSchoolClass,
   createSchoolSection,
+  deleteSchoolSection,
   createSchoolSubject,
+  deleteSchoolSubject,
   createFaculty,
   createDepartment,
   createProgram,
@@ -27,7 +33,8 @@ import {
   recordWorkshopLog,
   recordIndustrialAttachment,
   createAcademicCalendarEvent,
-  duplicateAcademicYearStructure
+  duplicateAcademicYearStructure,
+  applyMadrashaStarterTemplate
 } from '@/lib/services/academic-structure-service';
 import { successResponse, errorResponse } from '@/lib/errors/api-response';
 import { AppError } from '@/lib/errors/app-error';
@@ -69,6 +76,41 @@ export async function POST(req: NextRequest) {
       case 'CREATE_ACADEMIC_YEAR':
         requirePermission(session, 'CREATE', 'ACADEMIC_YEARS');
         result = await createAcademicYear(resolvedTenant, data, session);
+        break;
+
+      case 'UPDATE_ACADEMIC_YEAR':
+        requirePermission(session, 'UPDATE', 'ACADEMIC_YEARS');
+        result = await updateAcademicYear(resolvedTenant, data.academicYearId || data.id, data, session);
+        break;
+
+      case 'DELETE_ACADEMIC_YEAR':
+        requirePermission(session, 'DELETE', 'ACADEMIC_YEARS');
+        result = await deleteAcademicYear(resolvedTenant, data.academicYearId || data.id, session);
+        break;
+
+      case 'SET_CURRENT_ACADEMIC_YEAR':
+        requirePermission(session, 'UPDATE', 'ACADEMIC_YEARS');
+        result = await setCurrentAcademicYear(resolvedTenant, data.academicYearId || data.id, session);
+        break;
+
+      case 'DELETE_CLASS':
+        requirePermission(session, 'DELETE', 'SETTINGS');
+        result = await deleteSchoolClass(resolvedTenant, data.classId || data.id, session);
+        break;
+
+      case 'DELETE_SECTION':
+        requirePermission(session, 'DELETE', 'SETTINGS');
+        result = await deleteSchoolSection(resolvedTenant, data.sectionId || data.id, session);
+        break;
+
+      case 'DELETE_SUBJECT':
+        requirePermission(session, 'DELETE', 'SETTINGS');
+        result = await deleteSchoolSubject(resolvedTenant, data.subjectId || data.id, session);
+        break;
+
+      case 'APPLY_MADRASHA_TEMPLATE':
+        requirePermission(session, 'CREATE', 'ACADEMIC_YEARS');
+        result = await applyMadrashaStarterTemplate(resolvedTenant, session);
         break;
 
       case 'CREATE_SESSION':
