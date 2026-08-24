@@ -94,9 +94,9 @@ export async function GET(request: NextRequest) {
     ]);
 
     // Commercial MRR Calculation (BDT)
-    const paidSubscriptions = (activeSubscriptions as any[]).filter((s: any) => !s.tenant.isDemoTenant && s.status === 'ACTIVE');
+    const paidSubscriptions = (activeSubscriptions as any[]).filter((s: any) => !s.tenant?.isDemoTenant && s.status === 'ACTIVE');
     const mrrBdt = paidSubscriptions.reduce((acc: number, sub: any) => {
-      const price = sub.plan.monthlyPrice || 0;
+      const price = sub.plan?.monthlyPrice || 0;
       if (sub.billingCycle === 'ANNUAL') return acc + (price / 12);
       return acc + price;
     }, 0);
@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
     // Institution breakdown
     const commercialTenants = (allTenants as any[]).filter((t: any) => !t.isDemoTenant);
     const demoTenants = (allTenants as any[]).filter((t: any) => t.isDemoTenant && t.isActive);
-    const trialTenants = (allTenants as any[]).filter((t: any) => t.subscriptions[0]?.status === 'TRIALING');
+    const trialTenants = (allTenants as any[]).filter((t: any) => t.subscriptions?.[0]?.status === 'TRIALING');
 
     // Live Gateway Diagnostic Check
     const bkashCreds = BkashPaymentProvider.getCredentials();
@@ -131,37 +131,37 @@ export async function GET(request: NextRequest) {
         slug: t.slug,
         type: t.institutionType,
         subscriptionTier: t.subscriptionTier,
-        currentPlan: t.subscriptions[0]?.plan?.name || t.subscriptionTier,
-        subscriptionStatus: t.subscriptions[0]?.status || 'NONE',
-        billingCycle: t.subscriptions[0]?.billingCycle || 'NONE',
-        currentPeriodEnd: t.subscriptions[0]?.currentPeriodEnd || null,
+        currentPlan: t.subscriptions?.[0]?.plan?.name || t.subscriptionTier,
+        subscriptionStatus: t.subscriptions?.[0]?.status || 'NONE',
+        billingCycle: t.subscriptions?.[0]?.billingCycle || 'NONE',
+        currentPeriodEnd: t.subscriptions?.[0]?.currentPeriodEnd || null,
         isDemoTenant: t.isDemoTenant,
         isActive: t.isActive,
         customDomain: t.customDomain,
-        userCount: t._count.users,
+        userCount: t._count?.users || 0,
         campusCount: t.institution?.campuses?.length || 0,
         createdAt: t.createdAt
       })),
       subscriptions: (activeSubscriptions as any[]).map((s: any) => ({
         id: s.id,
         tenantId: s.tenantId,
-        tenantSlug: s.tenant.slug,
-        planName: s.plan.name,
-        planCode: s.plan.code,
-        tier: s.plan.tier,
+        tenantSlug: s.tenant?.slug || s.tenantId || 'Unknown',
+        planName: s.plan?.name || 'Custom Plan',
+        planCode: s.plan?.code || 'CUSTOM',
+        tier: s.plan?.tier || 'BASIC',
         status: s.status,
         billingCycle: s.billingCycle,
         currentPeriodStart: s.currentPeriodStart,
         currentPeriodEnd: s.currentPeriodEnd,
         autoRenew: s.autoRenew,
-        maxStudents: s.plan.maxStudents,
-        maxCampuses: s.plan.maxCampuses
+        maxStudents: s.plan?.maxStudents || 0,
+        maxCampuses: s.plan?.maxCampuses || 1
       })),
       orders: (recentOrders as any[]).map((o: any) => ({
         id: o.id,
         orderNumber: o.orderNumber,
-        tenantName: o.tenant.slug,
-        planName: o.plan.name,
+        tenantName: o.tenant?.slug || o.tenantId || 'Unknown',
+        planName: o.plan?.name || 'Custom Plan',
         amount: o.amount,
         currency: o.currency,
         billingCycle: o.billingCycle,

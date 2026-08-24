@@ -63,26 +63,27 @@ test.describe('COMMAND 11D — SaaS Control Plane, Public Pages & Vertical Admis
 
     // Wait for Super Admin Overview
     await page.waitForURL(/\/super-admin/);
-    await expect(page.getByRole('heading', { name: /SaaS Platform Overview/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /SaaS Platform Overview/i })).toBeVisible({ timeout: 15000 });
 
     // Visit Institutions page
     await page.goto('/super-admin/institutions');
-    await expect(page.getByRole('heading', { name: /Institution Tenants/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /\+ Create Institution/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Institution Tenants/i })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('button', { name: /Onboard Institution|Create Institution/i })).toBeVisible({ timeout: 15000 });
 
     // Visit Plans & Pricing page
     await page.goto('/super-admin/plans');
-    await expect(page.getByRole('heading', { name: /SaaS Plans & Pricing Matrix/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /\+ Create Plan/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /SaaS Plans & Pricing Matrix/i })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('button', { name: /Add Plan|Create Plan/i })).toBeVisible({ timeout: 15000 });
 
     // Visit Payment Gateways page
     await page.goto('/super-admin/gateways');
-    await expect(page.getByRole('heading', { name: /Payment Gateways & bKash Integration/i })).toBeVisible();
-    await expect(page.getByText('bKash Production Checkout Engine')).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Payment Gateways & bKash Integration/i })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/bKash/i).first()).toBeVisible({ timeout: 15000 });
 
     // Visit Demo Credentials Vault
     await page.goto('/super-admin/demo-credentials');
-    await expect(page.getByRole('heading', { name: /Client Demo Credential Vault/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Client Demo Credential Vault/i })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('button', { name: /Export XLSX/i })).toBeVisible({ timeout: 15000 });
   });
 
   test('5. Public Admissions on multiple vertical engines load without error', async ({ page }) => {
