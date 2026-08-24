@@ -29,102 +29,154 @@ body {
    GLOBAL FORM CONTRAST & ACCESSIBILITY ARCHITECTURE
    ==================================================== */
 
-/* 1. Default / Light Form Controls Safeguard */
-input, select, textarea {
-  color: #0f172a; /* slate-900 */
-  background-color: #ffffff;
-  color-scheme: light;
+@layer base {
+  /* 1. Default / Light Form Controls Safeguard */
+  input, select, textarea {
+    background-color: #ffffff;
+    color: #0f172a; /* slate-900 */
+    color-scheme: light;
+  }
+
+  /* 2. Dark-Surfaced Form Controls Safeguard */
+  .dark input, .dark select, .dark textarea,
+  [data-theme='dark'] input, [data-theme='dark'] select, [data-theme='dark'] textarea,
+  .bg-slate-900 input, .bg-slate-900 select, .bg-slate-900 textarea,
+  .bg-slate-950 input, .bg-slate-950 select, .bg-slate-950 textarea,
+  .bg-black input, .bg-black select, .bg-black textarea,
+  input.bg-slate-900, select.bg-slate-900, textarea.bg-slate-900,
+  input.bg-slate-950, select.bg-slate-950, textarea.bg-slate-950,
+  input.bg-black, select.bg-black, textarea.bg-black {
+    background-color: #020617; /* slate-950 */
+    color: #f8fafc; /* slate-50 */
+    color-scheme: dark;
+  }
+
+  /* 3. Explicit Light-Surfaced Form Controls Safeguard */
+  .bg-white input, .bg-white select, .bg-white textarea,
+  .bg-slate-50 input, .bg-slate-50 select, .bg-slate-50 textarea,
+  .bg-slate-100 input, .bg-slate-100 select, .bg-slate-100 textarea,
+  input.bg-white, select.bg-white, textarea.bg-white {
+    background-color: #ffffff;
+    color: #0f172a; /* slate-900 */
+    color-scheme: light;
+  }
+
+  /* 4. Native Select Options High-Contrast Normalization */
+  option {
+    background-color: #ffffff;
+    color: #0f172a;
+  }
+
+  .dark option,
+  [data-theme='dark'] option,
+  .bg-slate-900 option,
+  .bg-slate-950 option,
+  .bg-black option,
+  select.bg-slate-900 option,
+  select.bg-slate-950 option,
+  select.bg-black option {
+    background-color: #0f172a; /* slate-900 */
+    color: #f8fafc; /* slate-50 */
+  }
+
+  /* 5. Placeholder Contrast */
+  input::placeholder, textarea::placeholder {
+    color: #94a3b8; /* slate-400 */
+  }
+
+  .dark input::placeholder, .dark textarea::placeholder,
+  [data-theme='dark'] input::placeholder, [data-theme='dark'] textarea::placeholder,
+  .bg-slate-900 input::placeholder, .bg-slate-900 textarea::placeholder,
+  .bg-slate-950 input::placeholder, .bg-slate-950 textarea::placeholder,
+  input.bg-slate-900::placeholder, textarea.bg-slate-900::placeholder,
+  input.bg-slate-950::placeholder, textarea.bg-slate-950::placeholder {
+    color: #64748b; /* slate-500 */
+  }
+
+  /* 6. Safe WebKit Autofill Overrides */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  textarea:-webkit-autofill,
+  textarea:-webkit-autofill:hover,
+  textarea:-webkit-autofill:focus,
+  select:-webkit-autofill,
+  select:-webkit-autofill:hover,
+  select:-webkit-autofill:focus {
+    -webkit-text-fill-color: currentColor !important;
+    transition: background-color 5000s ease-in-out 0s;
+    caret-color: currentColor;
+  }
+
+  /* 7. Disabled and Readonly States */
+  input:disabled, select:disabled, textarea:disabled {
+    cursor: not-allowed;
+    opacity: 0.75;
+    background-color: #f1f5f9; /* slate-100 */
+    color: #64748b; /* slate-500 */
+    border-color: #cbd5e1; /* slate-300 */
+  }
+
+  .dark input:disabled, .dark select:disabled, .dark textarea:disabled,
+  [data-theme='dark'] input:disabled, [data-theme='dark'] select:disabled, [data-theme='dark'] textarea:disabled,
+  .bg-slate-900 input:disabled, .bg-slate-900 select:disabled, .bg-slate-900 textarea:disabled,
+  .bg-slate-950 input:disabled, .bg-slate-950 select:disabled, .bg-slate-950 textarea:disabled,
+  input.bg-slate-900:disabled, select.bg-slate-900:disabled, textarea.bg-slate-900:disabled,
+  input.bg-slate-950:disabled, select.bg-slate-950:disabled, textarea.bg-slate-950:disabled {
+    background-color: #1e293b !important; /* slate-800 */
+    color: #94a3b8 !important; /* slate-400 */
+    border-color: #334155 !important; /* slate-700 */
+  }
+
+  input:read-only:not(:disabled), textarea:read-only:not(:disabled) {
+    background-color: #f8fafc; /* slate-50 */
+    color: #334155; /* slate-700 */
+  }
+
+  .dark input:read-only:not(:disabled), .dark textarea:read-only:not(:disabled),
+  [data-theme='dark'] input:read-only:not(:disabled), [data-theme='dark'] textarea:read-only:not(:disabled),
+  .bg-slate-900 input:read-only:not(:disabled), .bg-slate-900 textarea:read-only:not(:disabled),
+  .bg-slate-950 input:read-only:not(:disabled), .bg-slate-950 textarea:read-only:not(:disabled) {
+    background-color: #0f172a; /* slate-900 */
+    color: #cbd5e1; /* slate-300 */
+  }
 }
 
-/* 2. Dark-Surfaced Form Controls Safeguard */
-.dark input, .dark select, .dark textarea,
-[data-theme='dark'] input, [data-theme='dark'] select, [data-theme='dark'] textarea,
-.bg-slate-900 input, .bg-slate-900 select, .bg-slate-900 textarea,
-.bg-slate-950 input, .bg-slate-950 select, .bg-slate-950 textarea,
-.bg-black input, .bg-black select, .bg-black textarea,
-input.bg-slate-900, select.bg-slate-900, textarea.bg-slate-900,
-input.bg-slate-950, select.bg-slate-950, textarea.bg-slate-950,
-input.bg-black, select.bg-black, textarea.bg-black {
-  color: #f8fafc; /* slate-50 */
-  color-scheme: dark;
-}
+@layer components {
+  /* Reusable High-Contrast Form Control Tokens */
+  .form-control-dark {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.75rem;
+    border: 1px solid #334155; /* slate-700 */
+    background-color: #020617 !important; /* slate-950 */
+    color: #f8fafc !important; /* slate-50 */
+    font-size: 0.75rem;
+  }
+  .form-control-dark::placeholder {
+    color: #64748b; /* slate-500 */
+  }
+  .form-control-dark:focus {
+    outline: none;
+    border-color: #10b981; /* emerald-500 */
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+  }
 
-/* 3. Native Select Options High-Contrast Normalization */
-option {
-  background-color: #ffffff;
-  color: #0f172a;
-}
-
-.dark option,
-[data-theme='dark'] option,
-.bg-slate-900 option,
-.bg-slate-950 option,
-.bg-black option,
-select.bg-slate-900 option,
-select.bg-slate-950 option,
-select.bg-black option {
-  background-color: #0f172a; /* slate-900 */
-  color: #f8fafc; /* slate-50 */
-}
-
-/* 4. Placeholder Contrast */
-input::placeholder, textarea::placeholder {
-  color: #94a3b8; /* slate-400 */
-}
-
-.dark input::placeholder, .dark textarea::placeholder,
-[data-theme='dark'] input::placeholder, [data-theme='dark'] textarea::placeholder,
-.bg-slate-900 input::placeholder, .bg-slate-900 textarea::placeholder,
-.bg-slate-950 input::placeholder, .bg-slate-950 textarea::placeholder,
-input.bg-slate-900::placeholder, textarea.bg-slate-900::placeholder,
-input.bg-slate-950::placeholder, textarea.bg-slate-950::placeholder {
-  color: #64748b; /* slate-500 */
-}
-
-/* 5. Safe WebKit Autofill Overrides */
-input:-webkit-autofill,
-input:-webkit-autofill:hover,
-input:-webkit-autofill:focus,
-textarea:-webkit-autofill,
-textarea:-webkit-autofill:hover,
-textarea:-webkit-autofill:focus,
-select:-webkit-autofill,
-select:-webkit-autofill:hover,
-select:-webkit-autofill:focus {
-  -webkit-text-fill-color: currentColor !important;
-  transition: background-color 5000s ease-in-out 0s;
-  caret-color: currentColor;
-}
-
-/* 6. Disabled and Readonly States */
-input:disabled, select:disabled, textarea:disabled {
-  cursor: not-allowed;
-  opacity: 0.75;
-  background-color: #f1f5f9; /* slate-100 */
-  color: #64748b; /* slate-500 */
-  border-color: #cbd5e1; /* slate-300 */
-}
-
-.dark input:disabled, .dark select:disabled, .dark textarea:disabled,
-[data-theme='dark'] input:disabled, [data-theme='dark'] select:disabled, [data-theme='dark'] textarea:disabled,
-.bg-slate-900 input:disabled, .bg-slate-900 select:disabled, .bg-slate-900 textarea:disabled,
-.bg-slate-950 input:disabled, .bg-slate-950 select:disabled, .bg-slate-950 textarea:disabled,
-input.bg-slate-900:disabled, select.bg-slate-900:disabled, textarea.bg-slate-900:disabled,
-input.bg-slate-950:disabled, select.bg-slate-950:disabled, textarea.bg-slate-950:disabled {
-  background-color: #1e293b !important; /* slate-800 */
-  color: #94a3b8 !important; /* slate-400 */
-  border-color: #334155 !important; /* slate-700 */
-}
-
-input:read-only:not(:disabled), textarea:read-only:not(:disabled) {
-  background-color: #f8fafc; /* slate-50 */
-  color: #334155; /* slate-700 */
-}
-
-.dark input:read-only:not(:disabled), .dark textarea:read-only:not(:disabled),
-[data-theme='dark'] input:read-only:not(:disabled), [data-theme='dark'] textarea:read-only:not(:disabled),
-.bg-slate-900 input:read-only:not(:disabled), .bg-slate-900 textarea:read-only:not(:disabled),
-.bg-slate-950 input:read-only:not(:disabled), .bg-slate-950 textarea:read-only:not(:disabled) {
-  background-color: #0f172a; /* slate-900 */
-  color: #cbd5e1; /* slate-300 */
+  .form-control-light {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    border: 1px solid #cbd5e1; /* slate-300 */
+    background-color: #ffffff !important;
+    color: #0f172a !important; /* slate-900 */
+    font-size: 0.75rem;
+  }
+  .form-control-light::placeholder {
+    color: #94a3b8; /* slate-400 */
+  }
+  .form-control-light:focus {
+    outline: none;
+    border-color: #6366f1; /* indigo-500 */
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+  }
 }

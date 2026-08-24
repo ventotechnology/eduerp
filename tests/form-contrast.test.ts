@@ -70,4 +70,42 @@ describe('Global Form Contrast & Input Readability Safeguards', () => {
     expect(code).toContain('Admission Policy Settings');
     expect(code).toContain('bg-white text-slate-900 border border-slate-300 rounded-lg font-mono');
   });
+
+  it('verifies globals.css wraps base form rules in @layer base to respect Tailwind utilities', () => {
+    const css = fs.readFileSync(globalsCssPath, 'utf8');
+    expect(css).toContain('@layer base {');
+    expect(css).toContain('@layer components {');
+    expect(css).toContain('.form-control-dark');
+    expect(css).toContain('.form-control-light');
+  });
+
+  it('verifies Facilities Hostel Building modal in facilities/page.tsx has valid contrast classes', () => {
+    const facilitiesPagePath = path.join(process.cwd(), 'app', '[tenant]', 'facilities', 'page.tsx');
+    const code = fs.readFileSync(facilitiesPagePath, 'utf8');
+    expect(code).toContain('Create Hostel Building');
+    expect(code).toContain('placeholder="e.g. SITA-HST-01"');
+    expect(code).toContain('border-slate-700 bg-slate-950 text-white');
+  });
+
+  it('verifies Facilities Library and Inventory modals in facilities/page.tsx have valid contrast classes', () => {
+    const facilitiesPagePath = path.join(process.cwd(), 'app', '[tenant]', 'facilities', 'page.tsx');
+    const code = fs.readFileSync(facilitiesPagePath, 'utf8');
+    expect(code).toContain('Add Book to Library Catalog');
+    expect(code).toContain('Add Inventory SKU Item');
+    expect(code).toContain('Register Fixed Asset');
+  });
+
+  it('verifies HR Onboarding modal in hr/page.tsx has valid contrast classes', () => {
+    const hrPagePath = path.join(process.cwd(), 'app', '[tenant]', 'hr', 'page.tsx');
+    const code = fs.readFileSync(hrPagePath, 'utf8');
+    expect(code).toContain('Onboard New Employee');
+    expect(code).toContain('border-slate-700 bg-slate-950 text-white');
+  });
+
+  it('verifies Finance Journal Voucher modal in finance/page.tsx has valid contrast classes', () => {
+    const financePagePath = path.join(process.cwd(), 'app', '[tenant]', 'finance', 'page.tsx');
+    const code = fs.readFileSync(financePagePath, 'utf8');
+    expect(code).toContain('Post Manual Journal Voucher');
+    expect(code).toContain('border-slate-700 bg-slate-950 text-white');
+  });
 });
