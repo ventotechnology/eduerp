@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "qa:provision": "tsx scripts/provision-qa-users.ts",
+    "qa:rotate-passwords": "tsx scripts/provision-qa-users.ts --rotate"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.9.1",

@@ -19,7 +19,8 @@ describe('Admission Engine & Atomic Student Conversion', () => {
   };
 
   it('submits admission application and enforces strict status transition machine', async () => {
-    const campus = await db.campus.findFirst();
+    const inst = await db.institution.findFirst({ where: { tenant: { slug: "dhaka-ideal-school" } } });
+    const campus = await db.campus.findFirst({ where: { institutionId: inst?.id } });
     const academicYear = await db.academicYear.findFirst();
 
     if (!campus || !academicYear) {
@@ -54,7 +55,8 @@ describe('Admission Engine & Atomic Student Conversion', () => {
   });
 
   it('converts selected applicant to student atomically in a transaction and prevents duplicate conversion', async () => {
-    const campus = await db.campus.findFirst();
+    const inst = await db.institution.findFirst({ where: { tenant: { slug: "dhaka-ideal-school" } } });
+    const campus = await db.campus.findFirst({ where: { institutionId: inst?.id } });
     const academicYear = await db.academicYear.findFirst();
 
     const app = await createAdmissionApplication('dhaka-ideal-school', {

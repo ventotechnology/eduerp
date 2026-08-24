@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_version:
-        description: 'Release Version Tag (e.g. eduerp-pilot-v1)'
+        description: 'Release Version Tag (e.g. eduerp-owner-qa-v1)'
         required: false
         default: 'latest'
 
@@ -27,36 +27,26 @@ jobs:
           port: ${{ secrets.EDUERP_VPS_PORT || 22 }}
           script: |
             set -e
-            echo "Starting EduERP VPS Deployment..."
+            echo "=== Starting EduERP Production Deployment ==="
             
-            DEPLOY_DIR="/var/www/eduerp"
-            TIMESTAMP=$(date +%Y%m%d%H%M%S)
-            RELEASE_DIR="$DEPLOY_DIR/releases/$TIMESTAMP"
+            cd /opt/eduerp
             
-            mkdir -p "$RELEASE_DIR"
-            git clone --depth 1 https://github.com/ventotechnology/eduerp.git "$RELEASE_DIR"
+            # 1. Pull latest release code
+            git fetch origin main --tags
+            git reset --hard origin/main
             
-            cd "$RELEASE_DIR"
-            npm ci --production=false
+            # 2. Rebuild app container
+            docker compose build eduerp-app
+            docker compose up -d eduerp-app
             
-            # Load production environment file
-            if [ -f /etc/eduerp/eduerp.env ]; then
-              export $(grep -v '^#' /etc/eduerp/eduerp.env | xargs)
-            fi
+            # 3. Wait for container health
+            sleep 5
             
-            npx prisma generate
-            npx prisma db push --skip-generate
-            npx tsx scripts/seed-production-qa.ts
-            npm run build
+            # 4. Execute production migrations
+            docker compose exec -T eduerp-app npx prisma migrate deploy
             
-            # Atomic symlink switch
-            ln -sfn "$RELEASE_DIR" "$DEPLOY_DIR/current"
+            # 5. Verify local health check
+            curl -s http://127.0.0.1:3500/api/health
+            curl -s http://127.0.0.1:3500/api/ready
             
-            # Keep only last 3 releases
-            cd "$DEPLOY_DIR/releases"
-            ls -1t | tail -n +4 | xargs -r rm -rf
-            
-            # Restart service
-            sudo systemctl restart eduerp.service || sudo systemctl restart eduerp || true
-            
-            echo "EduERP Deployment Completed Successfully!"
+            echo "=== EduERP Deployment Completed Successfully! ==="

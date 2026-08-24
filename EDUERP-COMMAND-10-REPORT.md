@@ -78,50 +78,50 @@ All 6 production systems on Hostinger VPS `srv1898075` (`187.52.115.164`) operat
 
 | Category | Role | User Email | Seed Name | Default Password |
 | :--- | :--- | :--- | :--- | :--- |
-| Platform | `PLATFORM_SUPER_ADMIN` | `platform-super-admin@eduerp.us` | Executive Super Admin | `EduERP-Platform@2026!Pilot#10` |
-| Platform | `PLATFORM_SUPER_ADMIN` | `superadmin@eduerp.us` | System Super Admin | `EduERP-Platform@2026!Pilot#10` |
-| Platform | `PLATFORM_ADMIN` | `platform-admin@eduerp.us` | Platform Operations Admin | `EduERP-Platform@2026!Pilot#10` |
-| Platform | `SUPPORT_ADMIN` | `support-admin@eduerp.us` | Global Technical Support | `EduERP-Platform@2026!Pilot#10` |
-| Platform | `BILLING_ADMIN` | `billing-admin@eduerp.us` | SaaS Billing Admin | `EduERP-Platform@2026!Pilot#10` |
-| Platform | `SALES_ADMIN` | `sales-admin@eduerp.us` | Onboarding Sales Admin | `EduERP-Platform@2026!Pilot#10` |
-| Platform | `SUPER_ADMIN` | `super-admin@eduerp.us` | Legacy Platform Admin Alias | `EduERP-Platform@2026!Pilot#10` |
-| School | `PRINCIPAL` | `principal.demo-school@eduerp.us` | Dr. Rafiqul Islam (Principal) | `EduERP-QA@2026!Pilot#10` |
-| School | `VICE_PRINCIPAL` | `vice-principal.demo-school@eduerp.us` | Nasreen Sultana (Vice Principal) | `EduERP-QA@2026!Pilot#10` |
-| School | `OWNER` | `owner.demo-school@eduerp.us` | Haji Mohammad Yunus (Founder) | `EduERP-QA@2026!Pilot#10` |
-| School | `CHAIRMAN` | `chairman.demo-school@eduerp.us` | Alhaj Kabir Ahmed (GB Chairman) | `EduERP-QA@2026!Pilot#10` |
-| School | `COORDINATOR` | `coordinator.demo-school@eduerp.us` | Shahidul Alam (Academic Coord) | `EduERP-QA@2026!Pilot#10` |
-| School | `TEACHER` | `teacher.demo-school@eduerp.us` | Mahbubur Rahman (Senior Teacher) | `EduERP-QA@2026!Pilot#10` |
-| School | `ACCOUNTANT` | `accountant.demo-school@eduerp.us` | Mizanur Rahman (Chief Accountant) | `EduERP-QA@2026!Pilot#10` |
-| School | `HR_MANAGER` | `hr-manager.demo-school@eduerp.us` | Fatema Tuz Zohra (HR Officer) | `EduERP-QA@2026!Pilot#10` |
-| School | `LIBRARIAN` | `librarian.demo-school@eduerp.us` | Mohsin Ali (Head Librarian) | `EduERP-QA@2026!Pilot#10` |
-| School | `HOSTEL_MANAGER` | `hostel-manager.demo-school@eduerp.us` | Anwar Hossain (Hostel Warden) | `EduERP-QA@2026!Pilot#10` |
-| School | `TRANSPORT_MANAGER` | `transport-manager.demo-school@eduerp.us` | Jalal Uddin (Transport Lead) | `EduERP-QA@2026!Pilot#10` |
-| School | `ADMISSION_OFFICER` | `admission-officer.demo-school@eduerp.us` | Kazi Farzana (Admission Officer) | `EduERP-QA@2026!Pilot#10` |
-| School | `STUDENT` | `student.demo-school@eduerp.us` | Sadia Sultana (Student) | `EduERP-QA@2026!Pilot#10` |
-| School | `PARENT` | `guardian.demo-school@eduerp.us` | Abdul Gafur (Parent/Guardian) | `EduERP-QA@2026!Pilot#10` |
-| College | `PRINCIPAL` | `principal.demo-college@eduerp.us` | Prof. AKM Shamsuddin | `EduERP-QA@2026!Pilot#10` |
-| College | `TEACHER` | `teacher.demo-college@eduerp.us` | Dr. Laila Arjumand | `EduERP-QA@2026!Pilot#10` |
-| College | `STUDENT` | `student.demo-college@eduerp.us` | Tanvir Hasan (HSC Student) | `EduERP-QA@2026!Pilot#10` |
-| University | `VICE_CHANCELLOR` | `vice-chancellor.demo-university@eduerp.us` | Prof. Dr. Munaz Ahmed Noor | `EduERP-QA@2026!Pilot#10` |
-| University | `PRO_VICE_CHANCELLOR` | `pro-vc.demo-university@eduerp.us` | Prof. Dr. Mahfuzur Rahman | `EduERP-QA@2026!Pilot#10` |
-| University | `TRUSTEE` | `trustee.demo-university@eduerp.us` | Engr. Rezaul Karim (Trustee) | `EduERP-QA@2026!Pilot#10` |
-| University | `REGISTRAR` | `registrar.demo-university@eduerp.us` | Dr. Ashrafuzzaman (Registrar) | `EduERP-QA@2026!Pilot#10` |
-| University | `DEAN` | `dean.demo-university@eduerp.us` | Prof. Dr. Shamim Kaiser | `EduERP-QA@2026!Pilot#10` |
-| University | `HEAD_OF_DEPARTMENT`| `hod.demo-university@eduerp.us` | Dr. Tariqul Islam (CSE Lead) | `EduERP-QA@2026!Pilot#10` |
-| University | `FACULTY` | `faculty.demo-university@eduerp.us` | Dr. Farzana Yasmin | `EduERP-QA@2026!Pilot#10` |
-| University | `STUDENT` | `student.demo-university@eduerp.us` | Nayeem Abdullah (Undergrad) | `EduERP-QA@2026!Pilot#10` |
-| Madrasha | `PRINCIPAL` | `principal.demo-madrasha@eduerp.us` | Mawlana Abdul Haque | `EduERP-QA@2026!Pilot#10` |
-| Madrasha | `TEACHER` | `teacher.demo-madrasha@eduerp.us` | Qari Ibrahim Khalil | `EduERP-QA@2026!Pilot#10` |
-| Madrasha | `STUDENT` | `student.demo-madrasha@eduerp.us` | Mahmud Hasan (Hifz Student) | `EduERP-QA@2026!Pilot#10` |
-| Polytechnic | `PRINCIPAL` | `principal.demo-polytechnic@eduerp.us` | Engr. Nurul Huda | `EduERP-QA@2026!Pilot#10` |
-| Polytechnic | `TEACHER` | `teacher.demo-polytechnic@eduerp.us` | Engr. Sabrina Islam | `EduERP-QA@2026!Pilot#10` |
-| Polytechnic | `STUDENT` | `student.demo-polytechnic@eduerp.us` | Sabbir Hossain (Diploma) | `EduERP-QA@2026!Pilot#10` |
-| Vocational | `PRINCIPAL` | `principal.demo-vocational@eduerp.us` | Engr. Mostafa Kamal | `EduERP-QA@2026!Pilot#10` |
-| Vocational | `TEACHER` | `teacher.demo-vocational@eduerp.us` | Md. Rashedul Islam | `EduERP-QA@2026!Pilot#10` |
-| Vocational | `STUDENT` | `student.demo-vocational@eduerp.us` | Al Amin (Trade Trainee) | `EduERP-QA@2026!Pilot#10` |
-| Training | `PRINCIPAL` | `principal.demo-training@eduerp.us` | Brig. Gen. (Retd.) M. A. Latif | `EduERP-QA@2026!Pilot#10` |
-| Training | `TEACHER` | `teacher.demo-training@eduerp.us` | Shakil Ahmed (Lead Trainer) | `EduERP-QA@2026!Pilot#10` |
-| Training | `STUDENT` | `student.demo-training@eduerp.us` | Nusrat Jahan (Exec Trainee) | `EduERP-QA@2026!Pilot#10` |
+| Platform | `PLATFORM_SUPER_ADMIN` | `platform-super-admin@eduerp.us` | Executive Super Admin | [ROTATED IN COMMAND 10.1] |
+| Platform | `PLATFORM_SUPER_ADMIN` | `superadmin@eduerp.us` | System Super Admin | [ROTATED IN COMMAND 10.1] |
+| Platform | `PLATFORM_ADMIN` | `platform-admin@eduerp.us` | Platform Operations Admin | [ROTATED IN COMMAND 10.1] |
+| Platform | `SUPPORT_ADMIN` | `support-admin@eduerp.us` | Global Technical Support | [ROTATED IN COMMAND 10.1] |
+| Platform | `BILLING_ADMIN` | `billing-admin@eduerp.us` | SaaS Billing Admin | [ROTATED IN COMMAND 10.1] |
+| Platform | `SALES_ADMIN` | `sales-admin@eduerp.us` | Onboarding Sales Admin | [ROTATED IN COMMAND 10.1] |
+| Platform | `SUPER_ADMIN` | `super-admin@eduerp.us` | Legacy Platform Admin Alias | [ROTATED IN COMMAND 10.1] |
+| School | `PRINCIPAL` | `principal.demo-school@eduerp.us` | Dr. Rafiqul Islam (Principal) | [ROTATED IN COMMAND 10.1] |
+| School | `VICE_PRINCIPAL` | `vice-principal.demo-school@eduerp.us` | Nasreen Sultana (Vice Principal) | [ROTATED IN COMMAND 10.1] |
+| School | `OWNER` | `owner.demo-school@eduerp.us` | Haji Mohammad Yunus (Founder) | [ROTATED IN COMMAND 10.1] |
+| School | `CHAIRMAN` | `chairman.demo-school@eduerp.us` | Alhaj Kabir Ahmed (GB Chairman) | [ROTATED IN COMMAND 10.1] |
+| School | `COORDINATOR` | `coordinator.demo-school@eduerp.us` | Shahidul Alam (Academic Coord) | [ROTATED IN COMMAND 10.1] |
+| School | `TEACHER` | `teacher.demo-school@eduerp.us` | Mahbubur Rahman (Senior Teacher) | [ROTATED IN COMMAND 10.1] |
+| School | `ACCOUNTANT` | `accountant.demo-school@eduerp.us` | Mizanur Rahman (Chief Accountant) | [ROTATED IN COMMAND 10.1] |
+| School | `HR_MANAGER` | `hr-manager.demo-school@eduerp.us` | Fatema Tuz Zohra (HR Officer) | [ROTATED IN COMMAND 10.1] |
+| School | `LIBRARIAN` | `librarian.demo-school@eduerp.us` | Mohsin Ali (Head Librarian) | [ROTATED IN COMMAND 10.1] |
+| School | `HOSTEL_MANAGER` | `hostel-manager.demo-school@eduerp.us` | Anwar Hossain (Hostel Warden) | [ROTATED IN COMMAND 10.1] |
+| School | `TRANSPORT_MANAGER` | `transport-manager.demo-school@eduerp.us` | Jalal Uddin (Transport Lead) | [ROTATED IN COMMAND 10.1] |
+| School | `ADMISSION_OFFICER` | `admission-officer.demo-school@eduerp.us` | Kazi Farzana (Admission Officer) | [ROTATED IN COMMAND 10.1] |
+| School | `STUDENT` | `student.demo-school@eduerp.us` | Sadia Sultana (Student) | [ROTATED IN COMMAND 10.1] |
+| School | `PARENT` | `guardian.demo-school@eduerp.us` | Abdul Gafur (Parent/Guardian) | [ROTATED IN COMMAND 10.1] |
+| College | `PRINCIPAL` | `principal.demo-college@eduerp.us` | Prof. AKM Shamsuddin | [ROTATED IN COMMAND 10.1] |
+| College | `TEACHER` | `teacher.demo-college@eduerp.us` | Dr. Laila Arjumand | [ROTATED IN COMMAND 10.1] |
+| College | `STUDENT` | `student.demo-college@eduerp.us` | Tanvir Hasan (HSC Student) | [ROTATED IN COMMAND 10.1] |
+| University | `VICE_CHANCELLOR` | `vice-chancellor.demo-university@eduerp.us` | Prof. Dr. Munaz Ahmed Noor | [ROTATED IN COMMAND 10.1] |
+| University | `PRO_VICE_CHANCELLOR` | `pro-vc.demo-university@eduerp.us` | Prof. Dr. Mahfuzur Rahman | [ROTATED IN COMMAND 10.1] |
+| University | `TRUSTEE` | `trustee.demo-university@eduerp.us` | Engr. Rezaul Karim (Trustee) | [ROTATED IN COMMAND 10.1] |
+| University | `REGISTRAR` | `registrar.demo-university@eduerp.us` | Dr. Ashrafuzzaman (Registrar) | [ROTATED IN COMMAND 10.1] |
+| University | `DEAN` | `dean.demo-university@eduerp.us` | Prof. Dr. Shamim Kaiser | [ROTATED IN COMMAND 10.1] |
+| University | `HEAD_OF_DEPARTMENT`| `hod.demo-university@eduerp.us` | Dr. Tariqul Islam (CSE Lead) | [ROTATED IN COMMAND 10.1] |
+| University | `FACULTY` | `faculty.demo-university@eduerp.us` | Dr. Farzana Yasmin | [ROTATED IN COMMAND 10.1] |
+| University | `STUDENT` | `student.demo-university@eduerp.us` | Nayeem Abdullah (Undergrad) | [ROTATED IN COMMAND 10.1] |
+| Madrasha | `PRINCIPAL` | `principal.demo-madrasha@eduerp.us` | Mawlana Abdul Haque | [ROTATED IN COMMAND 10.1] |
+| Madrasha | `TEACHER` | `teacher.demo-madrasha@eduerp.us` | Qari Ibrahim Khalil | [ROTATED IN COMMAND 10.1] |
+| Madrasha | `STUDENT` | `student.demo-madrasha@eduerp.us` | Mahmud Hasan (Hifz Student) | [ROTATED IN COMMAND 10.1] |
+| Polytechnic | `PRINCIPAL` | `principal.demo-polytechnic@eduerp.us` | Engr. Nurul Huda | [ROTATED IN COMMAND 10.1] |
+| Polytechnic | `TEACHER` | `teacher.demo-polytechnic@eduerp.us` | Engr. Sabrina Islam | [ROTATED IN COMMAND 10.1] |
+| Polytechnic | `STUDENT` | `student.demo-polytechnic@eduerp.us` | Sabbir Hossain (Diploma) | [ROTATED IN COMMAND 10.1] |
+| Vocational | `PRINCIPAL` | `principal.demo-vocational@eduerp.us` | Engr. Mostafa Kamal | [ROTATED IN COMMAND 10.1] |
+| Vocational | `TEACHER` | `teacher.demo-vocational@eduerp.us` | Md. Rashedul Islam | [ROTATED IN COMMAND 10.1] |
+| Vocational | `STUDENT` | `student.demo-vocational@eduerp.us` | Al Amin (Trade Trainee) | [ROTATED IN COMMAND 10.1] |
+| Training | `PRINCIPAL` | `principal.demo-training@eduerp.us` | Brig. Gen. (Retd.) M. A. Latif | [ROTATED IN COMMAND 10.1] |
+| Training | `TEACHER` | `teacher.demo-training@eduerp.us` | Shakil Ahmed (Lead Trainer) | [ROTATED IN COMMAND 10.1] |
+| Training | `STUDENT` | `student.demo-training@eduerp.us` | Nusrat Jahan (Exec Trainee) | [ROTATED IN COMMAND 10.1] |
 
 > [!NOTE]
 > The full private unredacted credentials catalog has been exported to `EDUERP-ONLINE-TEST-CREDENTIALS.txt` and `EDUERP-ONLINE-TEST-CREDENTIALS.csv` in the project root (strictly git-ignored).
