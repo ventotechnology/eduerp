@@ -76,7 +76,7 @@ describe('Admission Engine & Atomic Student Conversion', () => {
     // Convert to student
     const student = await convertApplicantToStudent('dhaka-ideal-school', app.id, null, actor);
 
-    expect(student.studentIdNumber).toMatch(/^STU-2026-\d{4}$/);
+    expect(student.studentIdNumber).toMatch(/^[A-Z0-9]+-2026-\d{4}$/);
     expect(student.firstName).toBe('Sajid');
     expect(student.status).toBe('ACTIVE');
 

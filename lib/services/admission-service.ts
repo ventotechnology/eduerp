@@ -724,12 +724,13 @@ export async function convertApplicantToStudent(
         }
       });
 
-      return Object.assign(student, {
-        student,
+      return {
+        ...student,
+        student: { ...student },
         enrollment,
         guardian,
         invoice: createdInvoice
-      });
+      };
     },
     { timeout: 25000, maxWait: 10000 }
   );

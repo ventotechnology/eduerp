@@ -407,11 +407,12 @@ export async function createTenantStudent(tenantIdentifier: string, rawData: any
         }
       });
 
-      return Object.assign(student, {
-        student,
+      return {
+        ...student,
+        student: { ...student },
         enrollment,
         invoice: createdInvoice
-      });
+      };
     },
     { timeout: 25000, maxWait: 10000 }
   );

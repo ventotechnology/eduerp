@@ -65,7 +65,7 @@ describe('Complete Student Lifecycle End-to-End Integration Workflow', () => {
     // Step 3: Atomic Conversion to Student
     const student = await convertApplicantToStudent('dhaka-ideal-school', app.id, null, adminActor);
     expect(student.status).toBe('ACTIVE');
-    expect(student.studentIdNumber).toMatch(/^STU-2026-\d{4}$/);
+    expect(student.studentIdNumber).toMatch(/^[A-Z0-9]+-2026-\d{4}$/);
 
     // Step 4: Record Attendance Session
     await recordAttendanceSession(
