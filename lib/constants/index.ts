@@ -332,6 +332,49 @@ export const PRESET_DEMO_TENANTS = [
     headName: 'Prof. Dr. Anwar Hossain Choudhury',
     address: 'Bashundhara R/A, Dhaka-1229',
     description: 'Modern higher-ed campus with 4 Faculties, Semester Credit Hours, Add/Drop, Thesis Defense & Research grants.'
+  },
+  // Real Customer Madrasha & Pilot Presets
+  {
+    slug: 'scholars-international-tahfiz-academy',
+    name: 'Scholars International Tahfiz Academy',
+    shortName: 'SITA',
+    type: 'MADRASHA' as InstitutionType,
+    primaryColor: '#059669', // Emerald Green
+    secondaryColor: '#0f172a',
+    eiin: '139820',
+    board: 'Bangladesh Madrasah Education Board (BMEB)',
+    headTitle: 'Principal / Muhtamim',
+    headName: 'Mohammad Saifullah',
+    address: 'House 05, Road 09, Sector 04, Uttara, Dhaka-1230',
+    description: 'Premier International Tahfiz and General Islamic Academy with Hifzul Quran tracking.'
+  },
+  {
+    slug: 'sita',
+    name: 'Scholars International Tahfiz Academy',
+    shortName: 'SITA',
+    type: 'MADRASHA' as InstitutionType,
+    primaryColor: '#059669',
+    secondaryColor: '#0f172a',
+    eiin: '139820',
+    board: 'Bangladesh Madrasah Education Board (BMEB)',
+    headTitle: 'Principal / Muhtamim',
+    headName: 'Mohammad Saifullah',
+    address: 'House 05, Road 09, Sector 04, Uttara, Dhaka-1230',
+    description: 'Premier International Tahfiz and General Islamic Academy with Hifzul Quran tracking.'
+  },
+  {
+    slug: 'pilot-academy-qa',
+    name: 'Pilot Commercial Academy QA',
+    shortName: 'PCAQA',
+    type: 'SCHOOL' as InstitutionType,
+    primaryColor: '#2563eb',
+    secondaryColor: '#1e293b',
+    eiin: '199801',
+    board: 'Dhaka Education Board',
+    headTitle: 'Principal',
+    headName: 'Dr. QA Director',
+    address: 'Gulshan 1, Dhaka-1212',
+    description: 'Automated commercial onboarding and pilot validation campus.'
   }
 ];
 

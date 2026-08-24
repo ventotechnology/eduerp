@@ -90,13 +90,13 @@ test.describe('Command 12A — SITA Real Madrasha Customer & Platform Owner Live
     await page.goto(`${BASE_URL}/demo-school/dashboard`);
     await page.waitForLoadState('networkidle');
     const schoolDenialText = await page.textContent('body');
-    expect(schoolDenialText).toMatch(/Access Restricted|Access Denied|Security Policy|Redirecting/i);
+    expect(schoolDenialText).toMatch(/signed into another institution|Access Restricted|Access Denied|Security Policy|Redirecting/i);
 
     // Attempt accessing demo-madrasha
     await page.goto(`${BASE_URL}/demo-madrasha/dashboard`);
     await page.waitForLoadState('networkidle');
     const madrashaDenialText = await page.textContent('body');
-    expect(madrashaDenialText).toMatch(/Access Restricted|Access Denied|Security Policy|Redirecting/i);
+    expect(madrashaDenialText).toMatch(/signed into another institution|Access Restricted|Access Denied|Security Policy|Redirecting/i);
   });
 
   test('6. Public Online Admission portal resolves for SITA', async ({ page }) => {
