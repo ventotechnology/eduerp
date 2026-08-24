@@ -72,6 +72,11 @@ export default function InstitutionsPage() {
     campusCode: 'MAIN',
     campusAddress: '',
     academicYearName: '2026',
+    academicYearStartDate: '2026-01-01',
+    academicYearEndDate: '2026-12-31',
+    setupAcademicStructure: false,
+    createTeacherProfile: false,
+    ownerRole: 'PRINCIPAL',
     planId: '',
     billingCycle: 'MONTHLY',
     trialDays: 14,
@@ -613,7 +618,7 @@ export default function InstitutionsPage() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-3 gap-3">
                         <div>
                           <label className="block text-xs font-bold text-slate-300 mb-1.5">Billing Terms</label>
                           <select
@@ -635,6 +640,36 @@ export default function InstitutionsPage() {
                             className="w-full p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-emerald-500"
                           />
                         </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-300 mb-1.5">Start / End Date</label>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <input
+                              type="date"
+                              value={form.academicYearStartDate}
+                              onChange={(e) => setForm({ ...form, academicYearStartDate: e.target.value })}
+                              className="w-full p-2 rounded-xl bg-slate-950 border border-slate-800 text-[11px] text-white focus:outline-none focus:border-emerald-500"
+                            />
+                            <input
+                              type="date"
+                              value={form.academicYearEndDate}
+                              onChange={(e) => setForm({ ...form, academicYearEndDate: e.target.value })}
+                              className="w-full p-2 rounded-xl bg-slate-950 border border-slate-800 text-[11px] text-white focus:outline-none focus:border-emerald-500"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                        <div>
+                          <span className="text-xs font-bold text-white block">Initial Academic Structure Setup</span>
+                          <span className="text-[11px] text-slate-400">Automatically provision initial Shifts and Class 6 / Section A</span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={form.setupAcademicStructure}
+                          onChange={(e) => setForm({ ...form, setupAcademicStructure: e.target.checked })}
+                          className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500 bg-slate-900 border-slate-700"
+                        />
                       </div>
 
                       <div className="flex justify-between pt-2">
@@ -660,16 +695,33 @@ export default function InstitutionsPage() {
                   {/* Step 4: Owner Admin Identity & Review */}
                   {wizardStep === 4 && (
                     <div className="space-y-4">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-300 mb-1.5">Owner / Principal Full Name</label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="e.g. Prof. Mohammad Shahidullah"
-                          value={form.ownerName}
-                          onChange={(e) => setForm({ ...form, ownerName: e.target.value })}
-                          className="w-full p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-emerald-500"
-                        />
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-300 mb-1.5">Owner / Administrator Full Name</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. Prof. Mohammad Shahidullah"
+                            value={form.ownerName}
+                            onChange={(e) => setForm({ ...form, ownerName: e.target.value })}
+                            className="w-full p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-300 mb-1.5">Administrative Role</label>
+                          <select
+                            value={form.ownerRole}
+                            onChange={(e) => setForm({ ...form, ownerRole: e.target.value })}
+                            className="w-full p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-emerald-500"
+                          >
+                            <option value="PRINCIPAL">Principal / Head of Institute</option>
+                            <option value="VICE_CHANCELLOR">Vice Chancellor (University)</option>
+                            <option value="ADMIN">System Administrator</option>
+                            <option value="OWNER">Founder / Owner</option>
+                            <option value="CHAIRMAN">Governing Body Chairman</option>
+                            <option value="REGISTRAR">Registrar</option>
+                          </select>
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-3">
@@ -696,6 +748,19 @@ export default function InstitutionsPage() {
                         </div>
                       </div>
 
+                      <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                        <div>
+                          <span className="text-xs font-bold text-white block">Create Staff / Teacher Profile for Owner</span>
+                          <span className="text-[11px] text-slate-400">Allows owner to directly manage classes and marks</span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={form.createTeacherProfile}
+                          onChange={(e) => setForm({ ...form, createTeacherProfile: e.target.checked })}
+                          className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500 bg-slate-900 border-slate-700"
+                        />
+                      </div>
+
                       <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 space-y-1">
                         <span className="font-bold text-white block mb-1">Provisioning Summary</span>
                         <div className="flex justify-between text-slate-400">
@@ -705,6 +770,10 @@ export default function InstitutionsPage() {
                         <div className="flex justify-between text-slate-400">
                           <span>Type:</span>
                           <span className="text-white">{form.type}</span>
+                        </div>
+                        <div className="flex justify-between text-slate-400">
+                          <span>Role:</span>
+                          <span className="text-white">{form.ownerRole}</span>
                         </div>
                       </div>
 

@@ -4,18 +4,17 @@ import { db } from '@/lib/db';
 import { BkashPaymentProvider } from '@/lib/payments/providers/bkash-provider';
 import { hashPassword, generateSecurePassword } from '@/lib/auth/password';
 import { logAuditEvent } from '@/lib/audit/audit-logger';
-import { QA_ACCOUNT_DEFINITIONS } from '@/scripts/provision-qa-users';
+import { QA_ACCOUNT_DEFINITIONS } from '@/lib/demo/demo-account-definitions';
 import { SaasPlanService } from '@/lib/services/saas-plan.service';
+import { requirePlatformPermission } from '@/lib/rbac/platform-guard';
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(request);
-    if (!session?.isPlatformAdmin) {
-      return NextResponse.json({ error: 'Unauthorized: Super Admin access required' }, { status: 403 });
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized: Session required' }, { status: 401 });
     }
-
-    const { searchParams } = new URL(request.url);
-    const tab = searchParams.get('tab');
+    requirePlatformPermission(session, 'PLATFORM_VIEW_DASHBOARD');
 
     // 1. Calculate Real Commercial vs Demo Metrics
     const [
@@ -59,31 +58,34 @@ export async function GET(request: NextRequest) {
       db.subscriptionOrder.findMany({
         take: 50,
         orderBy: { createdAt: 'desc' },
-        include: { plan: true, signup: true, tenant: true }
+        include: {
+          plan: true,
+          tenant: true
+        }
       }),
-      db.subscriptionInvoice.findMany({
+      db.invoice.findMany({
         take: 50,
         orderBy: { createdAt: 'desc' },
-        include: { plan: true, tenant: true }
-      }),
-      db.subscriptionPlan.findMany({
         include: {
-          features: true,
-          _count: { select: { subscriptions: true, orders: true } }
-        },
-        orderBy: { displayOrder: 'asc' }
+          student: true
+        }
       }),
-      db.paymentGatewayConfig.findMany({
-        orderBy: { displayOrder: 'asc' }
-      }),
+      SaasPlanService.getAllPlansAdmin(),
+      db.paymentGatewayConfig.findMany(),
       db.platformBillingSettings.findFirst(),
       db.user.findMany({
         where: {
-          role: {
-            in: ['PLATFORM_SUPER_ADMIN', 'PLATFORM_ADMIN', 'SUPPORT_ADMIN', 'BILLING_ADMIN', 'SALES_ADMIN']
-          }
+          role: { in: ['PLATFORM_SUPER_ADMIN', 'SUPER_ADMIN', 'PLATFORM_ADMIN', 'SUPPORT_ADMIN', 'BILLING_ADMIN', 'SALES_ADMIN'] as any }
         },
-        orderBy: { createdAt: 'desc' }
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          status: true,
+          createdAt: true,
+          lastLoginAt: true
+        }
       }),
       db.auditLog.findMany({
         take: 50,
@@ -91,97 +93,97 @@ export async function GET(request: NextRequest) {
       })
     ]);
 
-    // Commercial calculations (excluding pure demo tenants from MRR)
-    let commercialMrr = 0;
-    let commercialArr = 0;
-    let payingTenantsCount = 0;
-    let trialTenantsCount = 0;
-    let demoTenantsCount = 0;
+    // Commercial MRR Calculation (BDT)
+    const paidSubscriptions = (activeSubscriptions as any[]).filter((s: any) => !s.tenant.isDemoTenant && s.status === 'ACTIVE');
+    const mrrBdt = paidSubscriptions.reduce((acc: number, sub: any) => {
+      const price = sub.plan.monthlyPrice || 0;
+      if (sub.billingCycle === 'ANNUAL') return acc + (price / 12);
+      return acc + price;
+    }, 0);
 
-    for (const tenant of allTenants) {
-      if (tenant.isDemoTenant) {
-        demoTenantsCount++;
-      } else {
-        const activeSub = tenant.subscriptions[0];
-        if (activeSub) {
-          if (activeSub.status === 'TRIAL' || activeSub.billingCycle === 'TRIAL') {
-            trialTenantsCount++;
-          } else {
-            payingTenantsCount++;
-            if (activeSub.billingCycle === 'ANNUAL') {
-              commercialArr += activeSub.plan.annualPrice;
-              commercialMrr += activeSub.plan.annualPrice / 12;
-            } else {
-              commercialMrr += activeSub.plan.monthlyPrice;
-              commercialArr += activeSub.plan.monthlyPrice * 12;
-            }
-          }
-        }
-      }
-    }
+    const arrBdt = mrrBdt * 12;
 
-    const totalCollected = recentInvoices
-      .filter(i => i.status === 'PAID')
-      .reduce((sum, i) => sum + i.totalAmount, 0);
+    // Institution breakdown
+    const commercialTenants = (allTenants as any[]).filter((t: any) => !t.isDemoTenant);
+    const demoTenants = (allTenants as any[]).filter((t: any) => t.isDemoTenant && t.isActive);
+    const trialTenants = (allTenants as any[]).filter((t: any) => t.subscriptions[0]?.status === 'TRIALING');
 
-    // Test bKash gateway connection health deterministically
-    const bkashHealth = await BkashPaymentProvider.testConnection();
-
-    // Map Demo Accounts from database
-    const allUsers = await db.user.findMany({
-      where: {
-        tenantId: { not: null }
-      },
-      include: {
-        tenant: true
-      },
-      take: 100
-    });
+    // Live Gateway Diagnostic Check
+    const bkashCreds = BkashPaymentProvider.getCredentials();
+    const bkashHealth = bkashCreds ? (bkashCreds.isSandbox ? 'SANDBOX_READY' : 'PRODUCTION_CONFIGURED') : 'UNCONFIGURED';
 
     return NextResponse.json({
       success: true,
       metrics: {
-        mrr: Math.round(commercialMrr),
-        arr: Math.round(commercialArr),
-        payingTenantsCount,
-        trialTenantsCount,
-        demoTenantsCount,
         totalTenants: allTenants.length,
-        activeSubscribers: activeSubscriptions.length,
-        totalSubscriptions: allSubscriptions,
-        totalCollected,
-        pendingOrdersCount: recentOrders.filter(o => o.status === 'PENDING' || o.status === 'PROCESSING').length
+        commercialTenants: commercialTenants.length,
+        demoTenants: demoTenants.length,
+        trialTenants: trialTenants.length,
+        activeSubscriptionsCount: activeSubscriptions.length,
+        totalSubscriptionsCount: allSubscriptions,
+        mrrBdt: Math.round(mrrBdt),
+        arrBdt: Math.round(arrBdt),
+        totalOrdersCount: recentOrders.length
       },
-      tenants: allTenants.map(t => ({
+      tenants: (allTenants as any[]).map((t: any) => ({
         id: t.id,
-        slug: t.slug,
         name: t.institution?.name || t.slug,
-        shortName: t.institution?.shortName || t.slug,
+        slug: t.slug,
         type: t.institutionType,
-        customDomain: t.customDomain,
-        isActive: t.isActive,
+        subscriptionTier: t.subscriptionTier,
+        currentPlan: t.subscriptions[0]?.plan?.name || t.subscriptionTier,
+        subscriptionStatus: t.subscriptions[0]?.status || 'NONE',
+        billingCycle: t.subscriptions[0]?.billingCycle || 'NONE',
+        currentPeriodEnd: t.subscriptions[0]?.currentPeriodEnd || null,
         isDemoTenant: t.isDemoTenant,
+        isActive: t.isActive,
+        customDomain: t.customDomain,
         userCount: t._count.users,
         campusCount: t.institution?.campuses?.length || 0,
-        activePlan: t.subscriptions[0]?.plan?.name || t.subscriptionTier,
-        subscriptionStatus: t.subscriptions[0]?.status || 'ACTIVE',
-        billingCycle: t.subscriptions[0]?.billingCycle || 'MONTHLY',
         createdAt: t.createdAt
       })),
-      plans,
-      recentOrders,
-      recentInvoices,
-      gateways,
-      billingSettings,
-      platformUsers: platformUsers.map(u => ({
-        id: u.id,
-        name: u.name,
-        email: u.email,
-        role: u.role,
-        status: u.status,
-        createdAt: u.createdAt,
-        lastLoginAt: (u as any).lastLoginAt || null
+      subscriptions: (activeSubscriptions as any[]).map((s: any) => ({
+        id: s.id,
+        tenantId: s.tenantId,
+        tenantSlug: s.tenant.slug,
+        planName: s.plan.name,
+        planCode: s.plan.code,
+        tier: s.plan.tier,
+        status: s.status,
+        billingCycle: s.billingCycle,
+        currentPeriodStart: s.currentPeriodStart,
+        currentPeriodEnd: s.currentPeriodEnd,
+        autoRenew: s.autoRenew,
+        maxStudents: s.plan.maxStudents,
+        maxCampuses: s.plan.maxCampuses
       })),
+      orders: (recentOrders as any[]).map((o: any) => ({
+        id: o.id,
+        orderNumber: o.orderNumber,
+        tenantName: o.tenant.slug,
+        planName: o.plan.name,
+        amount: o.amount,
+        currency: o.currency,
+        billingCycle: o.billingCycle,
+        paymentMethod: o.paymentMethod,
+        paymentStatus: o.paymentStatus,
+        createdAt: o.createdAt
+      })),
+      plans,
+      gateways: (gateways as any[]).map((g: any) => ({
+        id: g.id,
+        gateway: g.gateway,
+        isActive: g.isActive,
+        isSandbox: g.isSandbox,
+        transactionFeePercent: g.transactionFeePercent,
+        transactionFeeFlat: g.transactionFeeFlat,
+        currency: g.currency,
+        minAmount: g.minAmount,
+        maxAmount: g.maxAmount,
+        payerInstructions: g.payerInstructions
+      })),
+      billingSettings,
+      platformUsers,
       demoAccounts: QA_ACCOUNT_DEFINITIONS.map(qa => ({
         institution: qa.institutionName,
         tenantSlug: qa.tenantSlug,
@@ -203,20 +205,20 @@ export async function GET(request: NextRequest) {
         serverTime: new Date().toISOString(),
         nodeVersion: process.version,
         environment: process.env.NODE_ENV || 'production',
-        uptimeSeconds: Math.round(process.uptime()),
-        memoryUsageMb: Math.round(process.memoryUsage().rss / 1024 / 1024)
+        uptimeSeconds: Math.round(process.uptime())
       }
     });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    const status = error.statusCode || 500;
+    return NextResponse.json({ success: false, error: error.message }, { status });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(request);
-    if (!session?.isPlatformAdmin) {
-      return NextResponse.json({ error: 'Unauthorized: Super Admin access required' }, { status: 403 });
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized: Session required' }, { status: 401 });
     }
 
     const body = await request.json();
@@ -224,8 +226,10 @@ export async function POST(request: NextRequest) {
 
     // 1. Manual Atomic Institution Onboarding
     if (action === 'CREATE_INSTITUTION_FULL') {
+      requirePlatformPermission(session, 'TENANT_CREATE');
+
       const {
-        type,
+        type = 'SCHOOL',
         name,
         shortName,
         eiin,
@@ -246,6 +250,11 @@ export async function POST(request: NextRequest) {
         campusCode = 'MAIN',
         campusAddress,
         academicYearName = '2026',
+        academicYearStartDate,
+        academicYearEndDate,
+        setupAcademicStructure = false,
+        createTeacherProfile = false,
+        ownerRole,
         planId,
         billingCycle = 'MONTHLY',
         trialDays = 14,
@@ -300,10 +309,10 @@ export async function POST(request: NextRequest) {
             eiin: eiin || null,
             instituteCode: instituteCode || null,
             boardAffiliation: boardAffiliation || null,
-            phone: phone || ownerPhone || '01700000000',
+            phone: phone || ownerPhone || null,
             email: email || ownerEmail,
             website: website || null,
-            address: address || 'Main Campus, Bangladesh',
+            address: address || null,
             district,
             division,
             upazilaThana,
@@ -318,50 +327,55 @@ export async function POST(request: NextRequest) {
             institutionId: institution.id,
             name: campusName || `${shortName || name} Main Campus`,
             code: campusCode,
-            address: campusAddress || address || 'Main Campus',
+            address: campusAddress || address || null,
             phone: phone || null,
             email: email || null,
             isMain: true
           }
         });
 
-        // 4. Create Shift
-        const shift = await tx.shift.create({
-          data: {
-            institutionId: institution.id,
-            name: 'Morning Shift',
-            code: 'SFT-MORN',
-            startTime: '08:00',
-            endTime: '13:30',
-            isActive: true
-          }
-        });
+        // 4. Create Shift (if setupAcademicStructure)
+        if (setupAcademicStructure) {
+          await tx.shift.create({
+            data: {
+              institutionId: institution.id,
+              name: 'Morning Shift',
+              code: 'SFT-MORN',
+              startTime: '08:00',
+              endTime: '13:30',
+              isActive: true
+            }
+          });
+        }
 
         // 5. Create Academic Year & Session
+        const ayStart = academicYearStartDate ? new Date(academicYearStartDate) : new Date(`${academicYearName}-01-01`);
+        const ayEnd = academicYearEndDate ? new Date(academicYearEndDate) : new Date(`${academicYearName}-12-31`);
+
         const ay = await tx.academicYear.create({
           data: {
             institutionId: institution.id,
             name: academicYearName,
             code: `AY-${academicYearName}`,
-            startDate: new Date(`${academicYearName}-01-01`),
-            endDate: new Date(`${academicYearName}-12-31`),
+            startDate: ayStart,
+            endDate: ayEnd,
             status: 'ACTIVE',
             isCurrent: true
           }
         });
 
-        const academicSession = await tx.session.create({
+        await tx.session.create({
           data: {
             academicYearId: ay.id,
-            name: `Annual Session ${academicYearName}`,
+            name: `Session ${academicYearName}`,
             type: 'ANNUAL',
-            startDate: new Date(`${academicYearName}-01-01`),
-            endDate: new Date(`${academicYearName}-12-31`)
+            startDate: ayStart,
+            endDate: ayEnd
           }
         });
 
-        // 6. Create Default Section / Class if School
-        if (type === 'SCHOOL' || !type) {
+        // 6. Create Default Section / Class if School & setupAcademicStructure
+        if (setupAcademicStructure && (type === 'SCHOOL' || !type)) {
           const cls = await tx.class.create({
             data: {
               institutionId: institution.id,
@@ -382,61 +396,80 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        // 7. Create Subscription
+        // 7. Create Subscription with precise calendar dates
         if (plan) {
-          const periodEnd = new Date(Date.now() + (billingCycle === 'ANNUAL' ? 365 : trialDays) * 86400000);
+          const startDate = new Date();
+          let endDate: Date;
+          let subStatus: string = 'ACTIVE';
+
+          if (billingCycle === 'ANNUAL') {
+            endDate = new Date(startDate.getFullYear() + 1, startDate.getMonth(), startDate.getDate());
+            subStatus = 'ACTIVE';
+          } else if (billingCycle === 'MONTHLY') {
+            endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, startDate.getDate());
+            subStatus = 'ACTIVE';
+          } else if (billingCycle === 'TRIAL') {
+            const days = trialDays || plan.trialDays || 14;
+            endDate = new Date(startDate.getTime() + days * 86400000);
+            subStatus = 'TRIALING';
+          } else {
+            endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, startDate.getDate());
+            subStatus = 'ACTIVE';
+          }
+
           await tx.subscription.create({
             data: {
               tenantId: tenant.id,
               planId: plan.id,
-              status: billingCycle === 'TRIAL' ? 'TRIAL' : 'ACTIVE',
+              status: subStatus as any,
               billingCycle: billingCycle as any,
-              startDate: new Date(),
-              endDate: periodEnd,
-              currentPeriodStart: new Date(),
-              currentPeriodEnd: periodEnd,
+              startDate: startDate,
+              endDate: endDate,
+              currentPeriodStart: startDate,
+              currentPeriodEnd: endDate,
             }
           });
         }
 
         // 8. Create Institution Owner User
-        const ownerRole = type === 'UNIVERSITY' ? 'VICE_CHANCELLOR' : 'PRINCIPAL';
+        const finalOwnerRole = ownerRole || (type === 'UNIVERSITY' ? 'VICE_CHANCELLOR' : 'PRINCIPAL');
         const user = await tx.user.create({
           data: {
             email: ownerEmail,
             passwordHash,
-            name: ownerName || `${name} Head Administrator`,
-            role: ownerRole as any,
+            name: ownerName || `${name} Administrator`,
+            role: finalOwnerRole as any,
             tenantId: tenant.id,
             status: 'ACTIVE'
           }
         });
 
-        // 9. Create Employee Profile
-        const emp = await tx.employee.create({
-          data: {
-            campusId: campus.id,
-            userId: user.id,
-            employeeCode: `EMP-001`,
-            firstName: (ownerName || 'Head').split(' ')[0],
-            lastName: (ownerName || 'Admin').split(' ').slice(1).join(' ') || 'Admin',
-            designation: ownerRole,
-            department: 'Executive Administration',
-            email: ownerEmail,
-            phone: ownerPhone || phone || '01700000000',
-            basicSalary: 50000,
-            joiningDate: new Date(),
-            status: 'ACTIVE'
-          }
-        });
+        // 9. Optional Employee & Teacher Profile (only if explicitly requested)
+        if (createTeacherProfile) {
+          const emp = await tx.employee.create({
+            data: {
+              campusId: campus.id,
+              userId: user.id,
+              employeeCode: `EMP-001`,
+              firstName: (ownerName || 'Admin').split(' ')[0],
+              lastName: (ownerName || 'User').split(' ').slice(1).join(' ') || 'User',
+              designation: finalOwnerRole,
+              email: ownerEmail,
+              phone: ownerPhone || phone || null,
+              basicSalary: 0,
+              joiningDate: new Date(),
+              status: 'ACTIVE'
+            }
+          });
 
-        await tx.teacher.create({
-          data: {
-            employeeId: emp.id,
-            specialization: 'Institution Management',
-            qualification: 'Executive Leadership'
-          }
-        });
+          await tx.teacher.create({
+            data: {
+              employeeId: emp.id,
+              specialization: 'Institution Management',
+              qualification: 'Executive Leadership'
+            }
+          });
+        }
 
         return {
           tenant,
@@ -452,7 +485,7 @@ export async function POST(request: NextRequest) {
         };
       });
 
-      // Audit Log
+      // Audit Log (without plaintext password)
       await logAuditEvent({
         tenantId: result.tenant.id,
         actor: session,
@@ -474,6 +507,8 @@ export async function POST(request: NextRequest) {
 
     // 2. Explicit Temporary Password Reset for Demo / QA Account
     if (action === 'RESET_DEMO_CREDENTIAL') {
+      requirePlatformPermission(session, 'DEMO_CREDENTIAL_RESET');
+
       const { email } = body;
       if (!email) {
         return NextResponse.json({ success: false, error: 'Email is required' }, { status: 400 });
@@ -511,7 +546,9 @@ export async function POST(request: NextRequest) {
 
     // 3. Assign / Update Tenant Subscription
     if (action === 'ASSIGN_SUBSCRIPTION') {
-      const { tenantId, planId, billingCycle, trialDays, status = 'ACTIVE' } = body;
+      requirePlatformPermission(session, 'SUBSCRIPTION_MANAGE');
+
+      const { tenantId, planId, billingCycle = 'MONTHLY', trialDays, status = 'ACTIVE' } = body;
       const plan = await db.subscriptionPlan.findUnique({ where: { id: planId } });
       if (!plan) {
         return NextResponse.json({ success: false, error: 'Plan not found' }, { status: 404 });
@@ -521,6 +558,18 @@ export async function POST(request: NextRequest) {
         where: { tenantId }
       });
 
+      const startDate = new Date();
+      let endDate: Date;
+      if (billingCycle === 'ANNUAL') {
+        endDate = new Date(startDate.getFullYear() + 1, startDate.getMonth(), startDate.getDate());
+      } else if (billingCycle === 'MONTHLY') {
+        endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, startDate.getDate());
+      } else if (billingCycle === 'TRIAL') {
+        endDate = new Date(startDate.getTime() + (trialDays || 14) * 86400000);
+      } else {
+        endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, startDate.getDate());
+      }
+
       let sub;
       if (existingSub) {
         sub = await db.subscription.update({
@@ -529,20 +578,21 @@ export async function POST(request: NextRequest) {
             planId: plan.id,
             status: status as any,
             billingCycle: (billingCycle || existingSub.billingCycle) as any,
+            endDate,
+            currentPeriodEnd: endDate
           }
         });
       } else {
-        const periodEnd = new Date(Date.now() + 30 * 86400000);
         sub = await db.subscription.create({
           data: {
             tenantId,
             planId: plan.id,
             status: status as any,
             billingCycle: (billingCycle || 'MONTHLY') as any,
-            startDate: new Date(),
-            endDate: periodEnd,
-            currentPeriodStart: new Date(),
-            currentPeriodEnd: periodEnd,
+            startDate: startDate,
+            endDate: endDate,
+            currentPeriodStart: startDate,
+            currentPeriodEnd: endDate,
           }
         });
       }
@@ -561,6 +611,8 @@ export async function POST(request: NextRequest) {
 
     // 4. Update Tenant Status (Active, Suspended, Archived)
     if (action === 'UPDATE_TENANT_STATUS') {
+      requirePlatformPermission(session, 'TENANT_SUSPEND');
+
       const { tenantId, isActive } = body;
       const updated = await db.tenant.update({
         where: { id: tenantId },
@@ -580,21 +632,23 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: false, error: 'Unknown action' }, { status: 400 });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    const status = error.statusCode || 500;
+    return NextResponse.json({ success: false, error: error.message }, { status });
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(request);
-    if (!session?.isPlatformAdmin) {
-      return NextResponse.json({ error: 'Unauthorized: Super Admin access required' }, { status: 403 });
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized: Session required' }, { status: 401 });
     }
 
     const body = await request.json();
     const { action, gateway, gatewayData, billingSettings } = body;
 
     if (action === 'TOGGLE_GATEWAY' && gateway) {
+      requirePlatformPermission(session, 'GATEWAY_MANAGE');
       const updated = await db.paymentGatewayConfig.update({
         where: { gateway },
         data: gatewayData
@@ -603,6 +657,7 @@ export async function PUT(request: NextRequest) {
     }
 
     if (action === 'UPDATE_BILLING_SETTINGS' && billingSettings) {
+      requirePlatformPermission(session, 'PLATFORM_SETTINGS_MANAGE');
       const updated = await db.platformBillingSettings.upsert({
         where: { id: 'default' },
         update: billingSettings,
@@ -613,6 +668,7 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json({ success: false, error: 'Invalid action' }, { status: 400 });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    const status = error.statusCode || 500;
+    return NextResponse.json({ success: false, error: error.message }, { status });
   }
 }

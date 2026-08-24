@@ -119,21 +119,42 @@ export default function DemoCredentialsVaultPage() {
     }
   };
 
-  // Export Client Testing Pack (CSV / TXT)
-  const handleExportClientPack = (format: 'csv' | 'txt') => {
+  // Export Client Testing Pack (XLSX / CSV / TXT)
+  const handleExportClientPack = async (format: 'xlsx' | 'csv' | 'txt') => {
     const listToExport = filteredAccounts;
     if (listToExport.length === 0) return;
 
+    let filename = `eduerp-client-demo-pack-${selectedVertical.toLowerCase()}-${new Date().toISOString().split('T')[0]}`;
+
+    if (format === 'xlsx') {
+      const XLSX = await import('xlsx');
+      const rows = listToExport.map(a => ({
+        'Institution': a.institution,
+        'Vertical': a.institutionType,
+        'Role': a.role,
+        'Full Name': a.name,
+        'Login Email': a.email,
+        'Portal URL': `https://eduerp.us${a.landingUrl}`,
+        'Modules To Test': Array.isArray(a.modules) ? a.modules.join('; ') : a.modules,
+        'Notes': a.notes || 'Full functional persona'
+      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Demo Accounts');
+      XLSX.writeFile(wb, `${filename}.xlsx`);
+      return;
+    }
+
     let content = '';
     let mimeType = 'text/plain';
-    let filename = `eduerp-client-demo-pack-${selectedVertical.toLowerCase()}-${new Date().toISOString().split('T')[0]}`;
 
     if (format === 'csv') {
       mimeType = 'text/csv';
       filename += '.csv';
       content = 'Institution,Vertical,Role,Name,Email,Portal_URL,Modules_To_Test\n';
       listToExport.forEach(a => {
-        content += `"${a.institution}","${a.institutionType}","${a.role}","${a.name}","${a.email}","https://eduerp.us${a.landingUrl}","${(a.modules || []).join('; ')}"\n`;
+        const mods = Array.isArray(a.modules) ? a.modules.join('; ') : (a.modules || '');
+        content += `"${a.institution}","${a.institutionType}","${a.role}","${a.name}","${a.email}","https://eduerp.us${a.landingUrl}","${mods}"\n`;
       });
     } else {
       filename += '.txt';
@@ -145,13 +166,14 @@ export default function DemoCredentialsVaultPage() {
       content += `================================================================================\n\n`;
 
       listToExport.forEach(a => {
+        const mods = Array.isArray(a.modules) ? a.modules.join(', ') : (a.modules || '');
         content += `--------------------------------------------------------------------------------\n`;
         content += `Institution : ${a.institution} (${a.institutionType})\n`;
         content += `Role        : ${a.role}\n`;
         content += `Name        : ${a.name}\n`;
         content += `Email       : ${a.email}\n`;
         content += `Landing URL : https://eduerp.us${a.landingUrl}\n`;
-        content += `Modules     : ${(a.modules || []).join(', ')}\n`;
+        content += `Modules     : ${mods}\n`;
         content += `Notes       : ${a.notes || 'Full functional persona'}\n\n`;
       });
     }
@@ -191,6 +213,13 @@ export default function DemoCredentialsVaultPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => handleExportClientPack('xlsx')}
+            className="bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 border border-emerald-600 shadow-sm"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-white" />
+            <span>Export XLSX</span>
+          </button>
           <button
             onClick={() => handleExportClientPack('csv')}
             className="bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 border border-slate-700"

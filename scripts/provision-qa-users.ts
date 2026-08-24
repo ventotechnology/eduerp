@@ -2,647 +2,10 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { db } from '../lib/db';
-import { hashPassword } from '../lib/auth/password';
+import { hashPassword, generateSecurePassword } from '../lib/auth/password';
+import { QA_ACCOUNT_DEFINITIONS, QAAccountDefinition } from '../lib/demo/demo-account-definitions';
 
-export function generateSecurePassword(): string {
-  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-  const lower = 'abcdefghijkmnopqrstuvwxyz';
-  const digits = '23456789';
-  const symbols = '!@#$%^&*_-+=';
-  const all = upper + lower + digits + symbols;
-
-  const bytes = crypto.randomBytes(32);
-  let pwd = '';
-  pwd += upper[bytes[0] % upper.length];
-  pwd += upper[bytes[1] % upper.length];
-  pwd += lower[bytes[2] % lower.length];
-  pwd += lower[bytes[3] % lower.length];
-  pwd += digits[bytes[4] % digits.length];
-  pwd += digits[bytes[5] % digits.length];
-  pwd += symbols[bytes[6] % symbols.length];
-  pwd += symbols[bytes[7] % symbols.length];
-
-  for (let i = 8; i < 26; i++) {
-    pwd += all[bytes[i] % all.length];
-  }
-
-  // Cryptographic shuffle
-  const arr = pwd.split('');
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = crypto.randomInt(0, i + 1);
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr.join('');
-}
-
-export interface QAAccountDefinition {
-  institutionName: string;
-  institutionType: string;
-  tenantSlug: string;
-  role: string;
-  name: string;
-  email: string;
-  loginUrl: string;
-  expectedLandingUrl: string;
-  modulesToTest: string;
-  notes: string;
-}
-
-export const QA_ACCOUNT_DEFINITIONS: QAAccountDefinition[] = [
-  // Platform Super Admins & Platform Roles
-  {
-    institutionName: 'SaaS Platform Management',
-    institutionType: 'PLATFORM',
-    tenantSlug: 'platform',
-    role: 'PLATFORM_SUPER_ADMIN',
-    name: 'Executive Super Admin',
-    email: 'platform-super-admin@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/super-admin',
-    modulesToTest: 'Tenant Provisioning, Multi-Tenant Metrics, Subscriptions, System Logs, Global Configuration',
-    notes: 'Full unrestricted platform administrator with cross-tenant visibility'
-  },
-  {
-    institutionName: 'SaaS Platform Management',
-    institutionType: 'PLATFORM',
-    tenantSlug: 'platform',
-    role: 'PLATFORM_SUPER_ADMIN',
-    name: 'Platform Root Administrator',
-    email: 'admin@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/super-admin',
-    modulesToTest: 'Security Policies, System Audit, Root Disaster Recovery',
-    notes: 'Root platform operations'
-  },
-  {
-    institutionName: 'SaaS Platform Management',
-    institutionType: 'PLATFORM',
-    tenantSlug: 'platform',
-    role: 'PLATFORM_ADMIN',
-    name: 'Platform Operations Admin',
-    email: 'platform-admin@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/super-admin',
-    modulesToTest: 'Tenant Management, Usage Metrics, Feature Toggles',
-    notes: 'Operations administration'
-  },
-  {
-    institutionName: 'SaaS Platform Management',
-    institutionType: 'PLATFORM',
-    tenantSlug: 'platform',
-    role: 'SUPPORT_ADMIN',
-    name: 'Global Technical Support',
-    email: 'support-admin@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/super-admin',
-    modulesToTest: 'Tenant Support, Audit Trail, Diagnostics',
-    notes: 'Platform support representative'
-  },
-  {
-    institutionName: 'SaaS Platform Management',
-    institutionType: 'PLATFORM',
-    tenantSlug: 'platform',
-    role: 'BILLING_ADMIN',
-    name: 'SaaS Billing & Subscriptions Admin',
-    email: 'billing-admin@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/super-admin',
-    modulesToTest: 'Subscription Plans, Invoices, Gateway Configs',
-    notes: 'Platform billing manager'
-  },
-  {
-    institutionName: 'SaaS Platform Management',
-    institutionType: 'PLATFORM',
-    tenantSlug: 'platform',
-    role: 'SALES_ADMIN',
-    name: 'Institution Onboarding Sales Admin',
-    email: 'sales-admin@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/super-admin',
-    modulesToTest: 'Onboarding Funnel, Demo Requests, Quotes',
-    notes: 'Platform sales executive'
-  },
-  {
-    institutionName: 'SaaS Platform Management',
-    institutionType: 'PLATFORM',
-    tenantSlug: 'platform',
-    role: 'SUPER_ADMIN',
-    name: 'Legacy Platform Admin Alias',
-    email: 'super-admin@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/super-admin',
-    modulesToTest: 'Backward-compatible platform administration',
-    notes: 'Legacy alias role for platform super admin'
-  },
-  {
-    institutionName: 'SaaS Platform Management',
-    institutionType: 'PLATFORM',
-    tenantSlug: 'platform',
-    role: 'SUPER_ADMIN',
-    name: 'System Super Admin',
-    email: 'superadmin@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/super-admin',
-    modulesToTest: 'Platform Overview, Monitoring, Tenant Actions',
-    notes: 'Default superadmin alias account'
-  },
-
-  // 1. Dhaka Ideal Model School (demo-school)
-  {
-    institutionName: 'Dhaka Ideal Model School',
-    institutionType: 'SCHOOL',
-    tenantSlug: 'demo-school',
-    role: 'PRINCIPAL',
-    name: 'Dr. Rafiqul Islam, Principal',
-    email: 'principal.demo-school@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-school/dashboard',
-    modulesToTest: 'Executive Dashboard, Teacher Review, Leave Approvals, Result Finalization, Budget Approvals',
-    notes: 'Chief executive officer of school tenant'
-  },
-  {
-    institutionName: 'Dhaka Ideal Model School',
-    institutionType: 'SCHOOL',
-    tenantSlug: 'demo-school',
-    role: 'VICE_PRINCIPAL',
-    name: 'Nasreen Sultana, Vice Principal',
-    email: 'vice-principal.demo-school@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-school/dashboard',
-    modulesToTest: 'Academic Supervision, Discipline Records, Timetable Approvals',
-    notes: 'Secondary executive'
-  },
-  {
-    institutionName: 'Dhaka Ideal Model School',
-    institutionType: 'SCHOOL',
-    tenantSlug: 'demo-school',
-    role: 'OWNER',
-    name: 'Haji Mohammad Yunus, Founder & Owner',
-    email: 'owner.demo-school@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-school/dashboard',
-    modulesToTest: 'Financial Statements, Asset Valuations, Long-term Capital Reports',
-    notes: 'Institution owner/sponsor'
-  },
-  {
-    institutionName: 'Dhaka Ideal Model School',
-    institutionType: 'SCHOOL',
-    tenantSlug: 'demo-school',
-    role: 'CHAIRMAN',
-    name: 'Alhaj Kabir Ahmed, Governing Body Chairman',
-    email: 'chairman.demo-school@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-school/dashboard',
-    modulesToTest: 'Governing Body Approvals, Policy Resolutions, Executive Oversight',
-    notes: 'Board Chairman'
-  },
-  {
-    institutionName: 'Dhaka Ideal Model School',
-    institutionType: 'SCHOOL',
-    tenantSlug: 'demo-school',
-    role: 'COORDINATOR',
-    name: 'Shahidul Alam, Academic Coordinator',
-    email: 'coordinator.demo-school@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-school/dashboard',
-    modulesToTest: 'Curriculum Planning, Lesson Progress, Exam Schedules',
-    notes: 'Academic Coordinator'
-  },
-  {
-    institutionName: 'Dhaka Ideal Model School',
-    institutionType: 'SCHOOL',
-    tenantSlug: 'demo-school',
-    role: 'TEACHER',
-    name: 'Mahbubur Rahman, Senior Teacher',
-    email: 'teacher.demo-school@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-school/dashboard',
-    modulesToTest: 'Attendance, Marks Entry, LMS Lessons, Homework, Question Bank, Online Class',
-    notes: 'Lead Mathematics teacher'
-  },
-  {
-    institutionName: 'Dhaka Ideal Model School',
-    institutionType: 'SCHOOL',
-    tenantSlug: 'demo-school',
-    role: 'ACCOUNTANT',
-    name: 'Mizanur Rahman, Chief Accountant',
-    email: 'accountant.demo-school@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-school/dashboard',
-    modulesToTest: 'Student Billing, Fee Collection, General Ledger, Payroll Vouchers, Bank Reconciliation',
-    notes: 'Finance Officer'
-  },
-  {
-    institutionName: 'Dhaka Ideal Model School',
-    institutionType: 'SCHOOL',
-    tenantSlug: 'demo-school',
-    role: 'HR_MANAGER',
-    name: 'Fatema Tuz Zohra, HR Officer',
-    email: 'hr-manager.demo-school@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-school/dashboard',
-    modulesToTest: 'Employee Profiles, Biometric Attendance, Leave Approval, Recruitment, Appraisals',
-    notes: 'HR Director'
-  },
-  {
-    institutionName: 'Dhaka Ideal Model School',
-    institutionType: 'SCHOOL',
-    tenantSlug: 'demo-school',
-    role: 'LIBRARIAN',
-    name: 'Mohsin Ali, Head Librarian',
-    email: 'librarian.demo-school@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-school/dashboard',
-    modulesToTest: 'Book Cataloging, Barcode Issue/Return, Fine Collection, OPAC Search',
-    notes: 'Librarian'
-  },
-  {
-    institutionName: 'Dhaka Ideal Model School',
-    institutionType: 'SCHOOL',
-    tenantSlug: 'demo-school',
-    role: 'HOSTEL_MANAGER',
-    name: 'Anwar Hossain, Hostel Warden',
-    email: 'hostel-manager.demo-school@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-school/dashboard',
-    modulesToTest: 'Hostel Buildings, Room/Bed Allocation, Attendance, Meal Tracking',
-    notes: 'Hostel In-charge'
-  },
-  {
-    institutionName: 'Dhaka Ideal Model School',
-    institutionType: 'SCHOOL',
-    tenantSlug: 'demo-school',
-    role: 'TRANSPORT_MANAGER',
-    name: 'Jalal Uddin, Transport In-Charge',
-    email: 'transport-manager.demo-school@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-school/dashboard',
-    modulesToTest: 'Bus Routes, Vehicle Fleet, Driver Rosters, Student Route Allocation',
-    notes: 'Transport In-charge'
-  },
-  {
-    institutionName: 'Dhaka Ideal Model School',
-    institutionType: 'SCHOOL',
-    tenantSlug: 'demo-school',
-    role: 'ADMISSION_OFFICER',
-    name: 'Kazi Farzana, Admission Officer',
-    email: 'admission-officer.demo-school@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-school/dashboard',
-    modulesToTest: 'Online Admission Leads, Scrutiny, Merit Lists, Auto-Enrollment',
-    notes: 'Admissions Lead'
-  },
-  {
-    institutionName: 'Dhaka Ideal Model School',
-    institutionType: 'SCHOOL',
-    tenantSlug: 'demo-school',
-    role: 'STUDENT',
-    name: 'Sadia Sultana, Class 10 Student',
-    email: 'student.demo-school@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-school/dashboard',
-    modulesToTest: 'Class Timetable, LMS Homework, Online Quizzes, Result Cards, Fee Invoices',
-    notes: 'Secondary School Student'
-  },
-  {
-    institutionName: 'Dhaka Ideal Model School',
-    institutionType: 'SCHOOL',
-    tenantSlug: 'demo-school',
-    role: 'PARENT',
-    name: 'Abdul Gafur, Parent/Guardian',
-    email: 'guardian.demo-school@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-school/dashboard',
-    modulesToTest: 'Child Attendance, Report Cards, Online Fee Payment, Teacher Notices',
-    notes: 'Guardian of Sadia Sultana'
-  },
-
-  // 2. Chittagong Model College (demo-college)
-  {
-    institutionName: 'Chittagong Model College',
-    institutionType: 'COLLEGE',
-    tenantSlug: 'demo-college',
-    role: 'PRINCIPAL',
-    name: 'Prof. AKM Shamsuddin, Principal',
-    email: 'principal.demo-college@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-college/dashboard',
-    modulesToTest: 'HSC Group Management, Board Registration, Faculty Appraisals',
-    notes: 'College Principal'
-  },
-  {
-    institutionName: 'Chittagong Model College',
-    institutionType: 'COLLEGE',
-    tenantSlug: 'demo-college',
-    role: 'TEACHER',
-    name: 'Dr. Laila Arjumand, Associate Professor (Physics)',
-    email: 'teacher.demo-college@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-college/dashboard',
-    modulesToTest: 'HSC Practical Marks, CQ/MCQ Assessments, Lesson Materials',
-    notes: 'Physics Department Head'
-  },
-  {
-    institutionName: 'Chittagong Model College',
-    institutionType: 'COLLEGE',
-    tenantSlug: 'demo-college',
-    role: 'STUDENT',
-    name: 'Tanvir Hasan, HSC Science Student',
-    email: 'student.demo-college@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-college/dashboard',
-    modulesToTest: 'Subject Combinations, Lab Schedules, GPA Calculation, Term Exams',
-    notes: 'HSC 2nd Year Student'
-  },
-
-  // 3. Rajshahi Model School & College (demo-school-college)
-  {
-    institutionName: 'Rajshahi Model School & College',
-    institutionType: 'SCHOOL_AND_COLLEGE',
-    tenantSlug: 'demo-school-college',
-    role: 'PRINCIPAL',
-    name: 'Prof. Manzurul Haque, Principal',
-    email: 'principal.demo-school-college@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-school-college/dashboard',
-    modulesToTest: 'Dual Section Management, Class 1-12 Coordination, Cross-Shift Staffing',
-    notes: 'Integrated Campus Head'
-  },
-  {
-    institutionName: 'Rajshahi Model School & College',
-    institutionType: 'SCHOOL_AND_COLLEGE',
-    tenantSlug: 'demo-school-college',
-    role: 'TEACHER',
-    name: 'Shamim Ara, Senior Lecturer',
-    email: 'teacher.demo-school-college@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-school-college/dashboard',
-    modulesToTest: 'High School & Higher Secondary Exam Grading, Attendance',
-    notes: 'Senior Lecturer'
-  },
-  {
-    institutionName: 'Rajshahi Model School & College',
-    institutionType: 'SCHOOL_AND_COLLEGE',
-    tenantSlug: 'demo-school-college',
-    role: 'STUDENT',
-    name: 'Rashedul Islam, Student',
-    email: 'student.demo-school-college@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-school-college/dashboard',
-    modulesToTest: 'Integrated Transcripts, Class Schedule, Digital Library',
-    notes: 'Class 11 Student'
-  },
-
-  // 4. Darul Uloom Islamia Madrasha (demo-madrasha)
-  {
-    institutionName: 'Darul Uloom Islamia Madrasha',
-    institutionType: 'MADRASHA',
-    tenantSlug: 'demo-madrasha',
-    role: 'PRINCIPAL',
-    name: 'Mawlana Abdul Haque, Principal / Muhtamim',
-    email: 'principal.demo-madrasha@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-madrasha/dashboard',
-    modulesToTest: 'Madrasha Curriculum, Hifz Completion Tracker, Dakhil/Alim Boards',
-    notes: 'Principal / Muhtamim'
-  },
-  {
-    institutionName: 'Darul Uloom Islamia Madrasha',
-    institutionType: 'MADRASHA',
-    tenantSlug: 'demo-madrasha',
-    role: 'TEACHER',
-    name: 'Qari Ibrahim Khalil, Senior Hifz Ustad',
-    email: 'teacher.demo-madrasha@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-madrasha/dashboard',
-    modulesToTest: 'Daily Sabaq/Sabqi/Manzil Tracking, Surah Mastery, Tajweed Grading',
-    notes: 'Lead Hifz Instructor'
-  },
-  {
-    institutionName: 'Darul Uloom Islamia Madrasha',
-    institutionType: 'MADRASHA',
-    tenantSlug: 'demo-madrasha',
-    role: 'STUDENT',
-    name: 'Mahmud Hasan, Hifz & Alim Student',
-    email: 'student.demo-madrasha@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-madrasha/dashboard',
-    modulesToTest: 'Para/Juz Completion Log, Islamic Studies Assessments, Attendance',
-    notes: 'Hifz Student'
-  },
-
-  // 5. Metropolitan University Bangladesh (demo-university)
-  {
-    institutionName: 'Metropolitan University Bangladesh',
-    institutionType: 'UNIVERSITY',
-    tenantSlug: 'demo-university',
-    role: 'VICE_CHANCELLOR',
-    name: 'Prof. Dr. Munaz Ahmed Noor, Vice Chancellor',
-    email: 'vice-chancellor.demo-university@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-university/dashboard',
-    modulesToTest: 'University Senate Overview, UGC Compliance, Research Grants, Accreditation',
-    notes: 'Vice Chancellor'
-  },
-  {
-    institutionName: 'Metropolitan University Bangladesh',
-    institutionType: 'UNIVERSITY',
-    tenantSlug: 'demo-university',
-    role: 'PRO_VICE_CHANCELLOR',
-    name: 'Prof. Dr. Mahfuzur Rahman, Pro-VC',
-    email: 'pro-vc.demo-university@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-university/dashboard',
-    modulesToTest: 'Academic Affairs, Curriculum Reviews, Faculty Appointments',
-    notes: 'Pro-Vice Chancellor'
-  },
-  {
-    institutionName: 'Metropolitan University Bangladesh',
-    institutionType: 'UNIVERSITY',
-    tenantSlug: 'demo-university',
-    role: 'TRUSTEE',
-    name: 'Engr. Rezaul Karim, Board of Trustees',
-    email: 'trustee.demo-university@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-university/dashboard',
-    modulesToTest: 'Financial Endowment, Capital Expansion, Strategic Governance',
-    notes: 'Board of Trustees Member'
-  },
-  {
-    institutionName: 'Metropolitan University Bangladesh',
-    institutionType: 'UNIVERSITY',
-    tenantSlug: 'demo-university',
-    role: 'REGISTRAR',
-    name: 'Dr. Ashrafuzzaman, Registrar',
-    email: 'registrar.demo-university@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-university/dashboard',
-    modulesToTest: 'Semester Enrollment, Graduation Clearances, Convocation Transcripts',
-    notes: 'University Registrar'
-  },
-  {
-    institutionName: 'Metropolitan University Bangladesh',
-    institutionType: 'UNIVERSITY',
-    tenantSlug: 'demo-university',
-    role: 'DEAN',
-    name: 'Prof. Dr. Shamim Kaiser, Dean of Engineering',
-    email: 'dean.demo-university@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-university/dashboard',
-    modulesToTest: 'Faculty Department Budgets, OBE Syllabus Approval, Thesis Moderation',
-    notes: 'Faculty Dean'
-  },
-  {
-    institutionName: 'Metropolitan University Bangladesh',
-    institutionType: 'UNIVERSITY',
-    tenantSlug: 'demo-university',
-    role: 'HEAD_OF_DEPARTMENT',
-    name: 'Dr. Tariqul Islam, Head of CSE',
-    email: 'hod.demo-university@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-university/dashboard',
-    modulesToTest: 'Department Courses, Teacher Allocations, Prerequisite Waivers',
-    notes: 'Department Chairman'
-  },
-  {
-    institutionName: 'Metropolitan University Bangladesh',
-    institutionType: 'UNIVERSITY',
-    tenantSlug: 'demo-university',
-    role: 'FACULTY',
-    name: 'Dr. Farzana Yasmin, Assistant Professor',
-    email: 'faculty.demo-university@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-university/dashboard',
-    modulesToTest: 'Credit Course LMS, Research Projects, Mid/Final Exam Marks Submission',
-    notes: 'University Faculty'
-  },
-  {
-    institutionName: 'Metropolitan University Bangladesh',
-    institutionType: 'UNIVERSITY',
-    tenantSlug: 'demo-university',
-    role: 'STUDENT',
-    name: 'Nayeem Abdullah, Undergraduate Student (CSE)',
-    email: 'student.demo-university@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-university/dashboard',
-    modulesToTest: 'Semester Advising, Prerequisite Validation, CGPA Tracker, Online Drop/Add',
-    notes: 'BSc CSE Undergraduate'
-  },
-
-  // 6. Dhaka Polytechnic Institute (demo-polytechnic)
-  {
-    institutionName: 'Dhaka Polytechnic Institute',
-    institutionType: 'POLYTECHNIC',
-    tenantSlug: 'demo-polytechnic',
-    role: 'PRINCIPAL',
-    name: 'Engr. Nurul Huda, Principal',
-    email: 'principal.demo-polytechnic@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-polytechnic/dashboard',
-    modulesToTest: 'BTEB 4-Year Diploma Engineering, Industrial Attachment, Practical Labs',
-    notes: 'Polytechnic Principal'
-  },
-  {
-    institutionName: 'Dhaka Polytechnic Institute',
-    institutionType: 'POLYTECHNIC',
-    tenantSlug: 'demo-polytechnic',
-    role: 'TEACHER',
-    name: 'Engr. Sabrina Islam, Senior Instructor (Electrical)',
-    email: 'teacher.demo-polytechnic@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-polytechnic/dashboard',
-    modulesToTest: 'Workshop Continuous Assessments, Semester Final Practical Exams',
-    notes: 'Technical Instructor'
-  },
-  {
-    institutionName: 'Dhaka Polytechnic Institute',
-    institutionType: 'POLYTECHNIC',
-    tenantSlug: 'demo-polytechnic',
-    role: 'STUDENT',
-    name: 'Sabbir Hossain, Diploma Engineering Student',
-    email: 'student.demo-polytechnic@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-polytechnic/dashboard',
-    modulesToTest: 'Industrial Training Logs, Semester Exam Registrations, Lab Manuals',
-    notes: '4th Semester Diploma Student'
-  },
-
-  // 7. Bangladesh Technical Vocational Academy (demo-vocational)
-  {
-    institutionName: 'Bangladesh Technical Vocational Academy',
-    institutionType: 'TECHNICAL_INSTITUTE',
-    tenantSlug: 'demo-vocational',
-    role: 'PRINCIPAL',
-    name: 'Engr. Mostafa Kamal, Principal',
-    email: 'principal.demo-vocational@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-vocational/dashboard',
-    modulesToTest: 'NTVQF Trade Certificates, RPL Assessments, Competency Standards',
-    notes: 'Vocational Principal'
-  },
-  {
-    institutionName: 'Bangladesh Technical Vocational Academy',
-    institutionType: 'TECHNICAL_INSTITUTE',
-    tenantSlug: 'demo-vocational',
-    role: 'TEACHER',
-    name: 'Md. Rashedul Islam, Senior Trade Instructor',
-    email: 'teacher.demo-vocational@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-vocational/dashboard',
-    modulesToTest: 'Competency Based Assessments (CBT&A), Trade Practical Marks',
-    notes: 'Trade Instructor'
-  },
-  {
-    institutionName: 'Bangladesh Technical Vocational Academy',
-    institutionType: 'TECHNICAL_INSTITUTE',
-    tenantSlug: 'demo-vocational',
-    role: 'STUDENT',
-    name: 'Al Amin, Trade Trainee',
-    email: 'student.demo-vocational@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-vocational/dashboard',
-    modulesToTest: 'Trade Modules, Competency Logbook, Skill Verification Badges',
-    notes: 'NTVQF Level 2 Trainee'
-  },
-
-  // 8. National Institute of Professional Training (demo-training)
-  {
-    institutionName: 'National Institute of Professional Training',
-    institutionType: 'TRAINING_INSTITUTE',
-    tenantSlug: 'demo-training',
-    role: 'PRINCIPAL',
-    name: 'Brig. Gen. (Retd.) M. A. Latif, Executive Director',
-    email: 'principal.demo-training@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-training/dashboard',
-    modulesToTest: 'Corporate Training Cohorts, Executive Certifications, CPD Credits',
-    notes: 'Executive Director'
-  },
-  {
-    institutionName: 'National Institute of Professional Training',
-    institutionType: 'TRAINING_INSTITUTE',
-    tenantSlug: 'demo-training',
-    role: 'TEACHER',
-    name: 'Shakil Ahmed, Lead Corporate Trainer',
-    email: 'teacher.demo-training@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-training/dashboard',
-    modulesToTest: 'Short Course Batches, Attendance, Certificate Generation, Post-test Quizzes',
-    notes: 'Corporate Trainer'
-  },
-  {
-    institutionName: 'National Institute of Professional Training',
-    institutionType: 'TRAINING_INSTITUTE',
-    tenantSlug: 'demo-training',
-    role: 'STUDENT',
-    name: 'Nusrat Jahan, Executive Trainee',
-    email: 'student.demo-training@eduerp.us',
-    loginUrl: 'https://eduerp.us/login',
-    expectedLandingUrl: 'https://eduerp.us/demo-training/dashboard',
-    modulesToTest: 'Cohort Materials, CPD Digital Badges, Verifiable Course Certificate',
-    notes: 'Professional Trainee'
-  }
-];
+export { generateSecurePassword, QA_ACCOUNT_DEFINITIONS, type QAAccountDefinition };
 
 export async function provisionQAUsers(options: { rotatePasswords?: boolean } = {}) {
   console.log('=== EDUERP SAFE QA PROVISIONING & CREDENTIAL GENERATION ===');
@@ -969,6 +332,31 @@ export async function provisionQAUsers(options: { rotatePasswords?: boolean } = 
     envLines.push(`E2E_PLATFORM_ADMIN_PASSWORD="${pAdmin.password}"`);
   }
 
+  const pOpsAdmin = findCred('platform', 'PLATFORM_ADMIN');
+  if (pOpsAdmin) {
+    envLines.push(`E2E_PLATFORM_OPS_ADMIN_EMAIL="${pOpsAdmin.email}"`);
+    envLines.push(`E2E_PLATFORM_OPS_ADMIN_PASSWORD="${pOpsAdmin.password}"`);
+  }
+
+  const pBillingAdmin = findCred('platform', 'BILLING_ADMIN');
+  if (pBillingAdmin) {
+    envLines.push(`E2E_BILLING_ADMIN_EMAIL="${pBillingAdmin.email}"`);
+    envLines.push(`E2E_BILLING_ADMIN_PASSWORD="${pBillingAdmin.password}"`);
+  }
+
+  const pSupportAdmin = findCred('platform', 'SUPPORT_ADMIN');
+  if (pSupportAdmin) {
+    envLines.push(`E2E_SUPPORT_ADMIN_EMAIL="${pSupportAdmin.email}"`);
+    envLines.push(`E2E_SUPPORT_ADMIN_PASSWORD="${pSupportAdmin.password}"`);
+  }
+
+  const pSalesAdmin = findCred('platform', 'SALES_ADMIN');
+  if (pSalesAdmin) {
+    envLines.push(`E2E_SALES_ADMIN_EMAIL="${pSalesAdmin.email}"`);
+    envLines.push(`E2E_SALES_ADMIN_PASSWORD="${pSalesAdmin.password}"`);
+  }
+
+  // 1. School
   const principal = findCred('demo-school', 'PRINCIPAL');
   if (principal) {
     envLines.push(`E2E_PRINCIPAL_EMAIL="${principal.email}"`);
@@ -1015,6 +403,55 @@ export async function provisionQAUsers(options: { rotatePasswords?: boolean } = 
   if (parent) {
     envLines.push(`E2E_PARENT_EMAIL="${parent.email}"`);
     envLines.push(`E2E_PARENT_PASSWORD="${parent.password}"`);
+  }
+
+  // 2. College
+  const collegeHead = findCred('demo-college', 'PRINCIPAL');
+  if (collegeHead) {
+    envLines.push(`E2E_COLLEGE_PRINCIPAL_EMAIL="${collegeHead.email}"`);
+    envLines.push(`E2E_COLLEGE_PRINCIPAL_PASSWORD="${collegeHead.password}"`);
+  }
+
+  // 3. School & College
+  const schoolCollegeHead = findCred('demo-school-college', 'PRINCIPAL');
+  if (schoolCollegeHead) {
+    envLines.push(`E2E_SCHOOL_COLLEGE_PRINCIPAL_EMAIL="${schoolCollegeHead.email}"`);
+    envLines.push(`E2E_SCHOOL_COLLEGE_PRINCIPAL_PASSWORD="${schoolCollegeHead.password}"`);
+  }
+
+  // 4. Madrasha
+  const madrashaHead = findCred('demo-madrasha', 'PRINCIPAL');
+  if (madrashaHead) {
+    envLines.push(`E2E_MADRASHA_PRINCIPAL_EMAIL="${madrashaHead.email}"`);
+    envLines.push(`E2E_MADRASHA_PRINCIPAL_PASSWORD="${madrashaHead.password}"`);
+  }
+
+  // 5. University
+  const uniVC = findCred('demo-university', 'VICE_CHANCELLOR');
+  if (uniVC) {
+    envLines.push(`E2E_UNIVERSITY_VC_EMAIL="${uniVC.email}"`);
+    envLines.push(`E2E_UNIVERSITY_VC_PASSWORD="${uniVC.password}"`);
+  }
+
+  // 6. Polytechnic
+  const polyHead = findCred('demo-polytechnic', 'PRINCIPAL');
+  if (polyHead) {
+    envLines.push(`E2E_POLYTECHNIC_PRINCIPAL_EMAIL="${polyHead.email}"`);
+    envLines.push(`E2E_POLYTECHNIC_PRINCIPAL_PASSWORD="${polyHead.password}"`);
+  }
+
+  // 7. Vocational
+  const vocHead = findCred('demo-vocational', 'PRINCIPAL');
+  if (vocHead) {
+    envLines.push(`E2E_VOCATIONAL_PRINCIPAL_EMAIL="${vocHead.email}"`);
+    envLines.push(`E2E_VOCATIONAL_PRINCIPAL_PASSWORD="${vocHead.password}"`);
+  }
+
+  // 8. Training
+  const trainHead = findCred('demo-training', 'PRINCIPAL');
+  if (trainHead) {
+    envLines.push(`E2E_TRAINING_PRINCIPAL_EMAIL="${trainHead.email}"`);
+    envLines.push(`E2E_TRAINING_PRINCIPAL_PASSWORD="${trainHead.password}"`);
   }
 
   fs.writeFileSync(txtPath, txtContent.join('\n'), { mode: 0o600 });

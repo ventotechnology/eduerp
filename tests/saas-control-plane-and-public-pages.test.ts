@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { SaasPlanService } from '../lib/services/saas-plan.service';
 import { db } from '../lib/db';
-import { hashPassword } from '../lib/auth/password';
+import { hashPassword, generateSecurePassword } from '../lib/auth/password';
 
 describe('COMMAND 11D — SaaS Control Plane, Multi-Tenant Onboarding & Public Pages', () => {
   let createdPlanId: string;
@@ -144,7 +144,7 @@ describe('COMMAND 11D — SaaS Control Plane, Multi-Tenant Onboarding & Public P
       const user = await tx.user.create({
         data: {
           email: ownerEmail,
-          passwordHash: hashPassword('TestTempPassword123!'),
+          passwordHash: hashPassword(generateSecurePassword()),
           name: 'Prof. Test Principal',
           role: 'PRINCIPAL',
           tenantId: tenant.id,

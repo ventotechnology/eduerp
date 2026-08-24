@@ -1,8 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { db } from "@/lib/db";
-import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { hashPassword, verifyPassword, generateSecurePassword } from "@/lib/auth/password";
 import { createSessionToken, verifySessionToken } from "@/lib/auth/session";
-import { generateSecurePassword } from "@/scripts/provision-qa-users";
 
 describe("COMMAND 10.1: Production Authentication & QA Credential Cryptographic Security", () => {
   it("1. Generates cryptographically secure random passwords (length >= 24, high entropy)", () => {

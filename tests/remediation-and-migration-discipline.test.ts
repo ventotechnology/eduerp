@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 import path from 'path';
-import { QA_ACCOUNT_DEFINITIONS, generateSecurePassword } from '@/scripts/provision-qa-users';
+import { QA_ACCOUNT_DEFINITIONS } from '@/lib/demo/demo-account-definitions';
+import { generateSecurePassword } from '@/lib/auth/password';
 
 describe('COMMAND 10.1: Security Remediation, Migration Discipline & QA Hardening Suite', () => {
   const rootDir = process.cwd();

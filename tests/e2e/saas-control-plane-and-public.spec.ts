@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('COMMAND 11D — SaaS Control Plane, Public Pages & Vertical Admissions', () => {
   const saEmail = process.env.E2E_PLATFORM_ADMIN_EMAIL || 'platform-super-admin@eduerp.us';
-  const saPassword = process.env.E2E_PLATFORM_ADMIN_PASSWORD || 'fq9AHAoMhP2HLH+*eV-V-b7J!8';
+  const saPassword = process.env.E2E_PLATFORM_ADMIN_PASSWORD || '';
 
   test('1. Public Homepage loads cleanly without demo switcher bar', async ({ page }) => {
     await page.goto('/');
@@ -88,14 +88,17 @@ test.describe('COMMAND 11D — SaaS Control Plane, Public Pages & Vertical Admis
   test('5. Public Admissions on multiple vertical engines load without error', async ({ page }) => {
     // School application portal
     await page.goto('/apply/demo-school');
-    await expect(page.getByRole('heading', { name: /Online Admission Application/i })).toBeVisible();
+    await expect(page.getByText(/Online Admission Portal/i).first()).toBeVisible();
+    await expect(page.getByText('Dhaka Ideal Model School')).toBeVisible();
 
     // College application portal
     await page.goto('/apply/demo-college');
-    await expect(page.getByRole('heading', { name: /Online Admission Application/i })).toBeVisible();
+    await expect(page.getByText(/Online Admission Portal/i).first()).toBeVisible();
+    await expect(page.getByText('Chittagong Model College')).toBeVisible();
 
     // Madrasha application portal
     await page.goto('/apply/demo-madrasha');
-    await expect(page.getByRole('heading', { name: /Online Admission Application/i })).toBeVisible();
+    await expect(page.getByText(/Online Admission Portal/i).first()).toBeVisible();
+    await expect(page.getByText('Darul Uloom Islamia Madrasha')).toBeVisible();
   });
 });

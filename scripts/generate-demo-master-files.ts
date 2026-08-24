@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import * as XLSX from 'xlsx';
-import { QA_ACCOUNT_DEFINITIONS } from './provision-qa-users';
+import { QA_ACCOUNT_DEFINITIONS } from '../lib/demo/demo-account-definitions';
 
 export async function generateDemoMasterFiles() {
   console.log('=== EDUERP DEMO CLIENT CREDENTIAL VAULT & EXPORT GENERATOR ===');
@@ -118,9 +118,29 @@ export async function generateDemoMasterFiles() {
   fs.writeFileSync(masterTxtPath, masterTxt, { mode: 0o600 });
   console.log(`✅ Generated Master TXT: ${masterTxtPath}`);
 
-  // 3. Generate 8 Per-Institution Client Packs
+  // 3. Generate Testing Index Excel (High-level persona breakdown for QA & Clients)
+  const wbIndex = XLSX.utils.book_new();
+  const indexData = fullAccounts.map((a, i) => ({
+    '#': i + 1,
+    'Institution': a.institutionName,
+    'Vertical': a.institutionType,
+    'Role Persona': a.role,
+    'Persona Name': a.name,
+    'Login Username': a.email,
+    'Direct Landing URL': `https://eduerp.us${a.expectedLandingUrl}`,
+    'Target Workflows': a.modulesToTest
+  }));
+  const wsIndex = XLSX.utils.json_to_sheet(indexData);
+  XLSX.utils.book_append_sheet(wbIndex, wsIndex, 'Testing Index');
+  const indexXlsxPath = path.join(privateDir, 'EDUERP-DEMO-CLIENT-TESTING-INDEX.xlsx');
+  XLSX.writeFile(wbIndex, indexXlsxPath);
+  console.log(`✅ Generated Testing Index: ${indexXlsxPath}`);
+
+  // 4. Generate 8 Per-Institution Client Packs (TXT, CSV, XLSX)
   for (const v of verticals.filter(v => v.slug !== 'platform')) {
     const vAccounts = fullAccounts.filter(a => a.tenantSlug === v.slug);
+    
+    // TXT
     let packTxt = `================================================================================\n`;
     packTxt += `EDUERP CLIENT DEMONSTRATION EVALUATION PACK\n`;
     packTxt += `Vertical       : ${v.title}\n`;
@@ -145,9 +165,35 @@ export async function generateDemoMasterFiles() {
       packTxt += `Notes          : ${a.notes}\n\n`;
     }
 
-    const packPath = path.join(packsDir, `${v.slug}-evaluation-pack.txt`);
-    fs.writeFileSync(packPath, packTxt, { mode: 0o600 });
-    console.log(`✅ Generated Client Pack: ${packPath}`);
+    const packTxtPath = path.join(packsDir, `${v.slug}-evaluation-pack.txt`);
+    fs.writeFileSync(packTxtPath, packTxt, { mode: 0o600 });
+
+    // CSV
+    let packCsv = 'Role,Name,Username,Password,Landing_URL,Modules_To_Test,Notes\n';
+    vAccounts.forEach(a => {
+      packCsv += `"${a.role}","${a.name}","${a.email}","${a.password}","https://eduerp.us${a.expectedLandingUrl}","${a.modulesToTest}","${a.notes}"\n`;
+    });
+    const packCsvPath = path.join(packsDir, `${v.slug}-evaluation-pack.csv`);
+    fs.writeFileSync(packCsvPath, packCsv, { mode: 0o600 });
+
+    // XLSX
+    const wbPack = XLSX.utils.book_new();
+    const packRows = vAccounts.map((a, idx) => ({
+      '#': idx + 1,
+      'Role Persona': a.role,
+      'Full Name': a.name,
+      'Login Username': a.email,
+      'Password': a.password,
+      'Landing URL': `https://eduerp.us${a.expectedLandingUrl}`,
+      'Recommended Modules': a.modulesToTest,
+      'Notes': a.notes
+    }));
+    const wsPack = XLSX.utils.json_to_sheet(packRows);
+    XLSX.utils.book_append_sheet(wbPack, wsPack, v.title.slice(0, 31));
+    const packXlsxPath = path.join(packsDir, `${v.slug}-evaluation-pack.xlsx`);
+    XLSX.writeFile(wbPack, packXlsxPath);
+
+    console.log(`✅ Generated Client Pack (TXT, CSV, XLSX): ${v.slug}`);
   }
 }
 
