@@ -19,10 +19,36 @@ export async function createLibrary(tenantIdentifier: string, rawData: unknown, 
   const tenant = await requireTenant(tenantIdentifier);
   const validated = LibraryCreateSchema.parse(rawData);
 
-  const campus = await db.campus.findFirst({
-    where: { id: validated.campusId, institutionId: tenant.institutionId },
-  });
-  if (!campus) throw AppError.notFound('Selected campus does not exist in this institution.');
+  let campus = null;
+  if (validated.campusId && validated.campusId !== 'CAMPUS-MAIN' && validated.campusId !== 'main-campus') {
+    campus = await db.campus.findFirst({
+      where: {
+        OR: [
+          { id: validated.campusId, institutionId: tenant.institutionId },
+          { code: validated.campusId, institutionId: tenant.institutionId },
+        ],
+      },
+    });
+    if (!campus) throw AppError.notFound('Selected campus does not exist in this institution.');
+  } else {
+    campus = await db.campus.findFirst({
+      where: { institutionId: tenant.institutionId },
+      orderBy: { isMain: 'desc' },
+    });
+  }
+
+  if (!campus) {
+    campus = await db.campus.create({
+      data: {
+        institutionId: tenant.institutionId,
+        name: `${tenant.name} Main Campus`,
+        code: `${tenant.slug.slice(0, 4).toUpperCase()}-MAIN`,
+        address: 'Campus Main Facility',
+        type: 'Main Campus',
+        isMain: true,
+      },
+    });
+  }
 
   const existing = await db.library.findFirst({
     where: { institutionId: tenant.institutionId, code: validated.code },
@@ -32,7 +58,7 @@ export async function createLibrary(tenantIdentifier: string, rawData: unknown, 
   const library = await db.library.create({
     data: {
       institutionId: tenant.institutionId,
-      campusId: validated.campusId,
+      campusId: campus.id,
       code: validated.code,
       name: validated.name,
       location: validated.location,
@@ -70,15 +96,50 @@ export async function createLibraryCatalog(tenantIdentifier: string, rawData: un
   const tenant = await requireTenant(tenantIdentifier);
   const validated = LibraryCatalogCreateSchema.parse(rawData);
 
-  const library = await db.library.findFirst({
-    where: { id: validated.libraryId, institutionId: tenant.institutionId },
-  });
-  if (!library) throw AppError.notFound('Library not found.');
+  let library = null;
+  if (validated.libraryId) {
+    library = await db.library.findFirst({
+      where: { id: validated.libraryId, institutionId: tenant.institutionId },
+    });
+  }
+  if (!library) {
+    library = await db.library.findFirst({
+      where: { institutionId: tenant.institutionId },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+  if (!library) {
+    let campus = await db.campus.findFirst({
+      where: { institutionId: tenant.institutionId },
+      orderBy: { isMain: 'desc' },
+    });
+    if (!campus) {
+      campus = await db.campus.create({
+        data: {
+          institutionId: tenant.institutionId,
+          name: 'Main Campus',
+          code: 'MAIN',
+          address: 'Campus Main Facility',
+          type: 'Main Campus',
+          isMain: true,
+        },
+      });
+    }
+    library = await db.library.create({
+      data: {
+        institutionId: tenant.institutionId,
+        campusId: campus.id,
+        name: 'Central Academic Library',
+        code: 'LIB-CENTRAL',
+        status: 'ACTIVE',
+      },
+    });
+  }
 
   return db.libraryCatalog.create({
     data: {
       institutionId: tenant.institutionId,
-      libraryId: validated.libraryId,
+      libraryId: library.id,
       title: validated.title,
       subtitle: validated.subtitle,
       isbn: validated.isbn,

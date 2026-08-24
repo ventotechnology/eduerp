@@ -168,7 +168,7 @@ export function TenantHeader() {
             {emergencySent ? (
               <div className="p-3 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200 rounded-lg flex items-center justify-center gap-2 text-xs font-bold">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>Emergency Broadcast Dispatched to 1,850 Guardians, 142 Staff & SMS Gateway!</span>
+                <span>Campus Emergency Broadcast Dispatched to Active Registered Channels!</span>
               </div>
             ) : (
               <div className="flex items-center justify-end gap-3">

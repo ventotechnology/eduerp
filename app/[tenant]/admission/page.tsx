@@ -1060,91 +1060,91 @@ function InternalApplicationWizardModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-6">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+      <div className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-800 max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-6 text-white">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <div>
-            <h3 className="text-lg font-bold text-slate-900">New Admission Application Wizard</h3>
-            <span className="text-xs text-slate-500">Step {step} of 3</span>
+            <h3 className="text-lg font-bold text-white">New Admission Application Wizard</h3>
+            <span className="text-xs text-slate-400">Step {step} of 3</span>
           </div>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {error && (
-          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-rose-500" />
+          <div className="p-3 bg-rose-950/60 border border-rose-800 rounded-xl text-xs text-rose-300 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
         {step === 1 && (
           <div className="space-y-4 text-xs">
-            <h4 className="font-bold text-slate-700 uppercase tracking-wider">1. Student Details</h4>
+            <h4 className="font-bold text-emerald-400 uppercase tracking-wider">1. Student Details</h4>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">First Name *</label>
+                <label className="font-semibold text-slate-300 block mb-1">First Name *</label>
                 <input
                   type="text"
                   required
                   value={form.firstName}
                   onChange={(e) => update('firstName', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg"
+                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                 />
               </div>
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Last Name *</label>
+                <label className="font-semibold text-slate-300 block mb-1">Last Name *</label>
                 <input
                   type="text"
                   required
                   value={form.lastName}
                   onChange={(e) => update('lastName', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg"
+                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                 />
               </div>
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Date of Birth *</label>
+                <label className="font-semibold text-slate-300 block mb-1">Date of Birth *</label>
                 <input
                   type="date"
                   required
                   value={form.dateOfBirth}
                   onChange={(e) => update('dateOfBirth', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg"
+                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-emerald-500"
                 />
               </div>
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Gender *</label>
+                <label className="font-semibold text-slate-300 block mb-1">Gender *</label>
                 <select
                   value={form.gender}
                   onChange={(e) => update('gender', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg"
+                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-emerald-500"
                 >
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
+                  <option value="Male" className="bg-slate-900 text-white">Male</option>
+                  <option value="Female" className="bg-slate-900 text-white">Female</option>
                 </select>
               </div>
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Contact Phone *</label>
+                <label className="font-semibold text-slate-300 block mb-1">Contact Phone *</label>
                 <input
                   type="tel"
                   required
                   value={form.phone}
                   onChange={(e) => update('phone', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg"
+                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                 />
               </div>
             </div>
             <div>
-              <label className="font-semibold text-slate-700 block mb-1">Present Address *</label>
+              <label className="font-semibold text-slate-300 block mb-1">Present Address *</label>
               <textarea
                 rows={2}
                 required
                 value={form.presentAddress}
                 onChange={(e) => update('presentAddress', e.target.value)}
-                className="w-full p-2 border border-slate-200 rounded-lg"
+                className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs placeholder-slate-500 focus:outline-none focus:border-emerald-500"
               />
             </div>
           </div>
@@ -1152,48 +1152,48 @@ function InternalApplicationWizardModal({
 
         {step === 2 && (
           <div className="space-y-4 text-xs">
-            <h4 className="font-bold text-slate-700 uppercase tracking-wider">2. Parents & Guardian</h4>
+            <h4 className="font-bold text-emerald-400 uppercase tracking-wider">2. Parents & Guardian</h4>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Father Name *</label>
+                <label className="font-semibold text-slate-300 block mb-1">Father Name *</label>
                 <input
                   type="text"
                   required
                   value={form.fatherName}
                   onChange={(e) => update('fatherName', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg"
+                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                 />
               </div>
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Father Phone *</label>
+                <label className="font-semibold text-slate-300 block mb-1">Father Phone *</label>
                 <input
                   type="tel"
                   required
                   value={form.fatherPhone}
                   onChange={(e) => update('fatherPhone', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg"
+                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                 />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Mother Name *</label>
+                <label className="font-semibold text-slate-300 block mb-1">Mother Name *</label>
                 <input
                   type="text"
                   required
                   value={form.motherName}
                   onChange={(e) => update('motherName', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg"
+                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                 />
               </div>
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Legal Guardian Name</label>
+                <label className="font-semibold text-slate-300 block mb-1">Legal Guardian Name</label>
                 <input
                   type="text"
                   value={form.guardianName}
                   onChange={(e) => update('guardianName', e.target.value)}
                   placeholder="Leave blank to use Father"
-                  className="w-full p-2 border border-slate-200 rounded-lg"
+                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                 />
               </div>
             </div>
@@ -1202,29 +1202,29 @@ function InternalApplicationWizardModal({
 
         {step === 3 && (
           <div className="space-y-4 text-xs">
-            <h4 className="font-bold text-slate-700 uppercase tracking-wider">3. Academic Placement & Fee</h4>
+            <h4 className="font-bold text-emerald-400 uppercase tracking-wider">3. Academic Placement & Fee</h4>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Campus *</label>
+                <label className="font-semibold text-slate-300 block mb-1">Campus *</label>
                 <select
                   value={form.campusId}
                   onChange={(e) => update('campusId', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg"
+                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-emerald-500"
                 >
                   {structure?.campuses?.map((c: any) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
+                    <option key={c.id} value={c.id} className="bg-slate-900 text-white">{c.name}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Academic Year *</label>
+                <label className="font-semibold text-slate-300 block mb-1">Academic Year *</label>
                 <select
                   value={form.academicYearId}
                   onChange={(e) => update('academicYearId', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg"
+                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-emerald-500"
                 >
                   {structure?.academicYears?.map((ay: any) => (
-                    <option key={ay.id} value={ay.id}>{ay.name}</option>
+                    <option key={ay.id} value={ay.id} className="bg-slate-900 text-white">{ay.name}</option>
                   ))}
                 </select>
               </div>
@@ -1232,37 +1232,37 @@ function InternalApplicationWizardModal({
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Target Class / Program *</label>
+                <label className="font-semibold text-slate-300 block mb-1">Target Class / Program *</label>
                 <select
                   value={form.desiredClassId}
                   onChange={(e) => update('desiredClassId', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg"
+                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-emerald-500"
                 >
                   {structure?.classes?.map((cls: any) => (
-                    <option key={cls.id} value={cls.id}>{cls.name}</option>
+                    <option key={cls.id} value={cls.id} className="bg-slate-900 text-white">{cls.name}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Admission Fee (BDT)</label>
+                <label className="font-semibold text-slate-300 block mb-1">Admission Fee (BDT)</label>
                 <input
                   type="number"
                   min="0"
                   value={form.admissionFeeAmount}
                   onChange={(e) => update('admissionFeeAmount', e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg font-mono font-bold"
+                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono font-bold text-xs focus:outline-none focus:border-emerald-500"
                 />
               </div>
             </div>
           </div>
         )}
 
-        <div className="border-t border-slate-100 pt-4 flex items-center justify-between">
+        <div className="border-t border-slate-800 pt-4 flex items-center justify-between">
           {step > 1 ? (
             <button
               type="button"
               onClick={() => setStep((p) => p - 1)}
-              className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold"
+              className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-700"
             >
               Previous
             </button>
@@ -1272,7 +1272,7 @@ function InternalApplicationWizardModal({
             <button
               type="button"
               onClick={() => setStep((p) => p + 1)}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-sm"
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold shadow-md"
             >
               Next Step
             </button>
@@ -1281,7 +1281,7 @@ function InternalApplicationWizardModal({
               type="button"
               disabled={submitting}
               onClick={handleSubmit}
-              className="px-6 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-100 flex items-center gap-2"
+              className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md flex items-center gap-2 disabled:opacity-50"
             >
               {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
               Submit Application

@@ -1391,7 +1391,7 @@ export const LibraryCreateSchema = z.object({
 });
 
 export const LibraryCatalogCreateSchema = z.object({
-  libraryId: z.string().min(1, 'Library ID is required'),
+  libraryId: z.string().optional().nullable(),
   title: z.string().min(1, 'Book/resource title is required'),
   subtitle: z.string().optional().nullable(),
   isbn: z.string().optional().nullable(),

@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 
 export default function HrWorkforcePage() {
-  const { branding, tenantSlug } = useTenant();
+  const { branding, tenantSlug, campuses } = useTenant();
 
   const [activeTab, setActiveTab] = useState<
     | 'overview'
@@ -149,7 +149,7 @@ export default function HrWorkforcePage() {
     setErrorMsg(null);
     try {
       const slug = tenantSlug || 'demo-school';
-      const campusId = overviewData?.recentEmployees?.[0]?.campusId || 'main-campus';
+      const campusId = campuses?.[0]?.id || overviewData?.recentEmployees?.[0]?.campusId || 'CAMPUS-MAIN';
 
       const res = await fetch('/api/hr', {
         method: 'POST',
@@ -164,10 +164,24 @@ export default function HrWorkforcePage() {
       });
 
       const json = await res.json();
-      if (!json.success) throw new Error(json.error?.message || 'Failed to create employee');
+      if (!json.success) throw new Error(json.error?.message || json.error || 'Failed to create employee');
 
       setSuccessMsg(`Employee ${empForm.firstName} ${empForm.lastName} (${empForm.employeeCode}) created successfully!`);
       setShowAddEmployeeModal(false);
+      setEmpForm({
+        employeeCode: '',
+        firstName: '',
+        lastName: '',
+        designation: '',
+        category: 'TEACHING',
+        status: 'ACTIVE',
+        academicRank: 'Lecturer',
+        employmentType: 'PERMANENT',
+        basicSalary: 40000,
+        phone: '',
+        email: '',
+        joiningDate: new Date().toISOString().slice(0, 10),
+      });
       loadData();
     } catch (err: any) {
       setErrorMsg(err.message);
@@ -841,13 +855,13 @@ export default function HrWorkforcePage() {
 
       {/* ADD EMPLOYEE MODAL */}
       {showAddEmployeeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-                <Users className="w-4 h-4 text-blue-600" /> Onboard New Employee
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-slate-900 rounded-2xl max-w-lg w-full p-6 border border-slate-800 shadow-2xl space-y-4 text-white">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                <Users className="w-4 h-4 text-emerald-400" /> Onboard New Employee
               </h3>
-              <button onClick={() => setShowAddEmployeeModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setShowAddEmployeeModal(false)} className="text-slate-400 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -855,101 +869,101 @@ export default function HrWorkforcePage() {
             <form onSubmit={handleCreateEmployee} className="space-y-3 text-xs">
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Employee Code</label>
+                  <label className="font-semibold text-slate-300 block mb-1">Employee Code *</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. EMP-1042"
                     value={empForm.employeeCode}
                     onChange={(e) => setEmpForm({ ...empForm, employeeCode: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                   />
                 </div>
                 <div>
-                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Category</label>
+                  <label className="font-semibold text-slate-300 block mb-1">Category *</label>
                   <select
                     value={empForm.category}
                     onChange={(e) => setEmpForm({ ...empForm, category: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-white text-xs focus:outline-none focus:border-emerald-500"
                   >
-                    <option value="TEACHING">Teaching / Faculty</option>
-                    <option value="ADMINISTRATIVE">Administrative</option>
-                    <option value="MANAGEMENT">Management</option>
-                    <option value="SUPPORT">Support</option>
-                    <option value="DRIVER">Driver</option>
-                    <option value="SECURITY">Security</option>
+                    <option value="TEACHING" className="bg-slate-900 text-white">Teaching / Faculty</option>
+                    <option value="ADMINISTRATIVE" className="bg-slate-900 text-white">Administrative</option>
+                    <option value="MANAGEMENT" className="bg-slate-900 text-white">Management</option>
+                    <option value="SUPPORT" className="bg-slate-900 text-white">Support</option>
+                    <option value="DRIVER" className="bg-slate-900 text-white">Driver</option>
+                    <option value="SECURITY" className="bg-slate-900 text-white">Security</option>
                   </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">First Name</label>
+                  <label className="font-semibold text-slate-300 block mb-1">First Name *</label>
                   <input
                     type="text"
                     required
                     value={empForm.firstName}
                     onChange={(e) => setEmpForm({ ...empForm, firstName: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                   />
                 </div>
                 <div>
-                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Last Name</label>
+                  <label className="font-semibold text-slate-300 block mb-1">Last Name *</label>
                   <input
                     type="text"
                     required
                     value={empForm.lastName}
                     onChange={(e) => setEmpForm({ ...empForm, lastName: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Designation</label>
+                  <label className="font-semibold text-slate-300 block mb-1">Designation *</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. Assistant Professor"
                     value={empForm.designation}
                     onChange={(e) => setEmpForm({ ...empForm, designation: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                   />
                 </div>
                 <div>
-                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Basic Salary (BDT)</label>
+                  <label className="font-semibold text-slate-300 block mb-1">Basic Salary (BDT) *</label>
                   <input
                     type="number"
                     required
                     value={empForm.basicSalary}
                     onChange={(e) => setEmpForm({ ...empForm, basicSalary: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-white font-mono text-xs focus:outline-none focus:border-emerald-500"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Phone</label>
+                  <label className="font-semibold text-slate-300 block mb-1">Phone *</label>
                   <input
                     type="text"
                     required
                     placeholder="017XXXXXXXX"
                     value={empForm.phone}
                     onChange={(e) => setEmpForm({ ...empForm, phone: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                   />
                 </div>
                 <div>
-                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Email</label>
+                  <label className="font-semibold text-slate-300 block mb-1">Email *</label>
                   <input
                     type="email"
                     required
                     placeholder="employee@school.edu.bd"
                     value={empForm.email}
                     onChange={(e) => setEmpForm({ ...empForm, email: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                   />
                 </div>
               </div>
@@ -958,14 +972,14 @@ export default function HrWorkforcePage() {
                 <button
                   type="button"
                   onClick={() => setShowAddEmployeeModal(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 font-bold"
+                  className="px-4 py-2 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-xs"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md transition disabled:opacity-50"
                 >
                   {loading ? 'Creating...' : 'Create Employee Record'}
                 </button>
@@ -977,29 +991,29 @@ export default function HrWorkforcePage() {
 
       {/* APPLY LEAVE MODAL */}
       {showAddLeaveModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-                <CalendarCheck className="w-4 h-4 text-blue-600" /> Apply Employee Leave
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-slate-900 rounded-2xl max-w-md w-full p-6 border border-slate-800 shadow-2xl space-y-4 text-white">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                <CalendarCheck className="w-4 h-4 text-emerald-400" /> Apply Employee Leave
               </h3>
-              <button onClick={() => setShowAddLeaveModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setShowAddLeaveModal(false)} className="text-slate-400 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleApplyLeave} className="space-y-3 text-xs">
               <div>
-                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Select Employee</label>
+                <label className="font-semibold text-slate-300 block mb-1">Select Employee *</label>
                 <select
                   required
                   value={leaveForm.employeeId}
                   onChange={(e) => setLeaveForm({ ...leaveForm, employeeId: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-white text-xs focus:outline-none focus:border-emerald-500"
                 >
-                  <option value="">Select Employee...</option>
+                  <option value="" className="bg-slate-900 text-white">Select Employee...</option>
                   {directoryData.map((emp) => (
-                    <option key={emp.id} value={emp.id}>
+                    <option key={emp.id} value={emp.id} className="bg-slate-900 text-white">
                       {emp.firstName} {emp.lastName} ({emp.employeeCode})
                     </option>
                   ))}
@@ -1007,16 +1021,16 @@ export default function HrWorkforcePage() {
               </div>
 
               <div>
-                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Leave Type</label>
+                <label className="font-semibold text-slate-300 block mb-1">Leave Type *</label>
                 <select
                   required
                   value={leaveForm.leaveTypeId}
                   onChange={(e) => setLeaveForm({ ...leaveForm, leaveTypeId: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-white text-xs focus:outline-none focus:border-emerald-500"
                 >
-                  <option value="">Select Leave Type...</option>
+                  <option value="" className="bg-slate-900 text-white">Select Leave Type...</option>
                   {leavesData?.leaveTypes?.map((lt: any) => (
-                    <option key={lt.id} value={lt.id}>
+                    <option key={lt.id} value={lt.id} className="bg-slate-900 text-white">
                       {lt.name} ({lt.isPaid ? 'Paid' : 'Unpaid'})
                     </option>
                   ))}
@@ -1025,29 +1039,29 @@ export default function HrWorkforcePage() {
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Start Date</label>
+                  <label className="font-semibold text-slate-300 block mb-1">Start Date *</label>
                   <input
                     type="date"
                     required
                     value={leaveForm.startDate}
                     onChange={(e) => setLeaveForm({ ...leaveForm, startDate: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-white text-xs focus:outline-none focus:border-emerald-500"
                   />
                 </div>
                 <div>
-                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">End Date</label>
+                  <label className="font-semibold text-slate-300 block mb-1">End Date *</label>
                   <input
                     type="date"
                     required
                     value={leaveForm.endDate}
                     onChange={(e) => setLeaveForm({ ...leaveForm, endDate: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-white text-xs focus:outline-none focus:border-emerald-500"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Total Days</label>
+                <label className="font-semibold text-slate-300 block mb-1">Total Days *</label>
                 <input
                   type="number"
                   required
@@ -1055,18 +1069,18 @@ export default function HrWorkforcePage() {
                   step="0.5"
                   value={leaveForm.totalDays}
                   onChange={(e) => setLeaveForm({ ...leaveForm, totalDays: parseFloat(e.target.value) || 1 })}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-white font-mono text-xs focus:outline-none focus:border-emerald-500"
                 />
               </div>
 
               <div>
-                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Reason</label>
+                <label className="font-semibold text-slate-300 block mb-1">Reason *</label>
                 <textarea
                   required
                   rows={2}
                   value={leaveForm.reason}
                   onChange={(e) => setLeaveForm({ ...leaveForm, reason: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                 />
               </div>
 
@@ -1074,14 +1088,14 @@ export default function HrWorkforcePage() {
                 <button
                   type="button"
                   onClick={() => setShowAddLeaveModal(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 font-bold"
+                  className="px-4 py-2 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-xs"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md transition disabled:opacity-50"
                 >
                   {loading ? 'Submitting...' : 'Submit Application'}
                 </button>
@@ -1093,29 +1107,29 @@ export default function HrWorkforcePage() {
 
       {/* RECORD BIOMETRIC PUNCH MODAL */}
       {showPunchModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-                <Clock className="w-4 h-4 text-emerald-600" /> Record Biometric Device Punch
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-slate-900 rounded-2xl max-w-md w-full p-6 border border-slate-800 shadow-2xl space-y-4 text-white">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                <Clock className="w-4 h-4 text-emerald-400" /> Record Biometric Device Punch
               </h3>
-              <button onClick={() => setShowPunchModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setShowPunchModal(false)} className="text-slate-400 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleSimulatePunch} className="space-y-3 text-xs">
               <div>
-                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Select Employee</label>
+                <label className="font-semibold text-slate-300 block mb-1">Select Employee *</label>
                 <select
                   required
                   value={punchForm.employeeId}
                   onChange={(e) => setPunchForm({ ...punchForm, employeeId: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-white text-xs focus:outline-none focus:border-emerald-500"
                 >
-                  <option value="">Select Employee...</option>
+                  <option value="" className="bg-slate-900 text-white">Select Employee...</option>
                   {directoryData.map((emp) => (
-                    <option key={emp.id} value={emp.id}>
+                    <option key={emp.id} value={emp.id} className="bg-slate-900 text-white">
                       {emp.firstName} {emp.lastName} ({emp.employeeCode})
                     </option>
                   ))}
@@ -1124,27 +1138,27 @@ export default function HrWorkforcePage() {
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Punch Type</label>
+                  <label className="font-semibold text-slate-300 block mb-1">Punch Type</label>
                   <select
                     value={punchForm.punchType}
                     onChange={(e) => setPunchForm({ ...punchForm, punchType: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-white text-xs focus:outline-none focus:border-emerald-500"
                   >
-                    <option value="ENTRY">ENTRY (Check-In)</option>
-                    <option value="EXIT">EXIT (Check-Out)</option>
+                    <option value="ENTRY" className="bg-slate-900 text-white">ENTRY (Check-In)</option>
+                    <option value="EXIT" className="bg-slate-900 text-white">EXIT (Check-Out)</option>
                   </select>
                 </div>
                 <div>
-                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Device Source</label>
+                  <label className="font-semibold text-slate-300 block mb-1">Device Source</label>
                   <select
                     value={punchForm.deviceSource}
                     onChange={(e) => setPunchForm({ ...punchForm, deviceSource: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-white text-xs focus:outline-none focus:border-emerald-500"
                   >
-                    <option value="BIOMETRIC">ZKTeco Biometric</option>
-                    <option value="RFID">RFID Card Terminal</option>
-                    <option value="WEB">Web Self-Service</option>
-                    <option value="MOBILE">Mobile Geofence</option>
+                    <option value="BIOMETRIC" className="bg-slate-900 text-white">ZKTeco Biometric</option>
+                    <option value="RFID" className="bg-slate-900 text-white">RFID Card Terminal</option>
+                    <option value="WEB" className="bg-slate-900 text-white">Web Self-Service</option>
+                    <option value="MOBILE" className="bg-slate-900 text-white">Mobile Geofence</option>
                   </select>
                 </div>
               </div>
@@ -1153,14 +1167,14 @@ export default function HrWorkforcePage() {
                 <button
                   type="button"
                   onClick={() => setShowPunchModal(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 font-bold"
+                  className="px-4 py-2 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-xs"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md transition disabled:opacity-50"
                 >
                   {loading ? 'Ingesting...' : 'Record Punch'}
                 </button>

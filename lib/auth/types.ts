@@ -28,6 +28,7 @@ export interface SessionUser {
 export interface AuthSessionPayload {
   userId: string;
   email: string;
+  name?: string | null;
   role: UserRole;
   tenantId: string | null;
   tenantSlug?: string | null;

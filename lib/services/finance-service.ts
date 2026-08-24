@@ -370,6 +370,131 @@ export async function getChartOfAccounts(tenantIdentifier: string) {
   });
 }
 
+export async function initializeStandardChartOfAccounts(tenantIdentifier: string, actor: SessionUser) {
+  const tenant = await requireTenant(tenantIdentifier);
+
+  const standardAccounts = [
+    // 1. Assets
+    { code: '1000', name: 'Assets', type: 'ASSET', subtype: 'CURRENT_ASSET', isHeader: true },
+    { code: '1010', name: 'Cash on Hand', type: 'ASSET', subtype: 'CURRENT_ASSET', parentCode: '1000', isHeader: false },
+    { code: '1020', name: 'Bank Accounts', type: 'ASSET', subtype: 'CURRENT_ASSET', parentCode: '1000', isHeader: false },
+    { code: '1030', name: 'Student Fees Receivable', type: 'ASSET', subtype: 'ACCOUNTS_RECEIVABLE', parentCode: '1000', isHeader: false },
+    { code: '1040', name: 'Inventory & Academic Supplies', type: 'ASSET', subtype: 'CURRENT_ASSET', parentCode: '1000', isHeader: false },
+    { code: '1050', name: 'Campus Fixed Assets & Equipment', type: 'ASSET', subtype: 'FIXED_ASSET', parentCode: '1000', isHeader: false },
+    { code: '1060', name: 'Accumulated Depreciation', type: 'ASSET', subtype: 'ACCUMULATED_DEPRECIATION', parentCode: '1000', isHeader: false },
+
+    // 2. Liabilities
+    { code: '2000', name: 'Liabilities', type: 'LIABILITY', subtype: 'CURRENT_LIABILITY', isHeader: true },
+    { code: '2010', name: 'Accounts Payable & Vendors', type: 'LIABILITY', subtype: 'ACCOUNTS_PAYABLE', parentCode: '2000', isHeader: false },
+    { code: '2020', name: 'Staff Salaries & Benefits Payable', type: 'LIABILITY', subtype: 'CURRENT_LIABILITY', parentCode: '2000', isHeader: false },
+    { code: '2030', name: 'Tax, VAT & Govt. Levies Payable', type: 'LIABILITY', subtype: 'CURRENT_LIABILITY', parentCode: '2000', isHeader: false },
+    { code: '2040', name: 'Unearned / Advance Tuition Fees', type: 'LIABILITY', subtype: 'CURRENT_LIABILITY', parentCode: '2000', isHeader: false },
+
+    // 3. Equity / Institutional Fund
+    { code: '3000', name: 'Institutional Equity & Funds', type: 'EQUITY', subtype: 'RETAINED_EARNINGS', isHeader: true },
+    { code: '3010', name: 'Institutional Capital & Waqf Fund', type: 'EQUITY', subtype: 'RETAINED_EARNINGS', parentCode: '3000', isHeader: false },
+    { code: '3020', name: 'Retained Operating Surplus', type: 'EQUITY', subtype: 'RETAINED_EARNINGS', parentCode: '3000', isHeader: false },
+
+    // 4. Revenue / Income
+    { code: '4000', name: 'Academic & Institutional Revenue', type: 'REVENUE', subtype: 'OPERATING_REVENUE', isHeader: true },
+    { code: '4010', name: 'Tuition & Academic Fees Income', type: 'REVENUE', subtype: 'OPERATING_REVENUE', parentCode: '4000', isHeader: false },
+    { code: '4020', name: 'Admission & Registration Fees', type: 'REVENUE', subtype: 'OPERATING_REVENUE', parentCode: '4000', isHeader: false },
+    { code: '4030', name: 'Examination & Evaluation Fees', type: 'REVENUE', subtype: 'OPERATING_REVENUE', parentCode: '4000', isHeader: false },
+    { code: '4040', name: 'Tahfiz / Specialized Program Fees', type: 'REVENUE', subtype: 'OPERATING_REVENUE', parentCode: '4000', isHeader: false },
+    { code: '4050', name: 'Hostel, Transport & Facility Fees', type: 'REVENUE', subtype: 'OPERATING_REVENUE', parentCode: '4000', isHeader: false },
+    { code: '4090', name: 'Institutional Donations & Grants', type: 'REVENUE', subtype: 'NON_OPERATING_REVENUE', parentCode: '4000', isHeader: false },
+
+    // 5. Operating Expenses
+    { code: '5000', name: 'Operating & Administrative Expenses', type: 'EXPENSE', subtype: 'OPERATING_EXPENSE', isHeader: true },
+    { code: '5010', name: 'Faculty & Academic Salaries', type: 'EXPENSE', subtype: 'OPERATING_EXPENSE', parentCode: '5000', isHeader: false },
+    { code: '5020', name: 'Administrative & Support Staff Wages', type: 'EXPENSE', subtype: 'OPERATING_EXPENSE', parentCode: '5000', isHeader: false },
+    { code: '5030', name: 'Campus Rent, Electricity & Utilities', type: 'EXPENSE', subtype: 'OPERATING_EXPENSE', parentCode: '5000', isHeader: false },
+    { code: '5040', name: 'Curriculum & Educational Supplies', type: 'EXPENSE', subtype: 'OPERATING_EXPENSE', parentCode: '5000', isHeader: false },
+    { code: '5050', name: 'Campus Facility Maintenance & Repairs', type: 'EXPENSE', subtype: 'OPERATING_EXPENSE', parentCode: '5000', isHeader: false },
+    { code: '5060', name: 'IT, Software & Communication', type: 'EXPENSE', subtype: 'OPERATING_EXPENSE', parentCode: '5000', isHeader: false },
+  ];
+
+  const createdAccounts = [];
+  // 1. Create Headers first
+  for (const item of standardAccounts.filter((a) => a.isHeader)) {
+    const existing = await db.chartOfAccount.findUnique({
+      where: {
+        institutionId_code: {
+          institutionId: tenant.institutionId,
+          code: item.code,
+        },
+      },
+    });
+    if (!existing) {
+      const created = await db.chartOfAccount.create({
+        data: {
+          institutionId: tenant.institutionId,
+          code: item.code,
+          name: item.name,
+          type: item.type as any,
+          subtype: item.subtype as any,
+          isHeader: true,
+          currency: 'BDT',
+          balance: 0,
+          isActive: true,
+        },
+      });
+      createdAccounts.push(created);
+    }
+  }
+
+  // 2. Create Child Accounts
+  for (const item of standardAccounts.filter((a) => !a.isHeader)) {
+    const existing = await db.chartOfAccount.findUnique({
+      where: {
+        institutionId_code: {
+          institutionId: tenant.institutionId,
+          code: item.code,
+        },
+      },
+    });
+    if (!existing) {
+      const parent = item.parentCode
+        ? await db.chartOfAccount.findUnique({
+            where: {
+              institutionId_code: {
+                institutionId: tenant.institutionId,
+                code: item.parentCode,
+              },
+            },
+          })
+        : null;
+
+      const created = await db.chartOfAccount.create({
+        data: {
+          institutionId: tenant.institutionId,
+          code: item.code,
+          name: item.name,
+          type: item.type as any,
+          subtype: item.subtype as any,
+          parentId: parent?.id || null,
+          isHeader: false,
+          currency: 'BDT',
+          balance: 0,
+          isActive: true,
+        },
+      });
+      createdAccounts.push(created);
+    }
+  }
+
+  await logAuditEvent({
+    tenantId: tenant.tenantId,
+    actor,
+    action: 'CHART_OF_ACCOUNT_INITIALIZED',
+    resourceType: 'ChartOfAccount',
+    resourceId: tenant.institutionId,
+    newState: { createdCount: createdAccounts.length },
+  });
+
+  return getChartOfAccounts(tenantIdentifier);
+}
+
 export async function createCostCenter(tenantIdentifier: string, rawData: any, actor: SessionUser) {
   const tenant = await requireTenant(tenantIdentifier);
   const validated = CostCenterCreateSchema.parse(rawData);

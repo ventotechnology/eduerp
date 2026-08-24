@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
     const sessionToken = createSessionToken({
       userId: user.id,
       email: user.email,
+      name: user.name,
       role: user.role as any,
       tenantId: user.tenantId,
       tenantSlug: user.tenant?.slug || null

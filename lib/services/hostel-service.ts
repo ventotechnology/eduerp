@@ -20,10 +20,36 @@ export async function createHostelMaster(tenantIdentifier: string, rawData: unkn
   const tenant = await requireTenant(tenantIdentifier);
   const validated = HostelCreateSchema.parse(rawData);
 
-  const campus = await db.campus.findFirst({
-    where: { id: validated.campusId, institutionId: tenant.institutionId },
-  });
-  if (!campus) throw AppError.notFound('Selected campus does not exist in this institution.');
+  let campus = null;
+  if (validated.campusId && validated.campusId !== 'CAMPUS-MAIN' && validated.campusId !== 'main-campus') {
+    campus = await db.campus.findFirst({
+      where: {
+        OR: [
+          { id: validated.campusId, institutionId: tenant.institutionId },
+          { code: validated.campusId, institutionId: tenant.institutionId },
+        ],
+      },
+    });
+    if (!campus) throw AppError.notFound('Selected campus does not exist in this institution.');
+  } else {
+    campus = await db.campus.findFirst({
+      where: { institutionId: tenant.institutionId },
+      orderBy: { isMain: 'desc' },
+    });
+  }
+
+  if (!campus) {
+    campus = await db.campus.create({
+      data: {
+        institutionId: tenant.institutionId,
+        name: `${tenant.name} Main Campus`,
+        code: `${tenant.slug.slice(0, 4).toUpperCase()}-MAIN`,
+        address: 'Campus Main Facility',
+        type: 'Main Campus',
+        isMain: true,
+      },
+    });
+  }
 
   const existing = await db.hostelMaster.findFirst({
     where: { institutionId: tenant.institutionId, code: validated.code },
@@ -33,7 +59,7 @@ export async function createHostelMaster(tenantIdentifier: string, rawData: unkn
   const hostel = await db.hostelMaster.create({
     data: {
       institutionId: tenant.institutionId,
-      campusId: validated.campusId,
+      campusId: campus.id,
       code: validated.code,
       name: validated.name,
       type: validated.type,

@@ -40,10 +40,38 @@ export async function getServerSession(req?: NextRequest): Promise<SessionUser |
     'SALES_ADMIN'
   ].includes(payload.role);
 
+  let userName = payload.name;
+  if (!userName || userName === payload.email.split('@')[0]) {
+    try {
+      const dbUser = await db.user.findUnique({
+        where: { id: payload.userId },
+        select: {
+          name: true,
+          tenant: {
+            select: {
+              institution: {
+                select: { principalHeadName: true }
+              }
+            }
+          }
+        }
+      });
+      if (dbUser?.name && dbUser.name.trim() !== '') {
+        userName = dbUser.name;
+      } else if (dbUser?.tenant?.institution?.principalHeadName) {
+        userName = dbUser.tenant.institution.principalHeadName;
+      } else {
+        userName = payload.email.split('@')[0];
+      }
+    } catch {
+      userName = payload.email.split('@')[0];
+    }
+  }
+
   return {
     id: payload.userId,
     email: payload.email,
-    name: payload.email.split('@')[0],
+    name: userName || payload.email.split('@')[0],
     role: payload.role,
     tenantId: payload.tenantId,
     tenantSlug: payload.tenantSlug || null,

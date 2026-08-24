@@ -15,6 +15,7 @@ import {
   reopenFiscalPeriod,
   createChartOfAccount,
   getChartOfAccounts,
+  initializeStandardChartOfAccounts,
   createCostCenter,
   createFund,
   createFeeType,
@@ -236,6 +237,12 @@ export async function POST(req: NextRequest) {
         if (session) requirePermission(session, 'CREATE', 'ACCOUNTING_LEDGER');
         const account = await createChartOfAccount(resolvedTenant, payload, actor);
         return successResponse(account, 'Chart of account created', 201);
+      }
+
+      case 'INITIALIZE_CHART_OF_ACCOUNTS': {
+        if (session) requirePermission(session, 'CREATE', 'ACCOUNTING_LEDGER');
+        const accounts = await initializeStandardChartOfAccounts(resolvedTenant, actor);
+        return successResponse({ accounts }, 'Standard Chart of Accounts initialized successfully', 201);
       }
 
       case 'CREATE_COST_CENTER': {

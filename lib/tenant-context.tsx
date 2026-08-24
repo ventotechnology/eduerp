@@ -48,6 +48,8 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
     role: UserRole;
     impersonator?: { userId: string; email: string; role: string } | null;
   } | null>(null);
+  const [serverInstitution, setServerInstitution] = useState<any | null>(null);
+  const [serverCampuses, setServerCampuses] = useState<CampusModel[]>([]);
 
   // Sync with route URL on navigation
   useEffect(() => {
@@ -81,6 +83,14 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
               const canonical = resolveCanonicalTenantSlug(json.user.tenantSlug);
               setTenantSlug(canonical);
             }
+            if (json.institution) {
+              setServerInstitution(json.institution);
+            }
+            if (json.campuses && Array.isArray(json.campuses) && json.campuses.length > 0) {
+              setServerCampuses(json.campuses);
+              const mainCamp = json.campuses.find((c: any) => c.isMain) || json.campuses[0];
+              setActiveCampusId(mainCamp.id);
+            }
           }
         }
       } catch (e) {
@@ -110,38 +120,40 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
   const institutionTypeConfig = INSTITUTION_TYPE_CONFIGS[activePreset.type] || INSTITUTION_TYPE_CONFIGS['SCHOOL'];
 
   const branding: InstitutionBranding = {
-    name: activePreset.name,
-    shortName: activePreset.shortName,
-    primaryColor: activePreset.primaryColor,
-    secondaryColor: activePreset.secondaryColor,
-    eiin: activePreset.eiin,
-    boardAffiliation: activePreset.board,
-    address: activePreset.address,
-    phone: '+880 2-9568123',
-    email: `info@${activePreset.slug.replace(/-/g, '')}.edu.bd`,
-    website: `https://${activePreset.slug}.eduerp.app`,
-    principalHeadName: activePreset.headName,
-    principalHeadTitle: activePreset.headTitle
+    name: serverInstitution?.name || activePreset.name,
+    shortName: serverInstitution?.shortName || activePreset.shortName,
+    primaryColor: serverInstitution?.primaryColor || activePreset.primaryColor,
+    secondaryColor: serverInstitution?.secondaryColor || activePreset.secondaryColor,
+    eiin: serverInstitution?.eiin || activePreset.eiin,
+    boardAffiliation: serverInstitution?.boardAffiliation || activePreset.board,
+    address: serverInstitution?.address || activePreset.address,
+    phone: serverInstitution?.phone || '+880 2-9568123',
+    email: serverInstitution?.email || `info@${activePreset.slug.replace(/-/g, '')}.edu.bd`,
+    website: serverInstitution?.website || `https://${activePreset.slug}.eduerp.app`,
+    principalHeadName: serverInstitution?.principalHeadName || activePreset.headName,
+    principalHeadTitle: serverInstitution?.principalHeadTitle || activePreset.headTitle
   };
 
-  const campuses: CampusModel[] = [
-    {
-      id: 'CAMPUS-MAIN',
-      name: `${activePreset.shortName} Main Campus`,
-      code: 'CMP-01',
-      type: 'Main Campus',
-      address: activePreset.address,
-      phone: '+880 2-9568123',
-      isMain: true,
-      studentCount: activePreset.type === 'UNIVERSITY' ? 4200 : 1850,
-      teacherCount: activePreset.type === 'UNIVERSITY' ? 195 : 78
-    }
-  ];
+  const campuses: CampusModel[] = serverCampuses.length > 0
+    ? serverCampuses
+    : [
+        {
+          id: 'CAMPUS-MAIN',
+          name: `${activePreset.shortName} Main Campus`,
+          code: 'CMP-01',
+          type: 'Main Campus',
+          address: activePreset.address,
+          phone: '+880 2-9568123',
+          isMain: true,
+          studentCount: activePreset.type === 'UNIVERSITY' ? 4200 : 1850,
+          teacherCount: activePreset.type === 'UNIVERSITY' ? 195 : 78
+        }
+      ];
 
   const persona = DEMO_USER_PERSONAS.find((p) => p.role === activeRole) || DEMO_USER_PERSONAS[1];
   const activeUser: UserModel = {
     id: authenticatedUser?.id || `USR-${activeRole}`,
-    name: authenticatedUser?.name || persona.name,
+    name: authenticatedUser?.name || serverInstitution?.principalHeadName || persona.name,
     email: authenticatedUser?.email || `${activeRole.toLowerCase()}@${activePreset.slug}.edu.bd`,
     role: activeRole,
     designation: persona.title,

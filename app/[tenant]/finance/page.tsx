@@ -169,6 +169,30 @@ export default function FinancePage() {
     }
   };
 
+  const handleInitializeCOA = async () => {
+    setIsProcessing(true);
+    setErrorMsg(null);
+    try {
+      const res = await fetch('/api/finance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'INITIALIZE_CHART_OF_ACCOUNTS',
+          tenantId: tenantSlug || 'demo-school',
+        }),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        throw new Error(json.error?.message || 'Failed to initialize Chart of Accounts.');
+      }
+      loadFinanceOverview();
+    } catch (err: any) {
+      setErrorMsg(err.message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleCreateJournal = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsProcessing(true);
@@ -510,54 +534,85 @@ export default function FinancePage() {
               <h2 className="text-base font-bold text-slate-900 dark:text-white">Hierarchical Chart of Accounts (COA)</h2>
               <p className="text-xs text-slate-500">Assets, Liabilities, Equity, Revenue, and Expense accounts</p>
             </div>
-            <button
-              onClick={() => setActiveTab('journals')}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 text-white flex items-center gap-1"
-            >
-              <Plus className="w-3.5 h-3.5" /> Post Journal Entry
-            </button>
+            <div className="flex items-center gap-2">
+              {(!financeData?.accounts || financeData?.accounts?.length === 0) && (
+                <button
+                  onClick={handleInitializeCOA}
+                  disabled={isProcessing}
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 shadow-md transition disabled:opacity-50"
+                >
+                  <Sparkles className="w-3.5 h-3.5" /> Initialize Standard COA
+                </button>
+              )}
+              <button
+                onClick={() => setShowJournalModal(true)}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-1 shadow-md transition"
+              >
+                <Plus className="w-3.5 h-3.5" /> Post Journal Entry
+              </button>
+            </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left">
-              <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 uppercase text-[10px] font-bold tracking-wider">
-                <tr>
-                  <th className="p-3">Code</th>
-                  <th className="p-3">Account Name</th>
-                  <th className="p-3">Type</th>
-                  <th className="p-3">Subtype</th>
-                  <th className="p-3">Postable</th>
-                  <th className="p-3 text-right">Balance</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
-                {financeData?.accounts?.map((acc: any) => (
-                  <tr key={acc.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
-                    <td className="p-3 font-bold text-blue-600">{acc.code}</td>
-                    <td className="p-3 font-sans font-semibold text-slate-800 dark:text-slate-200">
-                      {acc.name}
-                    </td>
-                    <td className="p-3">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                        {acc.type}
-                      </span>
-                    </td>
-                    <td className="p-3 text-slate-500 text-[11px] font-sans">{acc.subtype || 'GENERAL'}</td>
-                    <td className="p-3 font-sans">
-                      {acc.isHeader ? (
-                        <span className="text-amber-600 font-semibold text-[10px]">Header (Non-Postable)</span>
-                      ) : (
-                        <span className="text-emerald-600 font-semibold text-[10px]">Postable Account</span>
-                      )}
-                    </td>
-                    <td className="p-3 text-right font-bold text-slate-900 dark:text-white">
-                      {currencySymbol} {acc.balance.toLocaleString()}
-                    </td>
+          {(!financeData?.accounts || financeData?.accounts?.length === 0) ? (
+            <div className="p-8 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl text-center space-y-3 bg-slate-50/50 dark:bg-slate-800/30">
+              <BookOpen className="w-10 h-10 text-emerald-500 mx-auto" />
+              <div>
+                <h4 className="font-bold text-sm text-slate-900 dark:text-white">Finance Setup Incomplete — No Chart of Accounts</h4>
+                <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
+                  This institution has not yet initialized its financial ledger. Initialize the standard double-entry Chart of Accounts to begin posting vouchers and managing fee structures.
+                </p>
+              </div>
+              <button
+                onClick={handleInitializeCOA}
+                disabled={isProcessing}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg inline-flex items-center gap-2 transition"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>{isProcessing ? 'Initializing Accounts...' : 'Initialize Standard Chart of Accounts'}</span>
+              </button>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 uppercase text-[10px] font-bold tracking-wider">
+                  <tr>
+                    <th className="p-3">Code</th>
+                    <th className="p-3">Account Name</th>
+                    <th className="p-3">Type</th>
+                    <th className="p-3">Subtype</th>
+                    <th className="p-3">Postable</th>
+                    <th className="p-3 text-right">Balance</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
+                  {financeData?.accounts?.map((acc: any) => (
+                    <tr key={acc.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                      <td className="p-3 font-bold text-blue-600 dark:text-blue-400">{acc.code}</td>
+                      <td className="p-3 font-sans font-semibold text-slate-800 dark:text-slate-200">
+                        {acc.name}
+                      </td>
+                      <td className="p-3">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                          {acc.type}
+                        </span>
+                      </td>
+                      <td className="p-3 text-slate-500 text-[11px] font-sans">{acc.subtype || 'GENERAL'}</td>
+                      <td className="p-3 font-sans">
+                        {acc.isHeader ? (
+                          <span className="text-amber-600 font-semibold text-[10px]">Header (Non-Postable)</span>
+                        ) : (
+                          <span className="text-emerald-600 font-semibold text-[10px]">Postable Account</span>
+                        )}
+                      </td>
+                      <td className="p-3 text-right font-bold text-slate-900 dark:text-white">
+                        {currencySymbol} {acc.balance.toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
@@ -1023,21 +1078,38 @@ export default function FinancePage() {
 
       {/* MANUAL JOURNAL MODAL */}
       {showJournalModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-xl w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-                <FileSpreadsheet className="w-4 h-4 text-blue-600" /> Post Manual Journal Voucher
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-slate-900 rounded-2xl max-w-xl w-full p-6 border border-slate-800 shadow-2xl space-y-4 text-white">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                <FileSpreadsheet className="w-4 h-4 text-emerald-400" /> Post Manual Journal Voucher
               </h3>
-              <button onClick={() => setShowJournalModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setShowJournalModal(false)} className="text-slate-400 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
+            {(!financeData?.accounts || financeData?.accounts?.length === 0) && (
+              <div className="p-3 bg-amber-950/60 border border-amber-800 rounded-xl text-xs text-amber-200 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span>No accounts found. Please initialize standard Chart of Accounts.</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleInitializeCOA}
+                  disabled={isProcessing}
+                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-[11px] shrink-0"
+                >
+                  Initialize COA
+                </button>
+              </div>
+            )}
+
             <form onSubmit={handleCreateJournal} className="space-y-4 text-xs">
               <div>
-                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                  Voucher Description
+                <label className="font-semibold text-slate-300 block mb-1">
+                  Voucher Description *
                 </label>
                 <input
                   type="text"
@@ -1045,13 +1117,13 @@ export default function FinancePage() {
                   placeholder="e.g. Office supplies purchase reimbursement"
                   value={journalDesc}
                   onChange={(e) => setJournalDesc(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                 />
               </div>
 
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="font-semibold text-slate-700 dark:text-slate-300">Journal Lines (Double-Entry)</span>
+                  <span className="font-semibold text-slate-300">Journal Lines (Double-Entry)</span>
                   <button
                     type="button"
                     onClick={() =>
@@ -1060,14 +1132,14 @@ export default function FinancePage() {
                         { accountId: '', debitAmount: 0, creditAmount: 0, memo: '' },
                       ])
                     }
-                    className="text-blue-600 font-bold hover:underline flex items-center gap-0.5 text-[11px]"
+                    className="text-emerald-400 font-bold hover:underline flex items-center gap-0.5 text-[11px]"
                   >
                     <Plus className="w-3 h-3" /> Add Line
                   </button>
                 </div>
 
                 {journalLines.map((line, idx) => (
-                  <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-slate-950/70 p-2.5 rounded-xl border border-slate-800">
                     <div className="col-span-5">
                       <select
                         required
@@ -1077,13 +1149,13 @@ export default function FinancePage() {
                           updated[idx].accountId = e.target.value;
                           setJournalLines(updated);
                         }}
-                        className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[11px]"
+                        className="w-full px-2 py-1.5 rounded-lg border border-slate-700 bg-slate-900 text-white text-[11px] focus:outline-none focus:border-emerald-500"
                       >
-                        <option value="">Select Account...</option>
+                        <option value="" className="bg-slate-900 text-white">Select Account...</option>
                         {financeData?.accounts
                           ?.filter((a: any) => !a.isHeader)
                           .map((a: any) => (
-                            <option key={a.id} value={a.id}>
+                            <option key={a.id} value={a.id} className="bg-slate-900 text-white">
                               {a.code} - {a.name} ({a.type})
                             </option>
                           ))}
@@ -1101,7 +1173,7 @@ export default function FinancePage() {
                           updated[idx].debitAmount = parseFloat(e.target.value) || 0;
                           setJournalLines(updated);
                         }}
-                        className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono text-[11px]"
+                        className="w-full px-2 py-1.5 rounded-lg border border-slate-700 bg-slate-900 text-white font-mono text-[11px] focus:outline-none focus:border-emerald-500"
                       />
                     </div>
                     <div className="col-span-3">
@@ -1116,7 +1188,7 @@ export default function FinancePage() {
                           updated[idx].creditAmount = parseFloat(e.target.value) || 0;
                           setJournalLines(updated);
                         }}
-                        className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono text-[11px]"
+                        className="w-full px-2 py-1.5 rounded-lg border border-slate-700 bg-slate-900 text-white font-mono text-[11px] focus:outline-none focus:border-emerald-500"
                       />
                     </div>
                     <div className="col-span-1 text-center">
@@ -1124,7 +1196,7 @@ export default function FinancePage() {
                         <button
                           type="button"
                           onClick={() => setJournalLines(journalLines.filter((_, i) => i !== idx))}
-                          className="text-rose-500 hover:text-rose-700 font-bold"
+                          className="text-rose-400 hover:text-rose-300 font-bold"
                         >
                           ×
                         </button>
@@ -1138,14 +1210,14 @@ export default function FinancePage() {
                 <button
                   type="button"
                   onClick={() => setShowJournalModal(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 font-bold"
+                  className="px-4 py-2 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isProcessing}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold rounded-xl shadow-xs"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-md transition"
                 >
                   {isProcessing ? 'Posting...' : 'Post to Ledger'}
                 </button>
