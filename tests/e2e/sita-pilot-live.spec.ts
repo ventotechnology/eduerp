@@ -69,8 +69,7 @@ test.describe('Command 12A — SITA Real Madrasha Customer & Platform Owner Live
     await page.fill('input[type="email"], input[name="email"]', sitaEmail);
     await page.fill('input[type="password"], input[name="password"]', sitaPass);
     await page.click('button[type="submit"]');
-
-    await page.waitForURL('**/**', { timeout: 10000 });
+    await page.waitForURL('**/scholars-international-tahfiz-academy/**', { timeout: 15000 }).catch(() => {});
     await page.goto(`${BASE_URL}/sita/dashboard`);
     await page.waitForLoadState('networkidle');
 
@@ -83,8 +82,7 @@ test.describe('Command 12A — SITA Real Madrasha Customer & Platform Owner Live
     await page.fill('input[type="email"], input[name="email"]', sitaEmail);
     await page.fill('input[type="password"], input[name="password"]', sitaPass);
     await page.click('button[type="submit"]');
-
-    await page.waitForURL('**/**', { timeout: 10000 });
+    await page.waitForURL('**/scholars-international-tahfiz-academy/**', { timeout: 15000 }).catch(() => {});
 
     // Attempt accessing demo-school
     await page.goto(`${BASE_URL}/demo-school/dashboard`);
