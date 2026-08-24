@@ -700,10 +700,9 @@ export async function provisionQAUsers(options: { rotatePasswords?: boolean } = 
 
     // Ensure Main Campus
     const campus = await db.campus.upsert({
-      where: { id: `campus-${t.slug}` },
+      where: { institutionId_code: { institutionId: institution.id, code: 'MAIN' } },
       update: {},
       create: {
-        id: `campus-${t.slug}`,
         institutionId: institution.id,
         name: `${t.name} (Main Campus)`,
         code: 'MAIN',
@@ -764,32 +763,36 @@ export async function provisionQAUsers(options: { rotatePasswords?: boolean } = 
       });
 
       // Ensure Sections
-      await db.section.upsert({
-        where: { id: `sec-${cls.id}-padma` },
-        update: {},
-        create: {
-          id: `sec-${cls.id}-padma`,
-          classId: cls.id,
-          name: 'Padma',
-          capacity: 40,
-        },
+      const existingSec = await db.section.findFirst({
+        where: { classId: cls.id, name: 'Padma' }
       });
+      if (!existingSec) {
+        await db.section.create({
+          data: {
+            classId: cls.id,
+            name: 'Padma',
+            capacity: 40,
+          },
+        });
+      }
     }
 
     // Ensure Polytechnic Trades if Polytechnic
     if (t.institutionType === 'POLYTECHNIC' || t.institutionType === 'TECHNICAL_INSTITUTE') {
-      await db.technologyTrade.upsert({
-        where: { id: `trade-${t.slug}-cmt` },
-        update: {},
-        create: {
-          id: `trade-${t.slug}-cmt`,
-          institutionId: institution.id,
-          name: 'Computer Technology',
-          code: 'CMT',
-          btebCode: '685',
-          durationSemesters: 8,
-        },
+      const existingTrade = await db.technologyTrade.findFirst({
+        where: { institutionId: institution.id, code: 'CMT' }
       });
+      if (!existingTrade) {
+        await db.technologyTrade.create({
+          data: {
+            institutionId: institution.id,
+            name: 'Computer Technology',
+            code: 'CMT',
+            btebCode: '685',
+            durationSemesters: 8,
+          },
+        });
+      }
     }
 
     // Ensure Admission Settings
