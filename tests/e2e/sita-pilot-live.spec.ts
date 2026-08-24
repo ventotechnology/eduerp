@@ -77,22 +77,29 @@ test.describe('Command 12A.1 — SITA Real Madrasha Customer & Platform Owner Fi
     expect(pageText).toContain('Scholars International Tahfiz Academy');
   });
 
-  // 5. Authenticated Wrong-Tenant User -> Controlled Multi-Tenant Isolation Screen
-  test('5. Authenticated wrong-tenant user accessing SITA root receives isolation mismatch screen', async ({ page }) => {
-    // Login as demo-school principal
+  // 5. Authenticated SITA User accessing other tenant roots receives isolation mismatch screen
+  test('5. Authenticated wrong-tenant user accessing other institution roots receives isolation mismatch screen', async ({ page }) => {
+    // Login as SITA Principal
     await page.goto(`${BASE_URL}/login`);
-    await page.fill('input[type="email"], input[name="email"]', 'principal.demo-school@eduerp.us');
-    await page.fill('input[type="password"], input[name="password"]', 'EduERP@2026#Secure');
+    await page.fill('input[type="email"], input[name="email"]', sitaEmail);
+    await page.fill('input[type="password"], input[name="password"]', sitaPass);
     await page.click('button[type="submit"]');
 
-    await page.waitForURL('**/demo-school/**', { timeout: 15000 }).catch(() => {});
+    await page.waitForURL('**/scholars-international-tahfiz-academy/**', { timeout: 15000 }).catch(() => {});
 
-    // Attempt accessing SITA root
-    await page.goto(`${BASE_URL}/scholars-international-tahfiz-academy`);
+    // Attempt accessing demo-school
+    await page.goto(`${BASE_URL}/demo-school`);
     await page.waitForLoadState('networkidle');
 
-    const pageText = await page.textContent('body');
-    expect(pageText).toMatch(/signed into another institution|Access Restricted|Access Denied|Security Policy|Redirecting/i);
+    const schoolMismatchText = await page.textContent('body');
+    expect(schoolMismatchText).toMatch(/signed into another institution|Access Restricted|Access Denied|Security Policy|Strict Tenant Isolation/i);
+
+    // Attempt accessing demo-madrasha
+    await page.goto(`${BASE_URL}/demo-madrasha`);
+    await page.waitForLoadState('networkidle');
+
+    const madrashaMismatchText = await page.textContent('body');
+    expect(madrashaMismatchText).toMatch(/signed into another institution|Access Restricted|Access Denied|Security Policy|Strict Tenant Isolation/i);
   });
 
   // 6. Direct Public Website (/site/scholars-international-tahfiz-academy) Loads Directly
