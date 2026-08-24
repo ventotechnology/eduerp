@@ -416,9 +416,9 @@ export class SubscriptionEntitlementService {
     });
 
     const [studentsCount, teachersCount, usersCount, campusesCount] = await Promise.all([
-      db.student.count({ where: { campus: { institution: { tenantId } } } }),
+      db.student.count({ where: { campus: { institution: { tenantId } }, status: 'ACTIVE' as any } }),
       db.teacher.count({ where: { employee: { campus: { institution: { tenantId } } } } }),
-      db.user.count({ where: { tenantId } }),
+      db.user.count({ where: { tenantId, status: 'ACTIVE' as any } }),
       db.campus.count({ where: { institution: { tenantId } } })
     ]);
 
@@ -428,7 +428,7 @@ export class SubscriptionEntitlementService {
       take: 20
     });
 
-    const availablePlans = await db.subscriptionPlan.findMany({
+    const availablePlansRaw = await db.subscriptionPlan.findMany({
       where: { isPublic: true, isActive: true },
       orderBy: { displayOrder: 'asc' },
       include: {
@@ -438,19 +438,67 @@ export class SubscriptionEntitlementService {
       }
     });
 
+    // Normalize plan features and calculate annual discount percent directly from DB prices
+    const availablePlans = availablePlansRaw.map((p) => {
+      const calculatedDiscount = p.monthlyPrice > 0 && p.annualPrice > 0
+        ? Math.max(0, Math.round(((p.monthlyPrice * 12 - p.annualPrice) / (p.monthlyPrice * 12)) * 100))
+        : 0;
+
+      return {
+        ...p,
+        annualDiscountPercent: p.annualDiscount || calculatedDiscount,
+        featureList: (p.features || []).map((f) => f.name || f.description || f.featureKey)
+      };
+    });
+
+    // Calculate real SMS quota
+    const currentPeriod = new Date().toISOString().slice(0, 7);
+    const smsUsage = await db.smsUsageLedger.aggregate({
+      where: {
+        tenantId,
+        billingPeriod: currentPeriod,
+        source: { in: ['INCLUDED_QUOTA', 'ADDON_CREDIT', 'BONUS_CREDIT'] }
+      },
+      _sum: { quantity: true }
+    });
+
+    const smsConfig = await db.tenantSmsConfig.findUnique({ where: { tenantId } });
+    const includedSms = sub?.plan?.includedSms ?? 0;
+    const extraSms = (smsConfig?.purchasedSmsCredits || 0) + (smsConfig?.bonusSmsCredits || 0);
+    const totalSmsAvailable = includedSms + extraSms;
+    const usedSmsThisPeriod = smsUsage._sum.quantity || 0;
+
+    const smsPackages = await db.smsAddonPackage.findMany({
+      where: { isActive: true },
+      orderBy: { displayOrder: 'asc' }
+    });
+
     return {
       tenant,
-      subscription: sub,
+      subscription: sub ? {
+        ...sub,
+        status: sub.status,
+        plan: sub.plan ? {
+          ...sub.plan,
+          featureList: (sub.plan.features || []).map((f) => f.name || f.description || f.featureKey)
+        } : null
+      } : null,
       usage: {
-        students: { current: studentsCount, max: sub?.plan.maxStudents ?? 500 },
-        campuses: { current: campusesCount, max: sub?.plan.maxCampuses ?? 1 },
-        teachers: { current: teachersCount, max: sub?.plan.maxTeachers ?? 50 },
-        users: { current: usersCount, max: sub?.plan.maxUsers ?? 50 },
-        storageGb: { current: 1.2, max: sub?.plan.maxStorageGb ?? 20 },
-        sms: { current: 340, max: sub?.plan.includedSms ?? 1000 }
+        students: { current: studentsCount, max: sub?.plan.maxStudents ?? null },
+        campuses: { current: campusesCount, max: sub?.plan.maxCampuses ?? null },
+        teachers: { current: teachersCount, max: sub?.plan.maxTeachers ?? null },
+        users: { current: usersCount, max: sub?.plan.maxUsers ?? null },
+        storageGb: { current: 0, max: sub?.plan.maxStorageGb ?? null },
+        sms: {
+          current: usedSmsThisPeriod,
+          max: totalSmsAvailable,
+          remaining: Math.max(0, totalSmsAvailable - usedSmsThisPeriod),
+          isUnlimited: sub?.plan?.includedSms === -1
+        }
       },
       invoices,
-      availablePlans
+      availablePlans,
+      smsPackages
     };
   }
 }

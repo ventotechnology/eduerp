@@ -189,6 +189,20 @@ export default function SettingsPage() {
               </button>
             );
           })}
+          <a
+            href={`/${tenantSlug}/settings/sms`}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition text-teal-400 hover:bg-slate-800 hover:text-white"
+          >
+            <Mail className="w-3.5 h-3.5 text-teal-400" />
+            <span>SMS Gateway</span>
+          </a>
+          <a
+            href={`/${tenantSlug}/settings/billing`}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition text-emerald-400 hover:bg-slate-800 hover:text-white"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Subscription & Billing</span>
+          </a>
         </div>
       </div>
 

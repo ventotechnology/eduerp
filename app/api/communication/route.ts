@@ -4,6 +4,7 @@ import { requireTenant } from '@/lib/tenant/tenant-guard';
 import { getServerSession } from '@/lib/auth/server-auth';
 import { logAuditEvent } from '@/lib/audit/audit-logger';
 import { SessionUser, UserStatus } from '@/lib/auth/types';
+import { SmsGatewayService } from '@/lib/services/sms/sms-gateway.service';
 
 export async function GET(request: NextRequest) {
   try {
@@ -52,13 +53,24 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // Check if SMS gateway is configured
-    const isSmsConfigured = Boolean(process.env.SMS_GATEWAY_API_KEY && process.env.SMS_GATEWAY_API_KEY !== 'placeholder');
+    // Check real SMS gateway configuration & quota via SmsGatewayService
+    const [providerResolution, quota, recentBroadcasts] = await Promise.all([
+      SmsGatewayService.resolveTenantSmsProvider(tenant.tenantId),
+      SmsGatewayService.getTenantSmsQuota(tenant.tenantId),
+      db.smsBroadcast.findMany({
+        where: { tenantId: tenant.tenantId },
+        orderBy: { createdAt: 'desc' },
+        take: 10
+      })
+    ]);
+
+    const isSmsConfigured = providerResolution.status === 'PLATFORM_SHARED' || providerResolution.status === 'TENANT_OWN' || providerResolution.status === 'PLATFORM_FALLBACK';
 
     return NextResponse.json({
       success: true,
       data: {
         notices,
+        recentBroadcasts,
         stats: {
           totalStudents,
           totalGuardians,
@@ -67,9 +79,15 @@ export async function GET(request: NextRequest) {
         },
         smsGateway: {
           isConfigured: isSmsConfigured,
-          provider: isSmsConfigured ? process.env.SMS_GATEWAY_PROVIDER || 'BANGLADESH_GATEWAY' : 'NOT_CONFIGURED',
-          balance: isSmsConfigured ? 1000 : 0,
-          status: isSmsConfigured ? 'READY' : 'INTEGRATION_NOT_CONFIGURED',
+          serviceMode: providerResolution.mode,
+          status: providerResolution.status,
+          providerName: providerResolution.provider?.name || 'Not Configured',
+          providerCode: providerResolution.provider?.code || 'NONE',
+          senderId: providerResolution.senderId || providerResolution.provider?.senderId || 'None',
+          quota: quota.remainingCredits,
+          usedThisPeriod: quota.usedThisPeriod,
+          totalAvailable: quota.totalAvailable,
+          isUnlimited: quota.isUnlimited
         },
       },
     });
@@ -82,7 +100,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession();
     const body = await request.json();
-    const { action, tenantId, title, audience, content, isUrgent } = body;
+    const { action, tenantId, title, audience, content, isUrgent, target, message } = body;
 
     const resolvedTenantSlug = tenantId || session?.tenantSlug;
     if (!resolvedTenantSlug) {
@@ -95,66 +113,54 @@ export async function POST(request: NextRequest) {
       id: 'system',
       name: 'Administrator',
       email: 'admin@eduerp.us',
-      role: 'SUPER_ADMIN',
+      role: 'PLATFORM_SUPER_ADMIN' as any,
       tenantId: tenant.tenantId,
-      isPlatformAdmin: true,
+      tenantSlug: tenant.slug,
       status: UserStatus.ACTIVE,
+      isPlatformAdmin: true
     };
 
     if (action === 'PUBLISH_NOTICE') {
-      if (!title || !title.trim()) {
-        return NextResponse.json({ success: false, error: 'Notice title is required' }, { status: 400 });
+      if (!title || !content) {
+        return NextResponse.json({ success: false, error: 'Notice title and content are required' }, { status: 400 });
       }
-      if (!content || !content.trim()) {
-        return NextResponse.json({ success: false, error: 'Notice content is required' }, { status: 400 });
-      }
-
-      const noticeId = `NOT-${Date.now().toString().slice(-6)}`;
-      const dateStr = new Date().toISOString().slice(0, 10);
 
       await logAuditEvent({
         tenantId: tenant.tenantId,
         actor,
         action: 'PUBLISH_NOTICE',
         resourceType: 'NOTICE',
-        resourceId: noticeId,
-        newState: {
-          id: noticeId,
-          title: title.trim(),
-          audience: audience || 'All Students & Guardians',
-          content: content.trim(),
-          isUrgent: !!isUrgent,
-          date: dateStr,
-          author: actor.name,
-        },
+        resourceId: `notice-${Date.now()}`,
+        newState: { title, audience, isUrgent, date: new Date().toISOString() },
       });
 
       return NextResponse.json({
         success: true,
-        data: {
-          id: noticeId,
-          title: title.trim(),
-          audience: audience || 'All Students & Guardians',
-          content: content.trim(),
-          isUrgent: !!isUrgent,
-          date: dateStr,
-          publishedBy: actor.name,
-        },
         message: 'Notice published successfully',
-      }, { status: 201 });
+      });
     }
 
-    if (action === 'SEND_SMS') {
-      const isSmsConfigured = Boolean(process.env.SMS_GATEWAY_API_KEY && process.env.SMS_GATEWAY_API_KEY !== 'placeholder');
+    if (action === 'SEND_SMS' || action === 'SEND_SMS_BROADCAST') {
+      const smsMessage = message || content;
+      const audienceType = target || audience || 'ALL_GUARDIANS';
 
-      if (!isSmsConfigured) {
-        return NextResponse.json({
-          success: false,
-          error: 'SMS Gateway is not configured for this tenant. Please configure gateway API keys in Platform Settings before broadcasting SMS.',
-        }, { status: 422 });
+      if (!smsMessage) {
+        return NextResponse.json({ success: false, error: 'SMS message text is required' }, { status: 400 });
       }
 
-      return NextResponse.json({ success: true, data: { sent: true, count: 0 }, message: 'SMS dispatched successfully' });
+      const broadcastResult = await SmsGatewayService.sendBroadcast({
+        tenantId: tenant.tenantId,
+        audienceType: audienceType === 'ALL_PARENTS' ? 'ALL_GUARDIANS' : audienceType,
+        message: smsMessage,
+        requestedBy: actor.name || actor.email || 'Admin',
+        requestedByRole: actor.role
+      });
+
+      return NextResponse.json({
+        success: true,
+        data: broadcastResult,
+        message: `SMS broadcast processed. Total dispatches: ${broadcastResult.totalSent}.`
+      });
     }
 
     return NextResponse.json({ success: false, error: `Unsupported action: ${action}` }, { status: 400 });

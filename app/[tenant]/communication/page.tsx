@@ -253,29 +253,42 @@ export default function CommunicationPage() {
             </h3>
           </div>
 
-          <div className={`p-3 rounded-xl border text-[11px] space-y-1 ${
+          <div className={`p-3.5 rounded-2xl border text-[11px] space-y-1.5 ${
             smsGateway?.isConfigured
-              ? 'bg-emerald-950/40 border-emerald-800 text-emerald-200'
-              : 'bg-amber-950/40 border-amber-800 text-amber-200'
+              ? 'bg-emerald-950/30 border-emerald-800/80 text-emerald-200'
+              : 'bg-amber-950/30 border-amber-800/80 text-amber-200'
           }`}>
-            <div className="font-bold flex items-center gap-1.5">
-              {smsGateway?.isConfigured ? (
-                <>
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Gateway Active ({smsGateway.provider})</span>
-                </>
-              ) : (
-                <>
-                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-                  <span>SMS Gateway Not Configured</span>
-                </>
+            <div className="font-bold flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                {smsGateway?.isConfigured ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>{smsGateway.providerName} ({smsGateway.serviceMode?.replace('_', ' ')})</span>
+                  </>
+                ) : (
+                  <>
+                    <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>{smsGateway?.serviceMode === 'DISABLED' ? 'SMS Service Disabled' : 'SMS Gateway Not Configured'}</span>
+                  </>
+                )}
+              </div>
+              <a
+                href={`/${tenantSlug}/settings/sms`}
+                className="text-[10px] font-black uppercase text-teal-400 hover:underline"
+              >
+                Configure &rarr;
+              </a>
+            </div>
+            <div className="flex justify-between text-slate-400 text-[10px]">
+              <span>
+                {smsGateway?.isConfigured
+                  ? `Remaining Quota: ${smsGateway.isUnlimited ? 'Unlimited' : (smsGateway.quota || 0).toLocaleString()} SMS`
+                  : 'Outbound SMS disabled or no active gateway selected.'}
+              </span>
+              {smsGateway?.isConfigured && (
+                <span>Sender ID: <strong className="text-white">{smsGateway.senderId || 'Default'}</strong></span>
               )}
             </div>
-            <p className="text-slate-400 text-[10px]">
-              {smsGateway?.isConfigured
-                ? `Ready to broadcast (Current quota: ${smsGateway.balance} SMS).`
-                : 'Configure SMS provider credentials (Banglalink / GP / Teletalk) in Platform Settings to enable outbound SMS.'}
-            </p>
           </div>
 
           {smsError && (
@@ -301,18 +314,28 @@ export default function CommunicationPage() {
                 className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-white text-xs focus:outline-none focus:border-emerald-500"
               >
                 <option value="ALL_PARENTS" className="bg-slate-900 text-white">All Guardians / Parents ({stats.totalGuardians})</option>
-                <option value="OVERDUE_FEES" className="bg-slate-900 text-white">Guardians with Overdue Invoices ({stats.overdueInvoicesCount})</option>
                 <option value="ALL_STAFF" className="bg-slate-900 text-white">All Faculty & Staff ({stats.totalEmployees})</option>
                 <option value="ALL_STUDENTS" className="bg-slate-900 text-white">All Active Students ({stats.totalStudents})</option>
               </select>
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">SMS Message (English / বাংলা)</label>
+              <div className="flex justify-between items-center mb-1">
+                <label className="font-semibold text-slate-700 dark:text-slate-300 text-xs">SMS Message (English / বাংলা)</label>
+                {smsText.length > 0 && (
+                  <span className="text-[10px] font-mono text-slate-400">
+                    {/[^\u0020-\u007E\u00A0-\u00FF\r\n]/.test(smsText) ? (
+                      <span className="text-teal-400 font-bold">বাংলা / Unicode: {smsText.length} chars ({smsText.length <= 70 ? 1 : Math.ceil(smsText.length / 67)} segments)</span>
+                    ) : (
+                      <span>GSM-7: {smsText.length} chars ({smsText.length <= 160 ? 1 : Math.ceil(smsText.length / 153)} segments)</span>
+                    )}
+                  </span>
+                )}
+              </div>
               <textarea
                 value={smsText}
                 onChange={(e) => setSmsText(e.target.value)}
-                placeholder="Type SMS message here... (160 characters = 1 SMS)"
+                placeholder="Type SMS message here... (Bangla Unicode & English supported)"
                 rows={4}
                 className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-white text-xs placeholder-slate-500 focus:outline-none focus:border-emerald-500"
               />
@@ -320,7 +343,7 @@ export default function CommunicationPage() {
 
             <button
               type="submit"
-              disabled={!smsText.trim() || isSendingSms}
+              disabled={!smsText.trim() || isSendingSms || !smsGateway?.isConfigured}
               className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md disabled:opacity-50 transition"
             >
               {isSendingSms ? (

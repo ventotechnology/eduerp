@@ -75,6 +75,10 @@ model Tenant {
   onboardingProgress   TenantOnboardingProgress?
   featureOverrides     TenantFeatureOverride[]
   offlinePayments      OfflinePaymentRecord[]
+  smsProviders         SmsProvider[]
+  smsConfig            TenantSmsConfig?
+  smsBroadcasts        SmsBroadcast[]
+  smsUsageLedgers      SmsUsageLedger[]
 
   @@index([slug])
   @@index([isActive])
@@ -6787,4 +6791,147 @@ model SupportCsat {
   submittedAt DateTime      @default(now())
 
   @@index([rating])
+}
+
+// ----------------------------------------------------
+// 26. SMS Gateway Infrastructure & Quota Architecture (Command 12A.4)
+// ----------------------------------------------------
+
+model SmsProvider {
+  id                   String    @id @default(uuid())
+  scope                String    @default("PLATFORM") // "PLATFORM" | "TENANT"
+  tenantId             String?
+  tenant               Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name                 String
+  code                 String // "BANGLALINK", "GRAMEENPHONE", "TELETALK", "ROBI", "SSL_WIRELESS", "BULKSMSBD", "TWILIO", "GENERIC_HTTP", "TEST_MOCK"
+  type                 String    @default("HTTP_API")
+  status               String    @default("ACTIVE") // "ACTIVE" | "INACTIVE" | "MAINTENANCE"
+  baseUrl              String?
+  senderId             String?
+  encryptedCredentials String // AES-256-GCM encrypted payload
+  encryptionVersion    String    @default("v1")
+  supportsUnicode      Boolean   @default(true)
+  supportsBulk         Boolean   @default(true)
+  supportsBalanceCheck Boolean   @default(false)
+  supportsDlr          Boolean   @default(false)
+  isDefault            Boolean   @default(false)
+  lastTestedAt         DateTime?
+  lastTestStatus       String? // "CONNECTED", "AUTHENTICATION_FAILED", "PROVIDER_UNAVAILABLE", "INVALID_CONFIGURATION"
+  lastTestError        String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  broadcasts    SmsBroadcast[]
+  tenantConfigs TenantSmsConfig[]
+
+  @@index([scope, status])
+  @@index([tenantId])
+}
+
+model TenantSmsConfig {
+  id                       String       @id @default(uuid())
+  tenantId                 String       @unique
+  tenant                   Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  serviceMode              String       @default("PLATFORM_SHARED") // "PLATFORM_SHARED" | "TENANT_OWN" | "TENANT_WITH_PLATFORM_FALLBACK" | "DISABLED"
+  activeProviderId         String?
+  activeProvider           SmsProvider? @relation(fields: [activeProviderId], references: [id])
+  allowFallback            Boolean      @default(false)
+  bonusSmsCredits          Int          @default(0)
+  purchasedSmsCredits      Int          @default(0)
+  customSenderId           String?
+  isApprovedForPlatformSms Boolean      @default(true)
+  createdAt                DateTime     @default(now())
+  updatedAt                DateTime     @updatedAt
+
+  @@index([tenantId])
+}
+
+model SmsAddonPackage {
+  id              String   @id @default(uuid())
+  name            String
+  slug            String   @unique
+  messageQuantity Int
+  price           Float
+  currency        String   @default("BDT")
+  validityDays    Int      @default(365)
+  isActive        Boolean  @default(true)
+  displayOrder    Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([isActive, displayOrder])
+}
+
+model SmsBroadcast {
+  id                  String       @id @default(uuid())
+  tenantId            String
+  tenant              Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  providerId          String?
+  provider            SmsProvider? @relation(fields: [providerId], references: [id])
+  providerScope       String       @default("PLATFORM") // "PLATFORM" | "TENANT"
+  providerName        String?
+  audienceType        String // "ALL_STUDENTS" | "ALL_GUARDIANS" | "ALL_TEACHERS" | "CLASS" | "SECTION" | "CUSTOM"
+  audienceFilter      String?
+  message             String
+  isUnicode           Boolean      @default(false)
+  recipientCount      Int          @default(0)
+  validRecipientCount Int          @default(0)
+  segmentCount        Int          @default(1)
+  totalSegments       Int          @default(0)
+  status              String       @default("DRAFT") // "DRAFT" | "READY" | "QUEUED" | "SENDING" | "SUBMITTED" | "COMPLETED" | "PARTIAL" | "FAILED" | "GATEWAY_NOT_CONFIGURED" | "QUOTA_EXCEEDED"
+  requestedBy         String
+  requestedByRole     String?
+  errorMessage        String?
+  queuedAt            DateTime?
+  submittedAt         DateTime?
+  completedAt         DateTime?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  deliveries   SmsDelivery[]
+  usageLedgers SmsUsageLedger[]
+
+  @@index([tenantId, createdAt])
+  @@index([status])
+}
+
+model SmsDelivery {
+  id                   String       @id @default(uuid())
+  broadcastId          String
+  broadcast            SmsBroadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+  phone                String
+  recipientType        String?
+  recipientReferenceId String?
+  recipientName        String?
+  providerMessageId    String?
+  status               String       @default("QUEUED") // "QUEUED" | "SUBMITTED" | "SENT" | "DELIVERED" | "FAILED" | "REJECTED" | "UNKNOWN"
+  segments             Int          @default(1)
+  errorCode            String?
+  errorMessage         String?
+  sentAt               DateTime?
+  deliveredAt          DateTime?
+  failedAt             DateTime?
+  createdAt            DateTime     @default(now())
+
+  @@index([broadcastId, status])
+  @@index([phone])
+}
+
+model SmsUsageLedger {
+  id            String        @id @default(uuid())
+  tenantId      String
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  broadcastId   String?
+  broadcast     SmsBroadcast? @relation(fields: [broadcastId], references: [id])
+  quantity      Int
+  source        String        @default("INCLUDED_QUOTA") // "INCLUDED_QUOTA" | "ADDON_CREDIT" | "BONUS_CREDIT" | "OVERAGE" | "TENANT_OWN_GATEWAY"
+  providerId    String?
+  billingPeriod String?
+  unitCost      Float         @default(0)
+  totalCost     Float         @default(0)
+  notes         String?
+  createdAt     DateTime      @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([billingPeriod])
 }

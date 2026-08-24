@@ -12,8 +12,13 @@ export default async function TenantBillingPage({
 }) {
   const { tenant: slug } = await params;
 
-  const tenant = await db.tenant.findUnique({
-    where: { slug }
+  const tenant = await db.tenant.findFirst({
+    where: {
+      OR: [
+        { slug },
+        { domains: { some: { domain: slug } } }
+      ]
+    }
   });
 
   if (!tenant) {
