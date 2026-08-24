@@ -1,4 +1,4 @@
-import { db } from '@/lib/db';
+import { db } from '../db';
 
 export type LimitMetric = 'STUDENTS' | 'CAMPUSES' | 'TEACHERS' | 'USERS' | 'STORAGE_GB' | 'SMS';
 

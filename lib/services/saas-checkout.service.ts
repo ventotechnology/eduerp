@@ -1,5 +1,5 @@
-import { db } from '@/lib/db';
-import { BkashPaymentProvider } from '@/lib/payments/providers/bkash-provider';
+import { db } from '../db';
+import { BkashPaymentProvider } from '../payments/providers/bkash-provider';
 import { SaasProvisioningService } from './saas-provisioning.service';
 
 export class SaasCheckoutService {
