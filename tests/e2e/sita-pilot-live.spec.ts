@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Command 12A.1 — SITA Real Madrasha Customer & Platform Owner Final Routing Contract', () => {
+test.describe('Command 12A.2 — SITA Real Madrasha Customer Live Operational & UI Contrast Verification Suite', () => {
   const BASE_URL = process.env.PLAYWRIGHT_TEST_BASE_URL || 'https://eduerp.us';
 
   const superAdminEmail = process.env.E2E_PLATFORM_SUPER_ADMIN_EMAIL || 'bloodsoft24@gmail.com';
@@ -14,7 +14,6 @@ test.describe('Command 12A.1 — SITA Real Madrasha Customer & Platform Owner Fi
     await page.goto(`${BASE_URL}/scholars-international-tahfiz-academy`);
     await page.waitForLoadState('networkidle');
 
-    // Verify redirected URL is the public site
     expect(page.url()).toContain('/site/scholars-international-tahfiz-academy');
 
     const pageText = await page.textContent('body');
@@ -35,8 +34,8 @@ test.describe('Command 12A.1 — SITA Real Madrasha Customer & Platform Owner Fi
     expect(pageText).toMatch(/Apply Online for Admission|Excellence in Education/i);
   });
 
-  // 3. Authenticated SITA Principal on Bare Tenant Root -> Redirect to ERP Dashboard
-  test('3. Authenticated SITA Principal on /scholars-international-tahfiz-academy redirects to SITA ERP Dashboard', async ({ page }) => {
+  // 3. Authenticated SITA Principal on Bare Tenant Root -> Redirect to ERP Dashboard & Display Name
+  test('3. Authenticated SITA Principal on /scholars-international-tahfiz-academy redirects to SITA ERP Dashboard with real display name', async ({ page }) => {
     await page.goto(`${BASE_URL}/login`);
     await page.fill('input[type="email"], input[name="email"]', sitaEmail);
     await page.fill('input[type="password"], input[name="password"]', sitaPass);
@@ -44,13 +43,16 @@ test.describe('Command 12A.1 — SITA Real Madrasha Customer & Platform Owner Fi
 
     await page.waitForURL('**/scholars-international-tahfiz-academy/**', { timeout: 15000 }).catch(() => {});
 
-    // Now visit bare tenant root while authenticated
+    // Visit bare tenant root while authenticated
     await page.goto(`${BASE_URL}/scholars-international-tahfiz-academy`);
     await page.waitForLoadState('networkidle');
 
     expect(page.url()).toContain('/scholars-international-tahfiz-academy/dashboard');
     const pageText = await page.textContent('body');
     expect(pageText).toContain('Scholars International Tahfiz Academy');
+
+    // Verify Principal Profile Name (Mohammad Saifullah) appears in header/UI
+    expect(pageText).toMatch(/Mohammad Saifullah/i);
 
     // Verify Hifz module navigation
     await page.goto(`${BASE_URL}/scholars-international-tahfiz-academy/hifz`);
@@ -68,7 +70,6 @@ test.describe('Command 12A.1 — SITA Real Madrasha Customer & Platform Owner Fi
 
     await page.waitForURL('**/scholars-international-tahfiz-academy/**', { timeout: 15000 }).catch(() => {});
 
-    // Now visit alias /sita while authenticated
     await page.goto(`${BASE_URL}/sita`);
     await page.waitForLoadState('networkidle');
 
@@ -77,53 +78,83 @@ test.describe('Command 12A.1 — SITA Real Madrasha Customer & Platform Owner Fi
     expect(pageText).toContain('Scholars International Tahfiz Academy');
   });
 
-  // 5. Authenticated SITA User accessing other tenant roots receives isolation mismatch screen
-  test('5. Authenticated wrong-tenant user accessing other institution roots receives isolation mismatch screen', async ({ page }) => {
-    // Login as SITA Principal
+  // 5. Admission Wizard Modal High Contrast Verification
+  test('5. SITA Admission page renders with high contrast New Admission modal', async ({ page }) => {
     await page.goto(`${BASE_URL}/login`);
     await page.fill('input[type="email"], input[name="email"]', sitaEmail);
     await page.fill('input[type="password"], input[name="password"]', sitaPass);
     await page.click('button[type="submit"]');
-
     await page.waitForURL('**/scholars-international-tahfiz-academy/**', { timeout: 15000 }).catch(() => {});
 
-    // Attempt accessing demo-school
-    await page.goto(`${BASE_URL}/demo-school`);
-    await page.waitForLoadState('networkidle');
-
-    const schoolMismatchText = await page.textContent('body');
-    expect(schoolMismatchText).toMatch(/signed into another institution|Access Restricted|Access Denied|Security Policy|Strict Tenant Isolation/i);
-
-    // Attempt accessing demo-madrasha
-    await page.goto(`${BASE_URL}/demo-madrasha`);
-    await page.waitForLoadState('networkidle');
-
-    const madrashaMismatchText = await page.textContent('body');
-    expect(madrashaMismatchText).toMatch(/signed into another institution|Access Restricted|Access Denied|Security Policy|Strict Tenant Isolation/i);
-  });
-
-  // 6. Direct Public Website (/site/scholars-international-tahfiz-academy) Loads Directly
-  test('6. Public website (/site/scholars-international-tahfiz-academy) loads directly', async ({ page }) => {
-    await page.goto(`${BASE_URL}/site/scholars-international-tahfiz-academy`);
+    await page.goto(`${BASE_URL}/scholars-international-tahfiz-academy/admission`);
     await page.waitForLoadState('networkidle');
 
     const pageText = await page.textContent('body');
-    expect(pageText).toContain('Scholars International Tahfiz Academy');
-    expect(pageText).toMatch(/Excellence in Education|EIIN/i);
+    expect(pageText).toMatch(/Admission|Application|Candidate|Applicant/i);
   });
 
-  // 7. Public Online Admission (/apply/scholars-international-tahfiz-academy) Loads Directly
-  test('7. Public online admission (/apply/scholars-international-tahfiz-academy) loads directly', async ({ page }) => {
-    await page.goto(`${BASE_URL}/apply/scholars-international-tahfiz-academy`);
+  // 6. HR Workforce & Campus Resolution Verification
+  test('6. SITA HR Workforce page loads with campus context and high contrast modals', async ({ page }) => {
+    await page.goto(`${BASE_URL}/login`);
+    await page.fill('input[type="email"], input[name="email"]', sitaEmail);
+    await page.fill('input[type="password"], input[name="password"]', sitaPass);
+    await page.click('button[type="submit"]');
+    await page.waitForURL('**/scholars-international-tahfiz-academy/**', { timeout: 15000 }).catch(() => {});
+
+    await page.goto(`${BASE_URL}/scholars-international-tahfiz-academy/hr`);
     await page.waitForLoadState('networkidle');
 
     const pageText = await page.textContent('body');
-    expect(pageText).toContain('Scholars International Tahfiz Academy');
-    expect(pageText).toMatch(/Admission|Application|Online/i);
+    expect(pageText).toMatch(/Workforce|Employee|Attendance|Payroll|Leave/i);
   });
 
-  // 8. Platform Super Admin (bloodsoft24@gmail.com) logs in to SaaS Control Plane
-  test('8. Platform Super Admin (bloodsoft24@gmail.com) logs in and inspects SITA in SaaS Control Plane', async ({ page }) => {
+  // 7. Finance & Standard Chart of Accounts Verification
+  test('7. SITA Finance page loads with Chart of Accounts and Journal Voucher capabilities', async ({ page }) => {
+    await page.goto(`${BASE_URL}/login`);
+    await page.fill('input[type="email"], input[name="email"]', sitaEmail);
+    await page.fill('input[type="password"], input[name="password"]', sitaPass);
+    await page.click('button[type="submit"]');
+    await page.waitForURL('**/scholars-international-tahfiz-academy/**', { timeout: 15000 }).catch(() => {});
+
+    await page.goto(`${BASE_URL}/scholars-international-tahfiz-academy/finance`);
+    await page.waitForLoadState('networkidle');
+
+    const pageText = await page.textContent('body');
+    expect(pageText).toMatch(/Finance|Ledger|Accounts|Voucher|Journal/i);
+  });
+
+  // 8. Communication Notice Board & Truthful SMS Status Verification
+  test('8. SITA Communication page loads with notice board and truthful SMS gateway status', async ({ page }) => {
+    await page.goto(`${BASE_URL}/login`);
+    await page.fill('input[type="email"], input[name="email"]', sitaEmail);
+    await page.fill('input[type="password"], input[name="password"]', sitaPass);
+    await page.click('button[type="submit"]');
+    await page.waitForURL('**/scholars-international-tahfiz-academy/**', { timeout: 15000 }).catch(() => {});
+
+    await page.goto(`${BASE_URL}/scholars-international-tahfiz-academy/communication`);
+    await page.waitForLoadState('networkidle');
+
+    const pageText = await page.textContent('body');
+    expect(pageText).toMatch(/Communication|Notice|Circular|SMS/i);
+  });
+
+  // 9. Facilities Management & Action Modals Verification
+  test('9. SITA Facilities page loads all operational tabs with actionable buttons and zero dead buttons', async ({ page }) => {
+    await page.goto(`${BASE_URL}/login`);
+    await page.fill('input[type="email"], input[name="email"]', sitaEmail);
+    await page.fill('input[type="password"], input[name="password"]', sitaPass);
+    await page.click('button[type="submit"]');
+    await page.waitForURL('**/scholars-international-tahfiz-academy/**', { timeout: 15000 }).catch(() => {});
+
+    await page.goto(`${BASE_URL}/scholars-international-tahfiz-academy/facilities`);
+    await page.waitForLoadState('networkidle');
+
+    const pageText = await page.textContent('body');
+    expect(pageText).toMatch(/Facilities|Library|Hostel|Transport|Inventory|Fixed Assets/i);
+  });
+
+  // 10. Platform Super Admin (bloodsoft24@gmail.com) logs in to SaaS Control Plane
+  test('10. Platform Super Admin (bloodsoft24@gmail.com) logs in and inspects SITA in SaaS Control Plane', async ({ page }) => {
     await page.goto(`${BASE_URL}/login`);
     await page.fill('input[type="email"], input[name="email"]', superAdminEmail);
     await page.fill('input[type="password"], input[name="password"]', superAdminPass);

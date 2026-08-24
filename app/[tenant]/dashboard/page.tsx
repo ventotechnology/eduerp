@@ -46,7 +46,14 @@ export default function DashboardPage() {
   const routeSlug = getTenantRouteSlug(urlTenant, tenantSlug);
   const predictiveRisks = evaluatePredictiveRisks(tenantSlug);
 
-  const activeCampus = campuses.find((c) => c.id === activeCampusId) || campuses[0];
+  const activeCampus = (campuses && campuses.length > 0)
+    ? (campuses.find((c) => c.id === activeCampusId) || campuses[0])
+    : {
+        id: 'CAMPUS-MAIN',
+        name: branding?.name ? `${branding.name} Main Campus` : 'Main Campus',
+        studentCount: 0,
+        teacherCount: 0,
+      };
   const isMadrasha = institutionType === 'MADRASHA';
   const isUniversity = institutionType === 'UNIVERSITY';
   const isCollege = institutionType === 'COLLEGE';
@@ -134,7 +141,7 @@ export default function DashboardPage() {
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-black text-slate-900 dark:text-white">
-              {activeCampus.studentCount.toLocaleString()}
+              {(Number((activeCampus as any)?.studentCount) || 0).toLocaleString()}
             </span>
             <span className="text-[11px] font-bold text-emerald-600 flex items-center">
               <ArrowUpRight className="w-3 h-3" /> +8.4%
@@ -155,7 +162,7 @@ export default function DashboardPage() {
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-black text-slate-900 dark:text-white">
-              {activeCampus.teacherCount}
+              {(activeCampus as any)?.teacherCount ?? 0}
             </span>
             <span className="text-[11px] text-slate-400">Faculty & Officers</span>
           </div>

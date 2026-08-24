@@ -86,10 +86,23 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
             if (json.institution) {
               setServerInstitution(json.institution);
             }
-            if (json.campuses && Array.isArray(json.campuses) && json.campuses.length > 0) {
-              setServerCampuses(json.campuses);
-              const mainCamp = json.campuses.find((c: any) => c.isMain) || json.campuses[0];
-              setActiveCampusId(mainCamp.id);
+            if (Array.isArray(json.campuses) && json.campuses.length > 0) {
+              const mapped = json.campuses.map((c: any) => ({
+                id: c.id,
+                name: c.name,
+                code: c.code || 'CMP-01',
+                type: c.type || 'Main Campus',
+                address: c.address || '',
+                phone: c.phone || '',
+                isMain: !!c.isMain,
+                studentCount: c.studentCount ?? 0,
+                teacherCount: c.teacherCount ?? 0,
+              }));
+              setServerCampuses(mapped);
+              const mainCamp = mapped.find((c: any) => c.isMain) || mapped[0];
+              if (mainCamp) {
+                setActiveCampusId(mainCamp.id);
+              }
             }
           }
         }

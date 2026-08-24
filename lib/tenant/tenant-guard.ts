@@ -131,14 +131,28 @@ export async function resolveTenantContext(options: {
     const tenant = await requireTenant(session.tenantId);
 
     // If client supplied a tenantSlug, verify it matches the user's institution slug (accounting for aliases)
-    const canonicalReqSlug = tenantSlug ? resolveCanonicalTenantSlug(tenantSlug) : null;
-    const canonicalUserSlug = resolveCanonicalTenantSlug(tenant.slug);
-    if (canonicalReqSlug && canonicalReqSlug !== canonicalUserSlug) {
-      throw new Error('FORBIDDEN: Cross-tenant access is strictly prohibited.');
+    if (tenantSlug) {
+      const canonicalReqSlug = resolveCanonicalTenantSlug(tenantSlug);
+      const canonicalUserSlug = resolveCanonicalTenantSlug(tenant.slug);
+      const isSlugMatch =
+        tenantSlug === tenant.tenantId ||
+        tenantSlug === tenant.slug ||
+        canonicalReqSlug === canonicalUserSlug ||
+        isSameTenant(tenantSlug, tenant.slug);
+      if (!isSlugMatch) {
+        throw new Error('FORBIDDEN: Cross-tenant access is strictly prohibited.');
+      }
     }
     // If client supplied a tenantId, verify it matches either ID, slug, or alias
-    if (tenantId && tenantId !== tenant.tenantId && !isSameTenant(tenantId, tenant.slug)) {
-      throw new Error('FORBIDDEN: Cross-tenant access is strictly prohibited.');
+    if (tenantId) {
+      const isIdMatch =
+        tenantId === tenant.tenantId ||
+        tenantId === tenant.slug ||
+        isSameTenant(tenantId, tenant.slug) ||
+        resolveCanonicalTenantSlug(tenantId) === resolveCanonicalTenantSlug(tenant.slug);
+      if (!isIdMatch) {
+        throw new Error('FORBIDDEN: Cross-tenant access is strictly prohibited.');
+      }
     }
 
     return {
