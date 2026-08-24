@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useTenant } from "@/lib/tenant-context";
+import { getTenantCache, setTenantCache, invalidateTenantCache } from "@/lib/cache/tenant-cache";
 import {
   Building,
   BookOpen,
@@ -119,26 +120,37 @@ export default function FacilitiesPage() {
     endDateTime: new Date(Date.now() + 90000000).toISOString().slice(0, 16),
   });
 
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchData = useCallback(async (force = false) => {
+    const slug = tenantSlug || 'demo-school';
+    const subKey = `${activeTab}::${searchQuery}`;
+    const cached = getTenantCache<any>(slug, 'facilities', subKey);
+
+    if (cached && !force) {
+      setData(cached);
+      setLoading(false);
+    } else if (!cached) {
+      setLoading(true);
+    }
+
     try {
-      const res = await fetch(`/api/facilities?tenantId=${tenantSlug || 'demo-school'}&tab=${activeTab}&search=${encodeURIComponent(searchQuery)}`, {
+      const res = await fetch(`/api/facilities?tenantId=${slug}&tab=${activeTab}&search=${encodeURIComponent(searchQuery)}`, {
         credentials: 'include'
       });
       const json = await res.json();
       if (json.success) {
         setData(json.data);
+        setTenantCache(slug, 'facilities', subKey, json.data, { ttlMs: 60000 });
       }
     } catch (err: any) {
       console.error("Error fetching facilities data:", err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [tenantSlug, activeTab, searchQuery]);
 
   useEffect(() => {
     fetchData();
-  }, [tenantSlug, activeTab]);
+  }, [fetchData]);
 
   const handlePostAction = async (action: string, payload: any, modalCloseFn: () => void, successMsg: string) => {
     setIsSubmitting(true);
@@ -159,7 +171,8 @@ export default function FacilitiesPage() {
       }
       setMessage({ type: 'success', text: successMsg });
       modalCloseFn();
-      fetchData();
+      invalidateTenantCache(tenantSlug || 'demo-school', 'facilities');
+      fetchData(true);
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message });
     } finally {
@@ -199,7 +212,7 @@ export default function FacilitiesPage() {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={fetchData}
+            onClick={() => fetchData(true)}
             disabled={loading}
             className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-1.5 transition"
           >

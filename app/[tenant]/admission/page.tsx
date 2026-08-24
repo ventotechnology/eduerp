@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTenant } from '@/lib/tenant-context';
+import { getTenantCache, setTenantCache, invalidateTenantCache } from '@/lib/cache/tenant-cache';
 import {
   Compass,
   CheckCircle2,
@@ -39,18 +40,39 @@ import confetti from 'canvas-confetti';
 
 export default function AdmissionPage() {
   const { tenantSlug, branding, institutionTypeConfig } = useTenant();
+  const slug = tenantSlug || 'demo-school';
 
   const [activeTab, setActiveTab] = useState<string>('ALL');
-  const [applications, setApplications] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [applications, setApplications] = useState<any[]>(() => {
+    if (typeof window !== 'undefined' && slug) {
+      return getTenantCache<any[]>(slug, 'admissions', 'ALL') || [];
+    }
+    return [];
+  });
+  const [loading, setLoading] = useState(() => {
+    if (typeof window !== 'undefined' && slug) {
+      return !getTenantCache<any[]>(slug, 'admissions', 'ALL');
+    }
+    return true;
+  });
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCampus, setSelectedCampus] = useState('');
   const [selectedClass, setSelectedClass] = useState('');
 
   // Structure & Settings
-  const [structure, setStructure] = useState<any | null>(null);
-  const [settings, setSettings] = useState<any | null>(null);
+  const [structure, setStructure] = useState<any | null>(() => {
+    if (typeof window !== 'undefined' && slug) {
+      return getTenantCache<any>(slug, 'structure', '') || null;
+    }
+    return null;
+  });
+  const [settings, setSettings] = useState<any | null>(() => {
+    if (typeof window !== 'undefined' && slug) {
+      return getTenantCache<any>(slug, 'admission_settings', '') || null;
+    }
+    return null;
+  });
 
   // Modals & Drawers
   const [showNewAppModal, setShowNewAppModal] = useState(false);
@@ -70,28 +92,54 @@ export default function AdmissionPage() {
   const [testResult, setTestResult] = useState<any | null>(null);
 
   // Fetch Academic Structure and Settings
-  const fetchStructureAndSettings = async () => {
+  const fetchStructureAndSettings = useCallback(async (force = false) => {
+    if (!slug) return;
+    const cachedStruct = getTenantCache<any>(slug, 'structure', '');
+    const cachedSet = getTenantCache<any>(slug, 'admission_settings', '');
+
+    if (cachedStruct && cachedSet && !force) {
+      setStructure(cachedStruct);
+      setSettings(cachedSet);
+      return;
+    }
+
     try {
       const [structRes, setRes] = await Promise.all([
-        fetch(`/api/academics?tenantSlug=${tenantSlug}`),
-        fetch(`/api/admissions/settings?tenantSlug=${tenantSlug}`)
+        fetch(`/api/academics?tenantSlug=${slug}`),
+        fetch(`/api/admissions/settings?tenantSlug=${slug}`)
       ]);
       const structData = await structRes.json();
       const setData = await setRes.json();
-      if (structData.success) setStructure(structData.data);
-      if (setData.success) setSettings(setData.data);
+      if (structData.success) {
+        setStructure(structData.data);
+        setTenantCache(slug, 'structure', '', structData.data, { ttlMs: 300000 });
+      }
+      if (setData.success) {
+        setSettings(setData.data);
+        setTenantCache(slug, 'admission_settings', '', setData.data, { ttlMs: 300000 });
+      }
     } catch {
       // Ignored
     }
-  };
+  }, [slug]);
 
   // Fetch Applications
-  const fetchApplications = async () => {
-    setLoading(true);
+  const fetchApplications = useCallback(async (force = false) => {
+    if (!slug) return;
+    const subKey = `${activeTab}::${selectedCampus}::${selectedClass}::${searchTerm}`;
+    const cached = getTenantCache<any[]>(slug, 'admissions', subKey);
+
+    if (cached && !force) {
+      setApplications(cached);
+      setLoading(false);
+    } else if (!cached) {
+      setLoading(true);
+    }
+
     setError(null);
     try {
       const queryParams = new URLSearchParams();
-      queryParams.append('tenantSlug', tenantSlug);
+      queryParams.append('tenantSlug', slug);
       if (activeTab !== 'ALL') queryParams.append('status', activeTab);
       if (selectedCampus) queryParams.append('campusId', selectedCampus);
       if (selectedClass) queryParams.append('classId', selectedClass);
@@ -107,14 +155,16 @@ export default function AdmissionPage() {
         throw new Error(errorMsg);
       }
 
-      setApplications(Array.isArray(json.data) ? json.data : []);
+      const apps = Array.isArray(json.data) ? json.data : [];
+      setApplications(apps);
+      setTenantCache(slug, 'admissions', subKey, apps, { ttlMs: 60000 });
     } catch (err: any) {
       setError(err.message || 'Failed to fetch admission applications');
-      setApplications([]);
+      if (!cached) setApplications([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [slug, activeTab, selectedCampus, selectedClass, searchTerm]);
 
   // Fetch Tests
   const fetchTests = async () => {
@@ -175,6 +225,7 @@ export default function AdmissionPage() {
       if (!res.ok || !json.success) {
         throw new Error(json.error?.message || 'Failed to update application status.');
       }
+      invalidateTenantCache(slug, 'admissions');
       fetchApplications();
       if (selectedApp && selectedApp.id === appId) {
         setSelectedApp(json.data);
@@ -209,6 +260,8 @@ export default function AdmissionPage() {
       confetti({ particleCount: 150, spread: 80, origin: { y: 0.5 } });
       setShowAdmitConfirm(null);
       setSelectedApp(null);
+      invalidateTenantCache(slug, 'admissions');
+      invalidateTenantCache(slug, 'students');
       fetchApplications();
     } catch (err: any) {
       alert(err.message || 'Error during student admission and enrollment.');
@@ -258,6 +311,7 @@ export default function AdmissionPage() {
       if (json.data.isPassed) {
         confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
       }
+      invalidateTenantCache(slug, 'admissions');
       fetchApplications();
     } catch (err: any) {
       alert(err.message || 'Error submitting admission test.');

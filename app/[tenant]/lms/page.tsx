@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTenant } from '@/lib/tenant-context';
+import { getTenantCache, setTenantCache, invalidateTenantCache } from '@/lib/cache/tenant-cache';
 import {
   BookOpen,
   Layers,
@@ -37,12 +38,19 @@ import {
 
 export default function LmsPage() {
   const { branding, tenantSlug } = useTenant();
+  const slug = tenantSlug || 'demo-school';
+
   const [activeTab, setActiveTab] = useState<
     'courses' | 'assignments' | 'questions' | 'quizzes' | 'classes' | 'discussions' | 'gradebook' | 'analytics'
   >('courses');
 
   const [loading, setLoading] = useState(false);
-  const [courses, setCourses] = useState<any[]>([]);
+  const [courses, setCourses] = useState<any[]>(() => {
+    if (typeof window !== 'undefined' && slug) {
+      return getTenantCache<any[]>(slug, 'lms', 'courses') || [];
+    }
+    return [];
+  });
   const [selectedCourse, setSelectedCourse] = useState<any | null>(null);
 
   // Dynamic Data State
@@ -152,13 +160,23 @@ export default function LmsPage() {
   const [formError, setFormError] = useState<string | null>(null);
 
   // Load Courses
-  async function loadCourses() {
+  const loadCourses = useCallback(async (force = false) => {
+    const cached = getTenantCache<any[]>(slug, 'lms', 'courses');
+    if (cached && !force) {
+      setCourses(cached);
+      if (cached.length > 0 && !selectedCourse) {
+        setSelectedCourse(cached[0]);
+      }
+      return;
+    }
+
     setLoading(true);
     try {
-      const res = await fetch(`/api/lms?tenant=${tenantSlug}&action=COURSES`, { credentials: 'include' });
+      const res = await fetch(`/api/lms?tenant=${slug}&action=COURSES`, { credentials: 'include' });
       const data = await res.json();
       if (data.success && data.data) {
         setCourses(data.data);
+        setTenantCache(slug, 'lms', 'courses', data.data, { ttlMs: 60000 });
         if (data.data.length > 0) {
           if (!selectedCourse || !data.data.find((c: any) => c.id === selectedCourse.id)) {
             setSelectedCourse(data.data[0]);
@@ -170,12 +188,25 @@ export default function LmsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [slug, selectedCourse]);
 
   // Load Academic Metadata for Creation dropdowns
-  async function loadAcademicMetadata() {
+  const loadAcademicMetadata = useCallback(async () => {
+    const cached = getTenantCache<any>(slug, 'structure', '');
+    if (cached) {
+      setAcademicMetadata({
+        campuses: cached.campuses || [],
+        academicYears: cached.academicYears || [],
+        classes: cached.classes || [],
+        sections: cached.sections || [],
+        subjects: cached.subjects || [],
+        teachers: cached.teachers || []
+      });
+      return;
+    }
+
     try {
-      const res = await fetch(`/api/academics?tenantSlug=${tenantSlug}`, { credentials: 'include' });
+      const res = await fetch(`/api/academics?tenantSlug=${slug}`, { credentials: 'include' });
       const data = await res.json();
       if (data.success && data.data) {
         setAcademicMetadata({
@@ -187,7 +218,6 @@ export default function LmsPage() {
           teachers: data.data.teachers || []
         });
 
-        // Prepopulate course form defaults
         if (data.data.campuses?.[0]) setCourseForm((f) => ({ ...f, campusId: data.data.campuses[0].id }));
         if (data.data.academicYears?.[0]) setCourseForm((f) => ({ ...f, academicYearId: data.data.academicYears[0].id }));
         if (data.data.classes?.[0]) setCourseForm((f) => ({ ...f, classId: data.data.classes[0].id }));
@@ -198,48 +228,63 @@ export default function LmsPage() {
     } catch (e) {
       console.error('Failed to load academic metadata', e);
     }
-  }
+  }, [slug]);
 
   useEffect(() => {
     loadCourses();
     loadAcademicMetadata();
-  }, [tenantSlug]);
+  }, [loadCourses, loadAcademicMetadata]);
 
-  // Fetch course-specific subdata when selectedCourse changes
+  // Fetch course-specific subdata on-demand when activeTab or selectedCourse changes
   useEffect(() => {
-    if (!selectedCourse?.id) return;
+    const courseId = selectedCourse?.id;
+    if (!courseId) return;
 
-    async function loadCourseDetails() {
+    async function loadTabSubdata() {
       try {
-        const [anRes, gbRes, ocRes, dcRes, qbRes] = await Promise.all([
-          fetch(`/api/lms?tenant=${tenantSlug}&action=COURSE_ANALYTICS&courseId=${selectedCourse.id}`, { credentials: 'include' }),
-          fetch(`/api/lms?tenant=${tenantSlug}&action=GRADEBOOK&courseId=${selectedCourse.id}`, { credentials: 'include' }),
-          fetch(`/api/lms?tenant=${tenantSlug}&action=ONLINE_CLASSES&courseId=${selectedCourse.id}`, { credentials: 'include' }),
-          fetch(`/api/lms?tenant=${tenantSlug}&action=DISCUSSIONS&courseId=${selectedCourse.id}`, { credentials: 'include' }),
-          fetch(`/api/lms?tenant=${tenantSlug}&action=QUESTION_BANK`, { credentials: 'include' })
-        ]);
-
-        const anData = await anRes.json();
-        if (anData.success) setAnalyticsData(anData.data);
-
-        const gbData = await gbRes.json();
-        if (gbData.success) setGradebookData(gbData.data);
-
-        const ocData = await ocRes.json();
-        if (ocData.success) setOnlineClasses(ocData.data);
-
-        const dcData = await dcRes.json();
-        if (dcData.success) setDiscussions(dcData.data);
-
-        const qbData = await qbRes.json();
-        if (qbData.success) setQuestions(qbData.data || []);
+        if (activeTab === 'analytics') {
+          const subKey = `analytics::${courseId}`;
+          const cached = getTenantCache<any>(slug, 'lms', subKey);
+          if (cached) { setAnalyticsData(cached); return; }
+          const res = await fetch(`/api/lms?tenant=${slug}&action=COURSE_ANALYTICS&courseId=${courseId}`, { credentials: 'include' });
+          const json = await res.json();
+          if (json.success) { setAnalyticsData(json.data); setTenantCache(slug, 'lms', subKey, json.data, { ttlMs: 60000 }); }
+        } else if (activeTab === 'gradebook') {
+          const subKey = `gradebook::${courseId}`;
+          const cached = getTenantCache<any>(slug, 'lms', subKey);
+          if (cached) { setGradebookData(cached); return; }
+          const res = await fetch(`/api/lms?tenant=${slug}&action=GRADEBOOK&courseId=${courseId}`, { credentials: 'include' });
+          const json = await res.json();
+          if (json.success) { setGradebookData(json.data); setTenantCache(slug, 'lms', subKey, json.data, { ttlMs: 60000 }); }
+        } else if (activeTab === 'classes') {
+          const subKey = `classes::${courseId}`;
+          const cached = getTenantCache<any[]>(slug, 'lms', subKey);
+          if (cached) { setOnlineClasses(cached); return; }
+          const res = await fetch(`/api/lms?tenant=${slug}&action=ONLINE_CLASSES&courseId=${courseId}`, { credentials: 'include' });
+          const json = await res.json();
+          if (json.success) { setOnlineClasses(json.data); setTenantCache(slug, 'lms', subKey, json.data, { ttlMs: 60000 }); }
+        } else if (activeTab === 'discussions') {
+          const subKey = `discussions::${courseId}`;
+          const cached = getTenantCache<any[]>(slug, 'lms', subKey);
+          if (cached) { setDiscussions(cached); return; }
+          const res = await fetch(`/api/lms?tenant=${slug}&action=DISCUSSIONS&courseId=${courseId}`, { credentials: 'include' });
+          const json = await res.json();
+          if (json.success) { setDiscussions(json.data); setTenantCache(slug, 'lms', subKey, json.data, { ttlMs: 60000 }); }
+        } else if (activeTab === 'questions' || activeTab === 'quizzes') {
+          const subKey = `questions`;
+          const cached = getTenantCache<any[]>(slug, 'lms', subKey);
+          if (cached) { setQuestions(cached); return; }
+          const res = await fetch(`/api/lms?tenant=${slug}&action=QUESTION_BANK`, { credentials: 'include' });
+          const json = await res.json();
+          if (json.success) { setQuestions(json.data || []); setTenantCache(slug, 'lms', subKey, json.data || [], { ttlMs: 60000 }); }
+        }
       } catch (err) {
-        console.error('Failed to fetch course sub-details', err);
+        console.error('Failed to fetch tab subdata', err);
       }
     }
 
-    loadCourseDetails();
-  }, [selectedCourse?.id, tenantSlug]);
+    loadTabSubdata();
+  }, [activeTab, selectedCourse?.id, slug]);
 
   // Handler: Create Course Space
   const handleCreateCourse = async (e: React.FormEvent) => {

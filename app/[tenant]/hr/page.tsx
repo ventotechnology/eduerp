@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTenant } from '@/lib/tenant-context';
+import { getTenantCache, setTenantCache, invalidateTenantCache } from '@/lib/cache/tenant-cache';
 import {
   Briefcase,
   Users,
@@ -34,6 +35,7 @@ import {
 
 export default function HrWorkforcePage() {
   const { branding, tenantSlug, campuses } = useTenant();
+  const slug = tenantSlug || 'demo-school';
 
   const [activeTab, setActiveTab] = useState<
     | 'overview'
@@ -50,13 +52,43 @@ export default function HrWorkforcePage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Live Data State
-  const [overviewData, setOverviewData] = useState<any>(null);
-  const [directoryData, setDirectoryData] = useState<any[]>([]);
-  const [recruitmentData, setRecruitmentData] = useState<any>(null);
-  const [attendanceData, setAttendanceData] = useState<any>(null);
-  const [leavesData, setLeavesData] = useState<any>(null);
-  const [talentData, setTalentData] = useState<any>(null);
+  // Live Data State initialized with tenant cache
+  const [overviewData, setOverviewData] = useState<any>(() => {
+    if (typeof window !== 'undefined' && slug) {
+      return getTenantCache<any>(slug, 'hr', 'overview') || null;
+    }
+    return null;
+  });
+  const [directoryData, setDirectoryData] = useState<any[]>(() => {
+    if (typeof window !== 'undefined' && slug) {
+      return getTenantCache<any[]>(slug, 'hr', 'directory') || [];
+    }
+    return [];
+  });
+  const [recruitmentData, setRecruitmentData] = useState<any>(() => {
+    if (typeof window !== 'undefined' && slug) {
+      return getTenantCache<any>(slug, 'hr', 'recruitment') || null;
+    }
+    return null;
+  });
+  const [attendanceData, setAttendanceData] = useState<any>(() => {
+    if (typeof window !== 'undefined' && slug) {
+      return getTenantCache<any>(slug, 'hr', 'attendance') || null;
+    }
+    return null;
+  });
+  const [leavesData, setLeavesData] = useState<any>(() => {
+    if (typeof window !== 'undefined' && slug) {
+      return getTenantCache<any>(slug, 'hr', 'leaves') || null;
+    }
+    return null;
+  });
+  const [talentData, setTalentData] = useState<any>(() => {
+    if (typeof window !== 'undefined' && slug) {
+      return getTenantCache<any>(slug, 'hr', 'talent') || null;
+    }
+    return null;
+  });
 
   // Search & Filter State
   const [searchTerm, setSearchTerm] = useState('');
@@ -102,46 +134,58 @@ export default function HrWorkforcePage() {
     deviceSource: 'BIOMETRIC',
   });
 
-  const loadData = async () => {
+  const loadTabData = useCallback(async (tabToLoad: string, force = false) => {
+    const subKey = tabToLoad === 'directory' 
+      ? `directory::${searchTerm}::${categoryFilter}::${statusFilter}`
+      : tabToLoad;
+    
+    const cached = getTenantCache<any>(slug, 'hr', subKey);
+    if (cached && !force) {
+      if (tabToLoad === 'overview') setOverviewData(cached);
+      else if (tabToLoad === 'directory') setDirectoryData(cached);
+      else if (tabToLoad === 'recruitment') setRecruitmentData(cached);
+      else if (tabToLoad === 'attendance') setAttendanceData(cached);
+      else if (tabToLoad === 'leaves') setLeavesData(cached);
+      else if (tabToLoad === 'talent') setTalentData(cached);
+      return;
+    }
+
     setLoading(true);
     setErrorMsg(null);
     try {
-      const slug = tenantSlug || 'demo-school';
-      const [ovRes, dirRes, recRes, attRes, lvRes, talRes] = await Promise.all([
-        fetch(`/api/hr?tenantId=${slug}&tab=overview`),
-        fetch(`/api/hr?tenantId=${slug}&tab=directory&search=${searchTerm}&category=${categoryFilter}&status=${statusFilter}`),
-        fetch(`/api/hr?tenantId=${slug}&tab=recruitment`),
-        fetch(`/api/hr?tenantId=${slug}&tab=attendance`),
-        fetch(`/api/hr?tenantId=${slug}&tab=leaves`),
-        fetch(`/api/hr?tenantId=${slug}&tab=talent`),
-      ]);
+      let url = `/api/hr?tenantId=${slug}&tab=${tabToLoad}`;
+      if (tabToLoad === 'directory') {
+        url += `&search=${encodeURIComponent(searchTerm)}&category=${categoryFilter}&status=${statusFilter}`;
+      }
 
-      const [ovJson, dirJson, recJson, attJson, lvJson, talJson] = await Promise.all([
-        ovRes.json(),
-        dirRes.json(),
-        recRes.json(),
-        attRes.json(),
-        lvRes.json(),
-        talRes.json(),
-      ]);
+      const res = await fetch(url);
+      const json = await res.json();
 
-      if (ovJson.success) setOverviewData(ovJson.data);
-      if (dirJson.success) setDirectoryData(dirJson.data);
-      if (recJson.success) setRecruitmentData(recJson.data);
-      if (attJson.success) setAttendanceData(attJson.data);
-      if (lvJson.success) setLeavesData(lvJson.data);
-      if (talJson.success) setTalentData(talJson.data);
+      if (json.success && json.data) {
+        setTenantCache(slug, 'hr', subKey, json.data, { ttlMs: 60000 });
+        if (tabToLoad === 'overview') setOverviewData(json.data);
+        else if (tabToLoad === 'directory') setDirectoryData(json.data);
+        else if (tabToLoad === 'recruitment') setRecruitmentData(json.data);
+        else if (tabToLoad === 'attendance') setAttendanceData(json.data);
+        else if (tabToLoad === 'leaves') setLeavesData(json.data);
+        else if (tabToLoad === 'talent') setTalentData(json.data);
+      }
     } catch (err: any) {
       console.error(err);
-      setErrorMsg('Failed to load HR and workforce data.');
+      setErrorMsg('Failed to load HR data.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [slug, searchTerm, categoryFilter, statusFilter]);
+
+  const loadData = useCallback(() => {
+    invalidateTenantCache(slug, 'hr');
+    loadTabData(activeTab, true);
+  }, [slug, activeTab, loadTabData]);
 
   useEffect(() => {
-    loadData();
-  }, [tenantSlug, searchTerm, categoryFilter, statusFilter]);
+    loadTabData(activeTab);
+  }, [activeTab, loadTabData]);
 
   const handleCreateEmployee = async (e: React.FormEvent) => {
     e.preventDefault();

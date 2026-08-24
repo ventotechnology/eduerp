@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTenant } from '@/lib/tenant-context';
+import { getTenantCache, setTenantCache, invalidateTenantCache } from '@/lib/cache/tenant-cache';
 import {
   MessageSquare,
   AlertTriangle,
@@ -20,20 +21,49 @@ import {
 
 export default function CommunicationPage() {
   const { branding, tenantSlug } = useTenant();
+  const slug = tenantSlug || 'demo-school';
 
   const [loading, setLoading] = useState(false);
-  const [notices, setNotices] = useState<any[]>([]);
-  const [stats, setStats] = useState({
-    totalStudents: 0,
-    totalGuardians: 0,
-    totalEmployees: 0,
-    overdueInvoicesCount: 0,
+  const [notices, setNotices] = useState<any[]>(() => {
+    if (typeof window !== 'undefined' && slug) {
+      const cached = getTenantCache<any>(slug, 'communication', 'overview');
+      return cached?.notices || [];
+    }
+    return [];
   });
-  const [smsGateway, setSmsGateway] = useState<any>({
-    isConfigured: false,
-    provider: 'NOT_CONFIGURED',
-    balance: 0,
-    status: 'INTEGRATION_NOT_CONFIGURED',
+  const [stats, setStats] = useState(() => {
+    if (typeof window !== 'undefined' && slug) {
+      const cached = getTenantCache<any>(slug, 'communication', 'overview');
+      return cached?.stats || {
+        totalStudents: 0,
+        totalGuardians: 0,
+        totalEmployees: 0,
+        overdueInvoicesCount: 0,
+      };
+    }
+    return {
+      totalStudents: 0,
+      totalGuardians: 0,
+      totalEmployees: 0,
+      overdueInvoicesCount: 0,
+    };
+  });
+  const [smsGateway, setSmsGateway] = useState<any>(() => {
+    if (typeof window !== 'undefined' && slug) {
+      const cached = getTenantCache<any>(slug, 'communication', 'overview');
+      return cached?.smsGateway || {
+        isConfigured: false,
+        provider: 'NOT_CONFIGURED',
+        balance: 0,
+        status: 'INTEGRATION_NOT_CONFIGURED',
+      };
+    }
+    return {
+      isConfigured: false,
+      provider: 'NOT_CONFIGURED',
+      balance: 0,
+      status: 'INTEGRATION_NOT_CONFIGURED',
+    };
   });
 
   const [smsText, setSmsText] = useState('');
@@ -54,26 +84,36 @@ export default function CommunicationPage() {
   const [noticeError, setNoticeError] = useState<string | null>(null);
   const [noticeSuccess, setNoticeSuccess] = useState<string | null>(null);
 
-  const loadCommunicationData = async () => {
-    setLoading(true);
+  const loadCommunicationData = useCallback(async (force = false) => {
+    const cached = getTenantCache<any>(slug, 'communication', 'overview');
+    if (cached && !force) {
+      setNotices(cached.notices || []);
+      setStats(cached.stats || { totalStudents: 0, totalGuardians: 0, totalEmployees: 0, overdueInvoicesCount: 0 });
+      setSmsGateway(cached.smsGateway || { isConfigured: false });
+      setLoading(false);
+    } else if (!cached) {
+      setLoading(true);
+    }
+
     try {
-      const res = await fetch(`/api/communication?tenantId=${tenantSlug || 'demo-school'}`);
+      const res = await fetch(`/api/communication?tenantId=${slug}`);
       const json = await res.json();
       if (json.success) {
         setNotices(json.data.notices || []);
         setStats(json.data.stats || { totalStudents: 0, totalGuardians: 0, totalEmployees: 0, overdueInvoicesCount: 0 });
         setSmsGateway(json.data.smsGateway || { isConfigured: false });
+        setTenantCache(slug, 'communication', 'overview', json.data, { ttlMs: 60000 });
       }
     } catch (err) {
       console.error('Failed to load communication records:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [slug]);
 
   useEffect(() => {
     loadCommunicationData();
-  }, [tenantSlug]);
+  }, [loadCommunicationData]);
 
   const handlePublishNotice = async (e: React.FormEvent) => {
     e.preventDefault();

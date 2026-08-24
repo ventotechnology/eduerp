@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
-import { useParams, usePathname } from 'next/navigation';
+import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useTenant } from '@/lib/tenant-context';
 import { getTenantRouteSlug } from '@/lib/tenant/tenant-aliases';
 import { getTranslation } from '@/lib/i18n';
@@ -34,14 +34,43 @@ import {
 export function TenantSidebar() {
   const pathname = usePathname();
   const params = useParams();
+  const router = useRouter();
   const { tenantSlug, branding, institutionType, institutionTypeConfig, language, activeRole } = useTenant();
   const [helpDrawerOpen, setHelpDrawerOpen] = useState(false);
+  const prefetchedRoutes = useRef<Set<string>>(new Set());
 
   const urlTenant = (params?.tenant as string) || '';
   const routeSlug = getTenantRouteSlug(urlTenant, tenantSlug);
 
   const isMadrasha = institutionType === 'MADRASHA';
   const isUniversity = institutionType === 'UNIVERSITY';
+
+  const prefetchRoute = useCallback((href: string) => {
+    if (!href || prefetchedRoutes.current.has(href)) return;
+    prefetchedRoutes.current.add(href);
+    router.prefetch(href);
+  }, [router]);
+
+  // Proactively prefetch primary high-traffic tenant modules on mount
+  useEffect(() => {
+    if (routeSlug) {
+      const coreRoutes = [
+        `/${routeSlug}/students`,
+        `/${routeSlug}/academics`,
+        `/${routeSlug}/admission`,
+        `/${routeSlug}/hr`,
+        `/${routeSlug}/finance`,
+        `/${routeSlug}/facilities`,
+        `/${routeSlug}/communication`,
+        `/${routeSlug}/settings`
+      ];
+      // Stagger prefetching to maintain high responsiveness
+      const timer = setTimeout(() => {
+        coreRoutes.forEach((route) => prefetchRoute(route));
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [routeSlug, prefetchRoute]);
 
   // Navigation Items
   const navItems = [
@@ -187,6 +216,9 @@ export function TenantSidebar() {
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={true}
+                onMouseEnter={() => prefetchRoute(item.href)}
+                onFocus={() => prefetchRoute(item.href)}
                 className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all group ${
                   isActive
                     ? 'bg-blue-600 text-white shadow-sm'

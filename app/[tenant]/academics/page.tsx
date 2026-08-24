@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTenant } from '@/lib/tenant-context';
+import { getTenantCache, setTenantCache, invalidateTenantCache } from '@/lib/cache/tenant-cache';
 import {
   BookOpen,
   Calendar,
@@ -28,9 +29,25 @@ export default function AcademicsPage() {
   const { branding, institutionType, institutionTypeConfig, tenantSlug } = useTenant();
 
   const [activeTab, setActiveTab] = useState<'years' | 'classes' | 'sections' | 'subjects' | 'routine' | 'sessions' | 'groups'>('years');
-  const [loading, setLoading] = useState(true);
-  const [structure, setStructure] = useState<any>(null);
-  const [timetable, setTimetable] = useState<any[]>([]);
+  const [structure, setStructure] = useState<any>(() => {
+    if (typeof window !== 'undefined' && tenantSlug) {
+      return getTenantCache<any>(tenantSlug, 'structure', '') || null;
+    }
+    return null;
+  });
+  const [loading, setLoading] = useState(() => {
+    if (typeof window !== 'undefined' && tenantSlug) {
+      return !getTenantCache<any>(tenantSlug, 'structure', '');
+    }
+    return true;
+  });
+  const [timetable, setTimetable] = useState<any[]>(() => {
+    if (typeof window !== 'undefined' && tenantSlug) {
+      return getTenantCache<any[]>(tenantSlug, 'timetable', '') || [];
+    }
+    return [];
+  });
+  const [timetableLoading, setTimetableLoading] = useState(false);
 
   // Feedback notifications
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -113,19 +130,23 @@ export default function AcademicsPage() {
   const [slotRoomId, setSlotRoomId] = useState('');
   const [slotSectionId, setSlotSectionId] = useState('');
 
-  const fetchData = async () => {
-    try {
+  const fetchStructure = useCallback(async (force = false) => {
+    if (!tenantSlug) return;
+    const cached = getTenantCache<any>(tenantSlug, 'structure', '');
+    if (cached && !force) {
+      setStructure(cached);
+      setLoading(false);
+    } else if (!cached) {
       setLoading(true);
-      const [structRes, routineRes] = await Promise.all([
-        fetch(`/api/academics?tenantSlug=${tenantSlug}`),
-        fetch(`/api/timetable?tenantId=${tenantSlug}`)
-      ]);
+    }
 
+    try {
+      const structRes = await fetch(`/api/academics?tenantSlug=${tenantSlug}`);
       const structData = await structRes.json();
-      const routineData = await routineRes.json();
 
       if (structData.success && structData.data) {
         setStructure(structData.data);
+        setTenantCache(tenantSlug, 'structure', '', structData.data, { ttlMs: 300000 });
         if (structData.data.classes?.length > 0 && !sectionForm.classId) {
           setSectionForm((prev) => ({ ...prev, classId: structData.data.classes[0].id }));
           setSubjectForm((prev) => ({ ...prev, classId: structData.data.classes[0].id }));
@@ -137,22 +158,56 @@ export default function AcademicsPage() {
           setSlotRoomId(structData.data.rooms[0].id);
         }
       }
-
-      if (routineData.success) {
-        setTimetable(routineData.data || []);
-      }
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to load academic structure');
     } finally {
       setLoading(false);
     }
-  };
+  }, [tenantSlug, sectionForm.classId, sessionForm.academicYearId, slotRoomId]);
+
+  const fetchTimetable = useCallback(async (force = false) => {
+    if (!tenantSlug) return;
+    const cached = getTenantCache<any[]>(tenantSlug, 'timetable', '');
+    if (cached && !force) {
+      setTimetable(cached);
+      return;
+    }
+    try {
+      setTimetableLoading(true);
+      const res = await fetch(`/api/timetable?tenantId=${tenantSlug}`);
+      const json = await res.json();
+      if (json.success && json.data) {
+        setTimetable(json.data);
+        setTenantCache(tenantSlug, 'timetable', '', json.data, { ttlMs: 120000 });
+      }
+    } catch {
+      // Ignored
+    } finally {
+      setTimetableLoading(false);
+    }
+  }, [tenantSlug]);
 
   useEffect(() => {
     if (tenantSlug) {
-      fetchData();
+      fetchStructure();
     }
-  }, [tenantSlug]);
+  }, [tenantSlug, fetchStructure]);
+
+  // Lazy load timetable only when switching to routine tab
+  useEffect(() => {
+    if (activeTab === 'routine' && tenantSlug) {
+      fetchTimetable();
+    }
+  }, [activeTab, tenantSlug, fetchTimetable]);
+
+  const fetchData = () => {
+    invalidateTenantCache(tenantSlug, 'structure');
+    invalidateTenantCache(tenantSlug, 'timetable');
+    fetchStructure(true);
+    if (activeTab === 'routine') {
+      fetchTimetable(true);
+    }
+  };
 
   const showNotification = (success: string | null, error: string | null = null) => {
     setSuccessMessage(success);

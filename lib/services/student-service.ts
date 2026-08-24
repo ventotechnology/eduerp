@@ -81,11 +81,6 @@ export async function getTenantStudents(tenantIdentifier: string, params: Studen
           }
         },
         guardian: true,
-        guardianLinks: {
-          include: {
-            guardian: true
-          }
-        },
         enrollments: {
           where: { status: 'ACTIVE' },
           include: {
@@ -100,17 +95,6 @@ export async function getTenantStudents(tenantIdentifier: string, params: Studen
           },
           orderBy: { enrollmentDate: 'desc' },
           take: 1
-        },
-        invoices: {
-          where: { status: { in: ['UNPAID', 'PARTIALLY_PAID', 'OVERDUE'] } }
-        },
-        attendances: {
-          take: 5,
-          orderBy: { date: 'desc' }
-        },
-        hifzRecords: {
-          take: 1,
-          orderBy: { date: 'desc' }
         }
       },
       skip,

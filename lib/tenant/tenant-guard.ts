@@ -15,12 +15,26 @@ export {
   getTenantRouteSlug
 };
 
+const tenantResolutionCache = new Map<string, { context: TenantContext; expiresAt: number }>();
+
 /**
  * Resolves and validates an active tenant by slug or ID with alias normalization.
  * Throws error if tenant does not exist or is inactive.
  */
 export async function requireTenant(tenantIdentifier: string): Promise<TenantContext> {
+  const now = Date.now();
+  const cached = tenantResolutionCache.get(tenantIdentifier);
+  if (cached && cached.expiresAt > now) {
+    return cached.context;
+  }
+
   const canonicalIdentifier = resolveCanonicalTenantSlug(tenantIdentifier);
+  if (canonicalIdentifier !== tenantIdentifier) {
+    const canonicalCached = tenantResolutionCache.get(canonicalIdentifier);
+    if (canonicalCached && canonicalCached.expiresAt > now) {
+      return canonicalCached.context;
+    }
+  }
 
   // 1. Try exact match first
   let tenant = await db.tenant.findFirst({
@@ -58,7 +72,7 @@ export async function requireTenant(tenantIdentifier: string): Promise<TenantCon
     throw new Error(`FORBIDDEN: Tenant '${tenant.slug}' is currently inactive or suspended.`);
   }
 
-  return {
+  const context: TenantContext = {
     tenantId: tenant.id,
     institutionId: tenant.institution?.id || tenant.id,
     slug: tenant.slug,
@@ -68,6 +82,12 @@ export async function requireTenant(tenantIdentifier: string): Promise<TenantCon
     isActive: tenant.isActive,
     isDemoTenant: tenant.isDemoTenant
   };
+
+  tenantResolutionCache.set(tenantIdentifier, { context, expiresAt: now + 15000 });
+  tenantResolutionCache.set(tenant.id, { context, expiresAt: now + 15000 });
+  tenantResolutionCache.set(tenant.slug, { context, expiresAt: now + 15000 });
+
+  return context;
 }
 
 /**

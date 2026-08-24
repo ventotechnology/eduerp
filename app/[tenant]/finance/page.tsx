@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTenant } from '@/lib/tenant-context';
+import { getTenantCache, setTenantCache, invalidateTenantCache } from '@/lib/cache/tenant-cache';
 import {
   DollarSign,
   CreditCard,
@@ -30,6 +31,7 @@ import confetti from 'canvas-confetti';
 
 export default function FinancePage() {
   const { branding, tenantSlug } = useTenant();
+  const slug = tenantSlug || 'demo-school';
 
   const [activeTab, setActiveTab] = useState<
     | 'overview'
@@ -43,10 +45,30 @@ export default function FinancePage() {
   >('overview');
 
   const [loading, setLoading] = useState(false);
-  const [financeData, setFinanceData] = useState<any>(null);
-  const [trialBalanceData, setTrialBalanceData] = useState<any>(null);
-  const [incomeStatementData, setIncomeStatementData] = useState<any>(null);
-  const [balanceSheetData, setBalanceSheetData] = useState<any>(null);
+  const [financeData, setFinanceData] = useState<any>(() => {
+    if (typeof window !== 'undefined' && slug) {
+      return getTenantCache<any>(slug, 'finance', 'overview') || null;
+    }
+    return null;
+  });
+  const [trialBalanceData, setTrialBalanceData] = useState<any>(() => {
+    if (typeof window !== 'undefined' && slug) {
+      return getTenantCache<any>(slug, 'finance', 'trial_balance') || null;
+    }
+    return null;
+  });
+  const [incomeStatementData, setIncomeStatementData] = useState<any>(() => {
+    if (typeof window !== 'undefined' && slug) {
+      return getTenantCache<any>(slug, 'finance', 'income_statement') || null;
+    }
+    return null;
+  });
+  const [balanceSheetData, setBalanceSheetData] = useState<any>(() => {
+    if (typeof window !== 'undefined' && slug) {
+      return getTenantCache<any>(slug, 'finance', 'balance_sheet') || null;
+    }
+    return null;
+  });
 
   // Modals & form state
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
@@ -64,14 +86,22 @@ export default function FinancePage() {
   ]);
 
   // Fetch overview bundle
-  const loadFinanceOverview = async () => {
-    setLoading(true);
+  const loadFinanceOverview = useCallback(async (force = false) => {
+    const cached = getTenantCache<any>(slug, 'finance', 'overview');
+    if (cached && !force) {
+      setFinanceData(cached);
+      setLoading(false);
+    } else if (!cached) {
+      setLoading(true);
+    }
+
     setErrorMsg(null);
     try {
-      const res = await fetch(`/api/finance?tenantId=${tenantSlug || 'demo-school'}&tab=overview`);
+      const res = await fetch(`/api/finance?tenantId=${slug}&tab=overview`);
       const json = await res.json();
       if (json.success) {
         setFinanceData(json.data);
+        setTenantCache(slug, 'finance', 'overview', json.data, { ttlMs: 60000 });
       }
     } catch (err: any) {
       console.error(err);
@@ -79,49 +109,70 @@ export default function FinancePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [slug]);
 
-  const loadTrialBalance = async () => {
+  const loadTrialBalance = useCallback(async (force = false) => {
+    const cached = getTenantCache<any>(slug, 'finance', 'trial_balance');
+    if (cached && !force) {
+      setTrialBalanceData(cached);
+      return;
+    }
+
     setLoading(true);
     try {
-      const res = await fetch(`/api/finance?tenantId=${tenantSlug || 'demo-school'}&tab=trial_balance`);
+      const res = await fetch(`/api/finance?tenantId=${slug}&tab=trial_balance`);
       const json = await res.json();
       if (json.success) {
         setTrialBalanceData(json.data);
+        setTenantCache(slug, 'finance', 'trial_balance', json.data, { ttlMs: 60000 });
       }
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [slug]);
 
-  const loadStatements = async () => {
+  const loadStatements = useCallback(async (force = false) => {
+    const cachedIS = getTenantCache<any>(slug, 'finance', 'income_statement');
+    const cachedBS = getTenantCache<any>(slug, 'finance', 'balance_sheet');
+    if (cachedIS && cachedBS && !force) {
+      setIncomeStatementData(cachedIS);
+      setBalanceSheetData(cachedBS);
+      return;
+    }
+
     setLoading(true);
     try {
       const [isRes, bsRes] = await Promise.all([
-        fetch(`/api/finance?tenantId=${tenantSlug || 'demo-school'}&tab=income_statement`),
-        fetch(`/api/finance?tenantId=${tenantSlug || 'demo-school'}&tab=balance_sheet`),
+        fetch(`/api/finance?tenantId=${slug}&tab=income_statement`),
+        fetch(`/api/finance?tenantId=${slug}&tab=balance_sheet`),
       ]);
       const isJson = await isRes.json();
       const bsJson = await bsRes.json();
-      if (isJson.success) setIncomeStatementData(isJson.data);
-      if (bsJson.success) setBalanceSheetData(bsJson.data);
+      if (isJson.success) {
+        setIncomeStatementData(isJson.data);
+        setTenantCache(slug, 'finance', 'income_statement', isJson.data, { ttlMs: 60000 });
+      }
+      if (bsJson.success) {
+        setBalanceSheetData(bsJson.data);
+        setTenantCache(slug, 'finance', 'balance_sheet', bsJson.data, { ttlMs: 60000 });
+      }
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [slug]);
 
   useEffect(() => {
     loadFinanceOverview();
-  }, [tenantSlug]);
+  }, [loadFinanceOverview]);
 
   useEffect(() => {
     if (activeTab === 'trial_balance') loadTrialBalance();
     if (activeTab === 'statements') loadStatements();
-  }, [activeTab]);
+  }, [activeTab, loadTrialBalance, loadStatements]);
 
   const handlePayOnline = async (e: React.FormEvent) => {
     e.preventDefault();

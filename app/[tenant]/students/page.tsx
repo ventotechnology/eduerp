@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTenant } from '@/lib/tenant-context';
+import { getTenantCache, setTenantCache, invalidateTenantCache } from '@/lib/cache/tenant-cache';
 import {
   Users,
   Search,
@@ -35,16 +36,36 @@ import confetti from 'canvas-confetti';
 export default function StudentsPage() {
   const { tenantSlug, branding, institutionTypeConfig } = useTenant();
 
-  const [students, setStudents] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [students, setStudents] = useState<any[]>(() => {
+    if (typeof window !== 'undefined' && tenantSlug) {
+      const cached = getTenantCache<any[]>(tenantSlug, 'students', '__ALL__');
+      return cached || [];
+    }
+    return [];
+  });
+  const [loading, setLoading] = useState(() => {
+    if (typeof window !== 'undefined' && tenantSlug) {
+      const cached = getTenantCache<any[]>(tenantSlug, 'students', '__ALL__');
+      return !cached;
+    }
+    return true;
+  });
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedCampus, setSelectedCampus] = useState('');
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
 
   // Academic Structure
-  const [structure, setStructure] = useState<any | null>(null);
+  const [structure, setStructure] = useState<any | null>(() => {
+    if (typeof window !== 'undefined' && tenantSlug) {
+      return getTenantCache<any>(tenantSlug, 'structure', '') || null;
+    }
+    return null;
+  });
+
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Modals & Drawers
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
@@ -52,28 +73,64 @@ export default function StudentsPage() {
   const [editingStudent, setEditingStudent] = useState<any | null>(null);
   const [showIdCard, setShowIdCard] = useState<any | null>(null);
 
-  const fetchStructure = async () => {
+  // Debounce search input (300ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  const fetchStructure = useCallback(async () => {
+    if (!tenantSlug) return;
+    const cachedStructure = getTenantCache<any>(tenantSlug, 'structure', '');
+    if (cachedStructure) {
+      setStructure(cachedStructure);
+      return;
+    }
     try {
       const res = await fetch(`/api/academics?tenantSlug=${tenantSlug}`);
       const json = await res.json();
-      if (json.success) setStructure(json.data);
+      if (json.success) {
+        setStructure(json.data);
+        setTenantCache(tenantSlug, 'structure', '', json.data, { ttlMs: 300000 }); // 5 minutes cache
+      }
     } catch {
       // Ignored
     }
-  };
+  }, [tenantSlug]);
 
-  const fetchStudents = async () => {
-    setLoading(true);
+  const fetchStudents = useCallback(async (isBackground = false) => {
+    if (!tenantSlug) return;
+
+    const cacheSubKey = `${selectedCampus}_${selectedClass}_${selectedStatus}_${debouncedSearch}`;
+    const cachedData = getTenantCache<any[]>(tenantSlug, 'students', cacheSubKey);
+
+    if (cachedData && !isBackground) {
+      setStudents(cachedData);
+      setLoading(false);
+    } else if (!cachedData) {
+      setLoading(true);
+    }
+
+    // Cancel previous in-flight search request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
     setError(null);
     try {
       const params = new URLSearchParams();
       params.append('tenantSlug', tenantSlug);
-      if (searchTerm.trim()) params.append('search', searchTerm.trim());
+      if (debouncedSearch.trim()) params.append('search', debouncedSearch.trim());
       if (selectedCampus) params.append('campusId', selectedCampus);
       if (selectedClass) params.append('classId', selectedClass);
       if (selectedStatus !== 'ALL') params.append('status', selectedStatus);
 
-      const res = await fetch(`/api/students?${params.toString()}`);
+      const res = await fetch(`/api/students?${params.toString()}`, {
+        signal: abortControllerRef.current.signal
+      });
       const json = await res.json();
 
       if (!res.ok || !json.success) {
@@ -82,21 +139,24 @@ export default function StudentsPage() {
         throw new Error(json.error?.message || 'Unable to load student records.');
       }
 
-      setStudents(json.data?.students || []);
+      const freshStudents = json.data?.students || [];
+      setStudents(freshStudents);
+      setTenantCache(tenantSlug, 'students', cacheSubKey, freshStudents, { ttlMs: 60000 });
     } catch (err: any) {
+      if (err.name === 'AbortError') return;
       setError(err.message || 'Failed to fetch student records');
-      setStudents([]);
+      if (!cachedData) setStudents([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [tenantSlug, selectedCampus, selectedClass, selectedStatus, debouncedSearch]);
 
   useEffect(() => {
     if (tenantSlug) {
       fetchStructure();
       fetchStudents();
     }
-  }, [tenantSlug, selectedCampus, selectedClass, selectedStatus]);
+  }, [tenantSlug, selectedCampus, selectedClass, selectedStatus, debouncedSearch, fetchStructure, fetchStudents]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -343,6 +403,7 @@ export default function StudentsPage() {
           onClose={() => setShowAddStudentModal(false)}
           onSuccess={() => {
             setShowAddStudentModal(false);
+            invalidateTenantCache(tenantSlug, 'students');
             fetchStudents();
           }}
         />
@@ -391,6 +452,7 @@ export default function StudentsPage() {
                     await fetch(`/api/students/${selectedStudent.id}/photo?tenantSlug=${tenantSlug}`, { method: 'DELETE' });
                   }
                   setSelectedStudent((prev: any) => (prev ? { ...prev, photoUrl: newUrl } : null));
+                  invalidateTenantCache(tenantSlug, 'students');
                   fetchStudents();
                 }}
                 hint="Official student portrait photograph. Used automatically on Student ID Cards and printable documents."
@@ -400,43 +462,33 @@ export default function StudentsPage() {
             <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
               <div>
                 <span className="text-slate-400 block text-[10px]">Academic Placement</span>
-                <span className="font-bold text-slate-800 text-sm">
-                  {selectedStudent.enrollments?.[0]?.class?.name || selectedStudent.section?.class?.name || 'Enrolled'}
-                  {selectedStudent.enrollments?.[0]?.section?.name ? ` - ${selectedStudent.enrollments[0].section.name}` : ''}
+                <span className="font-semibold text-slate-800">
+                  {selectedStudent.enrollments?.[0]?.class?.name || selectedStudent.section?.class?.name || 'General'}
+                  {selectedStudent.enrollments?.[0]?.section?.name ? ` (${selectedStudent.enrollments[0].section.name})` : ''}
                 </span>
               </div>
               <div>
-                <span className="text-slate-400 block text-[10px]">Roll & Admission No</span>
-                <span className="font-mono font-semibold text-slate-800">
-                  Roll: {selectedStudent.rollNumber || '-'} | Adm: {selectedStudent.admissionNumber}
-                </span>
+                <span className="text-slate-400 block text-[10px]">Campus</span>
+                <span className="font-semibold text-slate-800">{selectedStudent.campus?.name || 'Main Campus'}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block text-[10px]">Roll Number</span>
+                <span className="font-mono font-semibold text-slate-800">{selectedStudent.rollNumber || selectedStudent.enrollments?.[0]?.rollNumber || '-'}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block text-[10px]">Status</span>
+                <span className="font-semibold text-emerald-600">{selectedStudent.status}</span>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <h4 className="font-bold text-slate-700 uppercase tracking-wider text-[11px]">Demographics</h4>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-100">
-                  <span className="text-slate-400 block text-[10px]">Gender & DOB</span>
-                  <span className="font-medium text-slate-800">{selectedStudent.gender}, {new Date(selectedStudent.dateOfBirth).toLocaleDateString()}</span>
-                </div>
-                <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-100">
-                  <span className="text-slate-400 block text-[10px]">Blood & Religion</span>
-                  <span className="font-medium text-slate-800">{selectedStudent.bloodGroup || 'N/A'}, {selectedStudent.religion || 'N/A'}</span>
-                </div>
-                <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-100">
-                  <span className="text-slate-400 block text-[10px]">Phone</span>
-                  <span className="font-mono font-medium text-slate-800">{selectedStudent.phone || 'N/A'}</span>
-                </div>
-              </div>
-            </div>
-
+            {/* Guardian Demographics with Portraits */}
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="font-bold text-slate-700 uppercase tracking-wider text-[11px]">Guardians & Parents</h4>
-                <span className="text-[10px] text-slate-400">Guardian photos are optional</span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <h4 className="font-bold text-slate-900 flex items-center gap-1.5 text-xs">
+                <Users className="w-4 h-4 text-indigo-600" />
+                <span>Guardian & Parent Demographics</span>
+              </h4>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Father */}
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
                   <div className="flex items-center gap-3">
@@ -449,8 +501,8 @@ export default function StudentsPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <span className="text-[9px] font-bold uppercase text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">Father</span>
-                      <h5 className="font-bold text-slate-800 text-xs truncate">{selectedStudent.guardian?.fatherName || selectedStudent.guardian?.guardianName || 'Not recorded'}</h5>
-                      <span className="text-[10px] text-slate-500 block font-mono">{selectedStudent.guardian?.fatherPhone || selectedStudent.guardian?.guardianPhone || ''}</span>
+                      <h5 className="font-bold text-slate-800 text-xs truncate">{selectedStudent.guardian?.fatherName || 'Not recorded'}</h5>
+                      <span className="text-[10px] text-slate-500 block font-mono">{selectedStudent.guardian?.fatherPhone || ''}</span>
                     </div>
                   </div>
                   {selectedStudent.guardianId && (
@@ -470,6 +522,7 @@ export default function StudentsPage() {
                         setSelectedStudent((prev: any) =>
                           prev ? { ...prev, guardian: { ...prev.guardian, fatherPhotoUrl: newUrl } } : null
                         );
+                        invalidateTenantCache(tenantSlug, 'students');
                         fetchStudents();
                       }}
                       hint="Optional father portrait"
@@ -510,6 +563,7 @@ export default function StudentsPage() {
                         setSelectedStudent((prev: any) =>
                           prev ? { ...prev, guardian: { ...prev.guardian, motherPhotoUrl: newUrl } } : null
                         );
+                        invalidateTenantCache(tenantSlug, 'students');
                         fetchStudents();
                       }}
                       hint="Optional mother portrait"
@@ -531,6 +585,7 @@ export default function StudentsPage() {
           onClose={() => setEditingStudent(null)}
           onSuccess={() => {
             setEditingStudent(null);
+            invalidateTenantCache(tenantSlug, 'students');
             fetchStudents();
           }}
         />
