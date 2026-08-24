@@ -509,8 +509,9 @@ export async function seedClientSuccessData() {
 }
 
 if (require.main === module || process.argv[1]?.includes('seed-client-success')) {
-  seedClientSuccess()
+  seedClientSuccessData()
     .then(() => {
+      console.log('✅ Seed completed successfully.');
       process.exit(0);
     })
     .catch((err) => {
