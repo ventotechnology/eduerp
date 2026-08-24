@@ -91,7 +91,7 @@ test.describe('Command 12A.5A: Global Form Contrast & Input Readability Live Ver
   test('3. Admission: New Admission Application Wizard inputs and selects are readable', async ({ page }) => {
     await loginAsSitaOwner(page);
     await page.goto(`${BASE_URL}/scholars-international-tahfiz-academy/admission`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const newAppBtn = page.locator('button:has-text("New Application"), button:has-text("Add Application")').first();
     if (await newAppBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
