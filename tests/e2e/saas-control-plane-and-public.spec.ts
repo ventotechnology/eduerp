@@ -57,9 +57,9 @@ test.describe('COMMAND 11D — SaaS Control Plane, Public Pages & Vertical Admis
     await page.waitForURL(/\/login/);
 
     // Login as Super Admin
-    await page.getByPlaceholder(/name@institution.edu.bd/i).fill(saEmail);
-    await page.getByPlaceholder(/••••••••/i).fill(saPassword);
-    await page.getByRole('button', { name: /Sign in to EduERP OS/i }).click();
+    await page.locator('input[name="email"]').fill(saEmail);
+    await page.locator('input[name="password"]').fill(saPassword);
+    await page.getByRole('button', { name: /Sign in/i }).click();
 
     // Wait for Super Admin Overview
     await page.waitForURL(/\/super-admin/);
@@ -86,16 +86,16 @@ test.describe('COMMAND 11D — SaaS Control Plane, Public Pages & Vertical Admis
   });
 
   test('5. Public Admissions on multiple vertical engines load without error', async ({ page }) => {
-    // School admission
-    await page.goto('/demo-school/admission');
-    await expect(page.getByText(/Admission/i).first()).toBeVisible();
+    // School application portal
+    await page.goto('/apply/demo-school');
+    await expect(page.getByRole('heading', { name: /Online Admission Application/i })).toBeVisible();
 
-    // College admission
-    await page.goto('/demo-college/admission');
-    await expect(page.getByText(/Admission/i).first()).toBeVisible();
+    // College application portal
+    await page.goto('/apply/demo-college');
+    await expect(page.getByRole('heading', { name: /Online Admission Application/i })).toBeVisible();
 
-    // Madrasha admission
-    await page.goto('/demo-madrasha/admission');
-    await expect(page.getByText(/Admission/i).first()).toBeVisible();
+    // Madrasha application portal
+    await page.goto('/apply/demo-madrasha');
+    await expect(page.getByRole('heading', { name: /Online Admission Application/i })).toBeVisible();
   });
 });
