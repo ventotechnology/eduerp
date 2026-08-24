@@ -539,9 +539,9 @@ export default function LmsPage() {
           <button
             onClick={() => {
               setCourseForm({
-                title: 'Higher Physics - Wave Optics & Nuclear Dynamics',
-                code: 'PHY-201',
-                description: 'Comprehensive curriculum coverage of wave optics, polarization, and nuclear physics.',
+                title: '',
+                code: '',
+                description: '',
                 term: 'Annual 2026',
                 campusId: academicMetadata.campuses[0]?.id || '',
                 academicYearId: academicMetadata.academicYears[0]?.id || '',
@@ -867,10 +867,10 @@ export default function LmsPage() {
           <div className="p-5 rounded-2xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-900">
             <div className="flex items-center gap-2 text-purple-800 dark:text-purple-300 font-bold text-sm mb-1">
               <Sparkles className="w-4 h-4 text-purple-600" />
-              <span>AI Question Bank Assistant</span>
+              <span>Bloom-Aligned Question Draft Generator (AI Provider Pending Configuration)</span>
             </div>
             <p className="text-xs text-purple-700 dark:text-purple-400">
-              Generate structured multi-type question drafts categorized by Bloom Taxonomy with required teacher review before publication.
+              Generates structured multi-type question drafts categorized by Bloom Taxonomy (Recall, Application, Synthesis) with required faculty review before publishing to live examinations.
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <input
@@ -968,11 +968,16 @@ export default function LmsPage() {
       {/* TAB 5: ONLINE LIVE CLASSES */}
       {activeTab === 'classes' && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white">Scheduled Live Digital Classrooms</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white">Scheduled Live Digital Classrooms</h2>
+              <p className="text-[11px] text-slate-500">
+                Manual Meeting Link Supported • Direct Zoom/Google Meet API OAuth Integration Pending
+              </p>
+            </div>
             <button
               onClick={() => setShowScheduleClassModal(true)}
-              className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-500 flex items-center gap-1"
+              className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-500 flex items-center gap-1 shrink-0"
             >
               <Video className="w-3.5 h-3.5" />
               <span>Schedule Live Class</span>

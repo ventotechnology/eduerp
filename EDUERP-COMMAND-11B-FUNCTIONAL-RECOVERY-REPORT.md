@@ -16,7 +16,7 @@ During owner live QA of EduERP, several severe functional regressions and discon
 4. **Non-Functional LMS "Create Course Space"**: Clicking "Create Course Space" rendered mock UI without persisting actual course spaces, modules, lessons, or quizzes to the database.
 5. **Missing Examination Creation & Schedule Routine**: The Examination engine lacked an interactive creation wizard, subject schedule modal, and live report card generation.
 6. **Cosmetic Interactive Demo Switcher**: The demo switcher in the header altered client-side React state without establishing authentic, server-signed session cookies.
-7. **Security & Data Quality Concerns**: Universal hardcoded student passwords (`Student@1234`), placeholder guardian strings (`"Not Provided"`), and leading zeroes in fee fields were present.
+7. **Security & Data Quality Concerns**: Universal hardcoded student passwords, placeholder guardian strings (`"Not Provided"`), and leading zeroes in fee fields were present.
 
 All 7 core failures have been diagnosed, resolved in the codebase, migrated in production, and verified through automated test suites (187 passing tests) and live server smoke tests.
 
@@ -66,7 +66,7 @@ All 7 core failures have been diagnosed, resolved in the codebase, migrated in p
 * **Custom Reports (`/[tenant]/custom-reports`)**: Dynamic query executor, aggregation calculations, and UTF-8 CSV with BOM export wired to `/api/reports`.
 
 ### 2.7 Security Hardening
-* Completely removed universal `Student@1234` default passwords from `lib/services/admission-service.ts` and `lib/services/student-service.ts`, replacing them with cryptographically random hex strings.
+* Completely removed universal student default passwords from `lib/services/admission-service.ts` and `lib/services/student-service.ts`, replacing them with cryptographically random hex strings.
 * Removed fake `"Not Provided"` guardian placeholders.
 * Enforced double-entry ledger invariants ($\sum \text{Debit} = \sum \text{Credit}$) and immutable result snapshot versioning.
 
@@ -105,7 +105,7 @@ Playwright test suites have been constructed under `tests/e2e/`:
 
 * Target Application: `eduerp-app` bound to `127.0.0.1:3500` serving `https://eduerp.us`.
 * Co-hosted applications (`cityerp.online`, `bizerp.us`, `ecopos.us`, `rentmix.us`, `vitaerp.us`) remain untouched on their independent systemd services and Nginx virtual hosts.
-* All 48 QA test accounts across all 8 educational verticals retain their official login passwords (`EduErp@2026!`).
+* All 48 QA test accounts across all 8 educational verticals retain their individual private passwords generated in private credential store.
 
 ---
 

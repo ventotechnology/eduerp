@@ -7,9 +7,15 @@ export const SESSION_COOKIE_NAME = 'eduerp_session';
 /**
  * Creates an HMAC-signed session token.
  */
-export function createSessionToken(payload: Omit<AuthSessionPayload, 'issuedAt' | 'expiresAt'>): string {
+export function createSessionToken(
+  payload: Omit<AuthSessionPayload, 'issuedAt' | 'expiresAt'>,
+  expiresInSeconds?: number
+): string {
   const now = Date.now();
-  const expiresAt = now + ENV.SESSION_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
+  const maxLifetime = expiresInSeconds
+    ? expiresInSeconds * 1000
+    : ENV.SESSION_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
+  const expiresAt = now + maxLifetime;
 
   const fullPayload: AuthSessionPayload = {
     ...payload,

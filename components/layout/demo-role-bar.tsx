@@ -14,6 +14,8 @@ export function DemoRoleBar() {
     language,
     campuses,
     activeCampusId,
+    impersonator,
+    exitImpersonation,
     switchTenant,
     switchRole,
     switchCampus,
@@ -24,10 +26,26 @@ export function DemoRoleBar() {
     <aside aria-label="Interactive Demo Switcher" className="w-full bg-slate-900 text-slate-100 text-xs border-b border-slate-800 px-3 py-2 flex flex-wrap items-center justify-between gap-2 z-50 sticky top-0 shadow-sm">
       {/* Left: Quick Switchers */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-1.5 font-semibold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>Interactive Demo Switcher</span>
-        </div>
+        {impersonator ? (
+          <div className="flex items-center gap-2 bg-amber-950/80 text-amber-300 border border-amber-800/80 px-2.5 py-1 rounded">
+            <Shield className="w-3.5 h-3.5 text-amber-400" />
+            <span className="font-bold uppercase tracking-wider text-[11px]">QA Impersonation Mode</span>
+            <span className="text-slate-400 text-[10px]">Actor: {impersonator.email}</span>
+            {exitImpersonation && (
+              <button
+                onClick={() => exitImpersonation()}
+                className="ml-1 bg-amber-600 hover:bg-amber-500 text-white font-bold px-2 py-0.5 rounded text-[10px] transition"
+              >
+                Exit Impersonation
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 font-semibold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Interactive Demo Switcher</span>
+          </div>
+        )}
 
         {/* Institution Type Selector */}
         <div className="flex items-center gap-1 bg-slate-800/80 px-2 py-1 rounded border border-slate-700">

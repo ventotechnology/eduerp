@@ -22,6 +22,8 @@ interface TenantContextState {
   activeUser: UserModel;
   language: LanguageCode;
   institutionTypeConfig: InstitutionTypeConfig;
+  impersonator?: { userId: string; email: string; role: string } | null;
+  exitImpersonation?: () => Promise<void>;
   switchTenant: (slug: string) => void;
   switchRole: (role: UserRole) => void;
   switchCampus: (campusId: string) => void;
@@ -35,7 +37,13 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
   const [activeRole, setActiveRole] = useState<UserRole>('PRINCIPAL');
   const [activeCampusId, setActiveCampusId] = useState<string>('CAMPUS-MAIN');
   const [language, setLanguage] = useState<LanguageCode>('en');
-  const [authenticatedUser, setAuthenticatedUser] = useState<{ id: string; name: string; email: string; role: UserRole } | null>(null);
+  const [authenticatedUser, setAuthenticatedUser] = useState<{
+    id: string;
+    name: string;
+    email: string;
+    role: UserRole;
+    impersonator?: { userId: string; email: string; role: string } | null;
+  } | null>(null);
 
   // Sync with server authentication state on mount
   useEffect(() => {
@@ -58,6 +66,22 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
     }
     syncAuth();
   }, []);
+
+  const exitImpersonation = async () => {
+    try {
+      const res = await fetch('/api/auth/impersonation/exit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (data.success && data.redirectUrl) {
+        window.location.href = data.redirectUrl;
+      }
+    } catch (e) {
+      console.error('Failed to exit impersonation', e);
+    }
+  };
 
   const activePreset = PRESET_DEMO_TENANTS.find((t) => t.slug === tenantSlug) || PRESET_DEMO_TENANTS[0];
   const institutionTypeConfig = INSTITUTION_TYPE_CONFIGS[activePreset.type] || INSTITUTION_TYPE_CONFIGS['SCHOOL'];
@@ -164,6 +188,8 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
         activeUser,
         language,
         institutionTypeConfig,
+        impersonator: authenticatedUser?.impersonator || null,
+        exitImpersonation,
         switchTenant,
         switchRole,
         switchCampus,

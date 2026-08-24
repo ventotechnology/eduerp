@@ -1,10 +1,14 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Finance & Invoice Workflow Suite', () => {
-  test('fetches live overview, ledger and balance sheet', async ({ request }) => {
-    // 1. Establish Accountant session
-    const authRes = await request.post('/api/auth/demo-session', {
-      data: { tenantSlug: 'demo-school', role: 'ACCOUNTANT' }
+  test('fetches live overview, ledger and balance sheet with real accountant login', async ({ request }) => {
+    // 1. Establish REAL Accountant session via /api/auth/login
+    const accountantEmail = process.env.E2E_ACCOUNTANT_EMAIL || 'accountant.demo-school@eduerp.us';
+    const accountantPass = process.env.E2E_ACCOUNTANT_PASSWORD;
+    expect(accountantPass).toBeTruthy();
+
+    const authRes = await request.post('/api/auth/login', {
+      data: { email: accountantEmail, password: accountantPass }
     });
     expect(authRes.status()).toBe(200);
 

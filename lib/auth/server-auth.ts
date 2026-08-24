@@ -47,7 +47,8 @@ export async function getServerSession(req?: NextRequest): Promise<SessionUser |
     role: payload.role,
     tenantId: payload.tenantId,
     status: UserStatus.ACTIVE,
-    isPlatformAdmin
+    isPlatformAdmin,
+    impersonator: payload.impersonator || null
   };
 }
 

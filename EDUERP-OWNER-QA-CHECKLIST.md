@@ -8,11 +8,14 @@
 * **Canonical Demo School URL**: `https://eduerp.us/demo-school/dashboard`
 * **Interactive Demo Switcher**: Available in the top header bar across all pages.
 * **Credentials**:
-  * Platform Super Admin: `superadmin@eduerp.us` / `EduErp@2026!`
-  * Head of Institution (Demo School): `principal.demo-school@eduerp.us` / `EduErp@2026!`
-  * Admission Officer (Demo School): `admission.demo-school@eduerp.us` / `EduErp@2026!`
-  * Senior Teacher (Demo School): `teacher.demo-school@eduerp.us` / `EduErp@2026!`
-  * Chief Accountant (Demo School): `accountant.demo-school@eduerp.us` / `EduErp@2026!`
+  * All 48 QA accounts are provisioned with unique, strong cryptographic passwords (min 24 chars).
+  * Refer to the private, gitignored `EDUERP-ONLINE-TEST-CREDENTIALS.txt` or `.env.e2e.local` on the host/VPS.
+  * Standard accounts available:
+    - Platform Super Admin: `superadmin@eduerp.us`
+    - Head of Institution (Demo School): `principal.demo-school@eduerp.us`
+    - Admission Officer (Demo School): `admission.demo-school@eduerp.us`
+    - Senior Teacher (Demo School): `teacher.demo-school@eduerp.us`
+    - Chief Accountant (Demo School): `accountant.demo-school@eduerp.us`
 
 ---
 

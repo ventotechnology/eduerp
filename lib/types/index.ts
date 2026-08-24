@@ -78,6 +78,8 @@ export interface TenantContextType {
   switchCampus: (campusId: string) => void;
   switchLanguage: (lang: LanguageCode) => void;
   institutionTypeConfig: InstitutionTypeConfig;
+  impersonator?: { userId: string; email: string; role: string } | null;
+  exitImpersonation?: () => Promise<void>;
 }
 
 export interface InstitutionTypeConfig {

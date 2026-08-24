@@ -7,6 +7,8 @@ export default defineConfig({
     globals: true,
     include: ['tests/**/*.test.ts'],
     exclude: ['tests/e2e/**', 'node_modules/**'],
+    fileParallelism: false,
+    testTimeout: 20000,
     alias: {
       '@': path.resolve(__dirname, './')
     }

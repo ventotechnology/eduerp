@@ -7,6 +7,12 @@ export enum UserStatus {
   PENDING_VERIFICATION = 'PENDING_VERIFICATION'
 }
 
+export interface ImpersonatorInfo {
+  userId: string;
+  email: string;
+  role: UserRole;
+}
+
 export interface SessionUser {
   id: string;
   email: string;
@@ -15,6 +21,7 @@ export interface SessionUser {
   tenantId: string | null;
   status: UserStatus;
   isPlatformAdmin: boolean;
+  impersonator?: ImpersonatorInfo | null;
 }
 
 export interface AuthSessionPayload {
@@ -24,4 +31,5 @@ export interface AuthSessionPayload {
   tenantId: string | null;
   issuedAt: number;
   expiresAt: number;
+  impersonator?: ImpersonatorInfo | null;
 }
