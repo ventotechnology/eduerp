@@ -41,43 +41,46 @@ Received array: [200, 201]
   18 |     const acJson = await acRes.json();
   19 |     expect(acJson.success).toBe(true);
   20 | 
-  21 |     const academicYearId = acJson.data?.academicYears?.[0]?.id;
-  22 |     expect(academicYearId).toBeTruthy();
-  23 | 
-  24 |     // 3. Create Examination Session
-  25 |     const examTitle = `Annual Evaluation ${Date.now()}`;
-  26 |     const examRes = await request.post('/api/exams', {
-  27 |       data: {
-  28 |         action: 'CREATE_EXAM',
-  29 |         tenantId: 'demo-school',
-  30 |         payload: {
-  31 |           name: examTitle,
-  32 |           type: 'ANNUAL',
-  33 |           termNumber: 1,
-  34 |           academicYearId,
-  35 |           startDate: new Date().toISOString(),
-  36 |           endDate: new Date(Date.now() + 14 * 86400000).toISOString(),
-  37 |           isPublished: true
-  38 |         }
-  39 |       }
-  40 |     });
-  41 | 
-> 42 |     expect([200, 201]).toContain(examRes.status());
+  21 |     const academicYear = acJson.data?.academicYears?.[0];
+  22 |     const academicYearId = academicYear?.id;
+  23 |     const sessionId = academicYear?.sessions?.[0]?.id;
+  24 |     expect(academicYearId).toBeTruthy();
+  25 |     expect(sessionId).toBeTruthy();
+  26 | 
+  27 |     // 3. Create Examination Session
+  28 |     const examTitle = `Annual Evaluation ${Date.now()}`;
+  29 |     const examRes = await request.post('/api/exams', {
+  30 |       data: {
+  31 |         action: 'CREATE_EXAM',
+  32 |         tenantId: 'demo-school',
+  33 |         payload: {
+  34 |           name: examTitle,
+  35 |           type: 'ANNUAL',
+  36 |           termNumber: 1,
+  37 |           sessionId,
+  38 |           startDate: new Date().toISOString(),
+  39 |           endDate: new Date(Date.now() + 14 * 86400000).toISOString(),
+  40 |           isPublished: true
+  41 |         }
+  42 |       }
+  43 |     });
+  44 | 
+> 45 |     expect([200, 201]).toContain(examRes.status());
      |                        ^ Error: expect(received).toContain(expected) // indexOf
-  43 |     const examJson = await examRes.json();
-  44 |     expect(examJson.success).toBe(true);
-  45 |     const createdExamId = examJson.data?.id;
-  46 |     expect(createdExamId).toBeTruthy();
-  47 | 
-  48 |     // 4. Verify Exam is in persistent list
-  49 |     const listRes = await request.get('/api/exams?tenantId=demo-school');
-  50 |     expect(listRes.status()).toBe(200);
-  51 |     const listJson = await listRes.json();
-  52 |     expect(listJson.success).toBe(true);
-  53 |     const persisted = listJson.data.find((e: any) => e.id === createdExamId);
-  54 |     expect(persisted).toBeTruthy();
-  55 |     expect(persisted.name).toBe(examTitle);
-  56 |   });
-  57 | });
-  58 | 
+  46 |     const examJson = await examRes.json();
+  47 |     expect(examJson.success).toBe(true);
+  48 |     const createdExamId = examJson.data?.id;
+  49 |     expect(createdExamId).toBeTruthy();
+  50 | 
+  51 |     // 4. Verify Exam is in persistent list
+  52 |     const listRes = await request.get('/api/exams?tenantId=demo-school');
+  53 |     expect(listRes.status()).toBe(200);
+  54 |     const listJson = await listRes.json();
+  55 |     expect(listJson.success).toBe(true);
+  56 |     const persisted = listJson.data.find((e: any) => e.id === createdExamId);
+  57 |     expect(persisted).toBeTruthy();
+  58 |     expect(persisted.name).toBe(examTitle);
+  59 |   });
+  60 | });
+  61 | 
 ```

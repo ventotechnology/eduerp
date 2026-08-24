@@ -192,7 +192,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Partial<Record<PermissionResourc
   },
   VICE_PRINCIPAL: {
     STUDENTS: ['VIEW', 'CREATE', 'UPDATE', 'EXPORT', 'PRINT'],
-    EXAMINATIONS: ['VIEW', 'UPDATE', 'EXPORT', 'PRINT'],
+    EXAMINATIONS: ['VIEW', 'CREATE', 'UPDATE', 'APPROVE', 'EXPORT', 'PRINT', 'MANAGE'],
     ATTENDANCE: ['VIEW', 'UPDATE', 'APPROVE'],
     LEAVES: ['VIEW', 'APPROVE']
   },
@@ -232,6 +232,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Partial<Record<PermissionResourc
   },
   COORDINATOR: {
     STUDENTS: ['VIEW', 'UPDATE'],
+    EXAMINATIONS: ['VIEW', 'CREATE', 'UPDATE', 'APPROVE', 'EXPORT', 'PRINT'],
     ATTENDANCE: ['VIEW', 'CREATE', 'UPDATE', 'APPROVE'],
     TIMETABLE: ['VIEW', 'CREATE', 'UPDATE']
   },
