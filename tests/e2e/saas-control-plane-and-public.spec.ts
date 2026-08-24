@@ -47,8 +47,8 @@ test.describe('COMMAND 11D — SaaS Control Plane, Public Pages & Vertical Admis
 
     // Contact
     await page.goto('/contact');
-    await expect(page.getByRole('heading', { name: /Let's Transform Your Institution's Digital Operations/i })).toBeVisible();
-    await expect(page.getByPlaceholder(/Describe student capacity/i)).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Connect with/i })).toBeVisible();
+    await expect(page.getByText('Vento Technology').first()).toBeVisible();
   });
 
   test('4. Super Admin SaaS Control Plane authentication & navigation', async ({ page }) => {
