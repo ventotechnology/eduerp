@@ -8,8 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "qa:provision": "tsx scripts/provision-qa-users.ts",
-    "qa:rotate-passwords": "tsx scripts/provision-qa-users.ts --rotate"
+    "qa:provision": "npx tsx scripts/provision-qa-users.ts",
+    "qa:rotate-passwords": "npx tsx scripts/provision-qa-users.ts --rotate"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.9.1",
@@ -25,7 +25,8 @@
     "react-dom": "19.2.8",
     "recharts": "^3.10.1",
     "tailwind-merge": "^3.6.0",
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "tsx": "^4.19.3"
   },
   "devDependencies": {
     "@prisma/client": "^7.9.1",
