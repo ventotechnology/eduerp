@@ -19,7 +19,8 @@ ENV DATABASE_URL="postgresql://eduerp_app:dummy@localhost:5432/eduerp_prod"
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN npx prisma generate
+# Convert provider to postgresql for production Docker image
+RUN sed -i 's/provider = "sqlite"/provider = "postgresql"/' prisma/schema.prisma && npx prisma generate
 RUN npm run build
 
 # Stage 3: Runner
