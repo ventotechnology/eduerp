@@ -120,7 +120,7 @@ export default function SuperAdminTicketConsolePage() {
         body: JSON.stringify({
           action: 'ASSIGN',
           agentName: assignAgentName.trim(),
-          agentEmail: 'support@eduerp.us'
+          agentEmail: 'teamhimu@gmail.com'
         })
       });
       const data = await res.json();

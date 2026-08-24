@@ -1,5 +1,101 @@
+import crypto from 'crypto';
 import { db } from '@/lib/db';
 import { AppError } from '@/lib/errors/app-error';
+
+const CERT_SIGNING_SECRET = process.env.APP_SECRET || process.env.JWT_SECRET || 'eduerp-training-certificate-registry-key';
+
+export function generateCertificateSignature(
+  certNumber: string,
+  userId: string,
+  courseId: string,
+  issuedAt: Date
+): string {
+  const payload = `${certNumber}:${userId}:${courseId}:${issuedAt.toISOString()}`;
+  return crypto.createHmac('sha256', CERT_SIGNING_SECRET).update(payload).digest('hex');
+}
+
+export function verifyCertificateSignature(
+  certNumber: string,
+  userId: string,
+  courseId: string,
+  issuedAt: Date,
+  expectedSignature?: string | null
+): boolean {
+  if (!expectedSignature) return true; // Graceful compatibility for pre-existing records
+  const computed = generateCertificateSignature(certNumber, userId, courseId, issuedAt);
+  return crypto.timingSafeEqual(Buffer.from(computed), Buffer.from(expectedSignature));
+}
+
+export async function generateCertificateNumber(): Promise<string> {
+  const currentYear = new Date().getFullYear();
+
+  const seq = await db.$transaction(async (tx) => {
+    let s = await tx.trainingCertificateSequence.findUnique({
+      where: { id: 'cert_seq' }
+    });
+
+    if (!s) {
+      s = await tx.trainingCertificateSequence.create({
+        data: {
+          id: 'cert_seq',
+          currentNumber: 1,
+          year: currentYear
+        }
+      });
+      return s.currentNumber;
+    }
+
+    if (s.year !== currentYear) {
+      const updated = await tx.trainingCertificateSequence.update({
+        where: { id: 'cert_seq' },
+        data: {
+          currentNumber: 1,
+          year: currentYear
+        }
+      });
+      return updated.currentNumber;
+    }
+
+    const updated = await tx.trainingCertificateSequence.update({
+      where: { id: 'cert_seq' },
+      data: {
+        currentNumber: { increment: 1 }
+      }
+    });
+
+    return updated.currentNumber;
+  });
+
+  const padded = String(seq).padStart(6, '0');
+  return `CERT-TRN-${currentYear}-${padded}`;
+}
+
+export function validateCourseAccess(
+  course: { targetRole?: string | null; institutionType?: string | null; title: string },
+  user?: { role?: string; institutionType?: string; isPlatformAdmin?: boolean }
+) {
+  if (!user || user.isPlatformAdmin) return true;
+
+  // Enforce role restriction
+  if (course.targetRole && course.targetRole !== 'ALL') {
+    if (user.role !== course.targetRole) {
+      throw AppError.forbidden(
+        `Enrollment restricted: Course '${course.title}' is designated for '${course.targetRole}' staff.`
+      );
+    }
+  }
+
+  // Enforce institution type restriction
+  if (course.institutionType && course.institutionType !== 'ALL') {
+    if (user.institutionType && user.institutionType !== course.institutionType) {
+      throw AppError.forbidden(
+        `Enrollment restricted: Course '${course.title}' is designated for ${course.institutionType} institutions.`
+      );
+    }
+  }
+
+  return true;
+}
 
 export async function listTrainingCourses(userId?: string) {
   const courses = await db.trainingCourse.findMany({
@@ -45,7 +141,12 @@ export async function listTrainingCourses(userId?: string) {
   });
 }
 
-export async function getTrainingCourseBySlug(slug: string, userId?: string) {
+export async function getTrainingCourseBySlug(
+  slug: string,
+  userOrUserId?: string | { id?: string; role?: string; institutionType?: string; isPlatformAdmin?: boolean }
+) {
+  const user = typeof userOrUserId === 'string' ? { id: userOrUserId } : userOrUserId;
+
   const course = await db.trainingCourse.findUnique({
     where: { slug },
     include: {
@@ -73,6 +174,7 @@ export async function getTrainingCourseBySlug(slug: string, userId?: string) {
     throw AppError.notFound(`Training course '${slug}' not found.`);
   }
 
+  const userId = user?.id;
   let userEnrollment: any = null;
   let userProgress: any[] = [];
   let userCertificate: any = null;
@@ -98,22 +200,79 @@ export async function getTrainingCourseBySlug(slug: string, userId?: string) {
     }
   }
 
+  // SECURITY: Sanitize quiz questions — STRICTLY exclude correctOptionId and explanation before submission
+  const sanitizedModules = course.modules.map((m) => ({
+    id: m.id,
+    title: m.title,
+    description: m.description,
+    displayOrder: m.displayOrder,
+    lessons: m.lessons.map((l) => ({
+      id: l.id,
+      title: l.title,
+      slug: l.slug,
+      content: l.content,
+      lessonType: l.lessonType,
+      videoUrl: l.videoUrl,
+      durationMinutes: l.durationMinutes,
+      displayOrder: l.displayOrder,
+      quiz: l.quiz
+        ? {
+            id: l.quiz.id,
+            title: l.quiz.title,
+            passingScore: l.quiz.passingScore,
+            questions: l.quiz.questions.map((q) => ({
+              id: q.id,
+              question: q.question,
+              options: typeof q.optionsJson === 'string' ? JSON.parse(q.optionsJson) : q.optionsJson,
+              displayOrder: q.displayOrder
+              // correctOptionId and explanation intentionally omitted for security
+            }))
+          }
+        : null
+    }))
+  }));
+
   return {
-    ...course,
+    id: course.id,
+    title: course.title,
+    slug: course.slug,
+    description: course.description,
+    audience: course.audience,
+    targetRole: course.targetRole,
+    institutionType: course.institutionType,
+    difficulty: course.difficulty,
+    durationMinutes: course.durationMinutes,
+    language: course.language,
+    thumbnailUrl: course.thumbnailUrl,
+    certificateEnabled: course.certificateEnabled,
+    passingScore: course.passingScore,
+    displayOrder: course.displayOrder,
+    createdAt: course.createdAt,
+    updatedAt: course.updatedAt,
+    modules: sanitizedModules,
     enrollment: userEnrollment,
     completedLessonIds: userProgress.filter((p) => p.isCompleted).map((p) => p.lessonId),
     certificate: userCertificate
   };
 }
 
-export async function enrollInCourse(courseId: string, user: {
-  id: string;
-  email: string;
-  name: string;
-  tenantId?: string;
-}) {
+export async function enrollInCourse(
+  courseId: string,
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    role?: string;
+    institutionType?: string;
+    tenantId?: string;
+    isPlatformAdmin?: boolean;
+  }
+) {
   const course = await db.trainingCourse.findUnique({ where: { id: courseId } });
   if (!course) throw AppError.notFound('Training course not found.');
+
+  // Validate server-side access control
+  validateCourseAccess(course, user);
 
   const existing = await db.trainingEnrollment.findUnique({
     where: {
@@ -146,8 +305,11 @@ export async function completeTrainingLesson(
     id: string;
     email: string;
     name: string;
+    role?: string;
+    institutionType?: string;
     institutionName?: string;
     tenantId?: string;
+    isPlatformAdmin?: boolean;
   }
 ) {
   let enrollment = await db.trainingEnrollment.findUnique({
@@ -189,7 +351,11 @@ export async function completeTrainingLesson(
     where: { id: courseId },
     include: {
       modules: {
-        include: { lessons: true }
+        include: {
+          lessons: {
+            include: { quiz: true }
+          }
+        }
       }
     }
   });
@@ -208,25 +374,54 @@ export async function completeTrainingLesson(
     ? Math.min(100, Math.round((completedCount / totalLessonsCount) * 100))
     : 100;
 
-  const isFullyCompleted = completedCount >= totalLessonsCount && totalLessonsCount > 0;
+  const areAllLessonsCompleted = completedCount >= totalLessonsCount && totalLessonsCount > 0;
+
+  // Check if all mandatory quizzes are passed
+  const quizzesInCourse = allLessons.filter((l) => l.quiz).map((l) => l.quiz!);
+  let areAllQuizzesPassed = true;
+  let averageQuizScore = 100;
+
+  if (quizzesInCourse.length > 0) {
+    const quizIds = quizzesInCourse.map((q) => q.id);
+    const passingAttempts = await db.trainingAttempt.findMany({
+      where: {
+        quizId: { in: quizIds },
+        userId: user.id,
+        passed: true
+      }
+    });
+
+    const passedQuizIds = new Set(passingAttempts.map((a) => a.quizId));
+    areAllQuizzesPassed = quizzesInCourse.every((q) => passedQuizIds.has(q.id));
+
+    if (passingAttempts.length > 0) {
+      averageQuizScore = Math.round(
+        passingAttempts.reduce((sum, a) => sum + a.score, 0) / passingAttempts.length
+      );
+    }
+  }
+
+  const isEligibleForCompletion = areAllLessonsCompleted && areAllQuizzesPassed;
 
   const updatedEnrollment = await db.trainingEnrollment.update({
     where: { id: enrollment.id },
     data: {
       progressPercent,
-      status: isFullyCompleted ? 'COMPLETED' : 'IN_PROGRESS',
-      completedAt: isFullyCompleted ? new Date() : null
+      status: isEligibleForCompletion ? 'COMPLETED' : 'IN_PROGRESS',
+      completedAt: isEligibleForCompletion ? new Date() : null
     }
   });
 
   let certificate = null;
-  if (isFullyCompleted && course.certificateEnabled) {
-    certificate = await issueTrainingCertificate(course, user, 100);
+  if (isEligibleForCompletion && course.certificateEnabled) {
+    certificate = await issueTrainingCertificate(course, user, averageQuizScore);
   }
 
   return {
     enrollment: updatedEnrollment,
-    isCompleted: isFullyCompleted,
+    isCompleted: isEligibleForCompletion,
+    allLessonsCompleted: areAllLessonsCompleted,
+    allQuizzesPassed: areAllQuizzesPassed,
     certificate
   };
 }
@@ -238,7 +433,10 @@ export async function submitQuizAttempt(
     id: string;
     email: string;
     name: string;
+    role?: string;
+    institutionType?: string;
     institutionName?: string;
+    tenantId?: string;
   }
 ) {
   const quiz = await db.trainingQuiz.findUnique({
@@ -262,6 +460,7 @@ export async function submitQuizAttempt(
     throw AppError.badRequest('Quiz has no questions.');
   }
 
+  // Server-side scoring against correct answers in DB
   let correctCount = 0;
   for (const q of quiz.questions) {
     if (answers[q.id] === q.correctOptionId) {
@@ -282,9 +481,10 @@ export async function submitQuizAttempt(
     }
   });
 
+  let completionResult = null;
   if (passed) {
     const courseId = quiz.lesson.module.course.id;
-    await completeTrainingLesson(courseId, quiz.lessonId, user);
+    completionResult = await completeTrainingLesson(courseId, quiz.lessonId, user);
   }
 
   return {
@@ -293,7 +493,8 @@ export async function submitQuizAttempt(
     passed,
     passingScore: quiz.passingScore,
     correctCount,
-    totalQuestions
+    totalQuestions,
+    certificate: completionResult?.certificate || null
   };
 }
 
@@ -308,7 +509,9 @@ export async function issueTrainingCertificate(
 
   if (existing) return existing;
 
-  const certNumber = `CERT-TRN-${new Date().getFullYear()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+  const certNumber = await generateCertificateNumber();
+  const issuedAt = new Date();
+  const signatureHash = generateCertificateSignature(certNumber, user.id, course.id, issuedAt);
   const verificationUrl = `https://eduerp.us/verify/training/${certNumber}`;
 
   return db.trainingCertificate.create({
@@ -320,8 +523,32 @@ export async function issueTrainingCertificate(
       userEmail: user.email,
       institutionName: user.institutionName || 'EduERP Certified Professional',
       score,
-      issuedAt: new Date(),
+      status: 'ACTIVE',
+      signatureHash,
+      issuedAt,
       verificationUrl
+    }
+  });
+}
+
+export async function revokeTrainingCertificate(
+  certificateNumber: string,
+  reason: string,
+  revokedBy: string
+) {
+  const cert = await db.trainingCertificate.findUnique({
+    where: { certificateNumber }
+  });
+
+  if (!cert) throw AppError.notFound(`Certificate '${certificateNumber}' not found.`);
+
+  return db.trainingCertificate.update({
+    where: { certificateNumber },
+    data: {
+      status: 'REVOKED',
+      revokedAt: new Date(),
+      revokedBy,
+      revocationReason: reason
     }
   });
 }
@@ -336,15 +563,42 @@ export async function verifyTrainingCertificate(certificateNumber: string) {
           title: true,
           slug: true,
           description: true,
-          audience: true
+          audience: true,
+          difficulty: true,
+          durationMinutes: true
         }
       }
     }
   });
 
   if (!cert) {
-    throw AppError.notFound(`Certificate '${certificateNumber}' is invalid or has expired.`);
+    throw AppError.notFound(`Certificate '${certificateNumber}' is invalid or unverified.`);
   }
 
-  return cert;
+  const isRevoked = cert.status === 'REVOKED';
+
+  // Privacy-safe public verification payload
+  return {
+    id: cert.id,
+    certificateNumber: cert.certificateNumber,
+    courseId: cert.courseId,
+    course: cert.course,
+    userName: cert.userName,
+    institutionName: cert.institutionName,
+    courseTitle: cert.course.title,
+    courseSlug: cert.course.slug,
+    courseDescription: cert.course.description,
+    audience: cert.course.audience,
+    score: cert.score,
+    issuedAt: cert.issuedAt,
+    status: cert.status,
+    isRevoked,
+    revokedAt: cert.revokedAt,
+    revocationReason: cert.revocationReason,
+    verificationUrl: cert.verificationUrl,
+    verificationStatement: isRevoked
+      ? 'This certificate has been revoked by the issuer.'
+      : 'Verified against the official EduERP training certificate registry.',
+    isVerified: !isRevoked
+  };
 }

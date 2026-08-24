@@ -153,10 +153,10 @@ export default function PrivacyPolicyPage() {
             If you have questions regarding this Privacy Policy, wish to exercise data subject rights (access, rectification, erasure), or require a formal Data Processing Addendum (DPA), contact:
           </p>
           <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800/80 font-mono text-slate-300 space-y-1">
-            <div>Data Protection Office, EduERP OS</div>
-            <div>Email: <a href="mailto:privacy@eduerp.us" className="text-emerald-400 hover:underline">privacy@eduerp.us</a></div>
-            <div>Helpline: +880 1700-000000</div>
-            <div>Address: Level 12, Gulshan-2, Dhaka-1212, Bangladesh</div>
+            <div>Data Protection Office, Vento Technology • EduERP</div>
+            <div>Email: <a href="mailto:teamhimu@gmail.com" className="text-emerald-400 hover:underline">teamhimu@gmail.com</a></div>
+            <div>WhatsApp / Helpline: <a href="https://wa.me/8801335556688" className="text-emerald-400 hover:underline">+8801335556688</a></div>
+            <div>Address: House 2/B, Road 8, Nikunja-2, Khilkhet, Dhaka 1229, Bangladesh</div>
           </div>
         </section>
       </main>

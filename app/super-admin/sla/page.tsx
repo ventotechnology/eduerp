@@ -4,13 +4,17 @@ import React, { useState, useEffect } from 'react';
 import {
   Clock,
   ShieldCheck,
-  Save,
   CheckCircle2,
-  AlertTriangle
+  Calendar,
+  Layers,
+  AlertCircle
 } from 'lucide-react';
 
 export default function SuperAdminSlaPage() {
   const [policies, setPolicies] = useState<any[]>([]);
+  const [businessHours, setBusinessHours] = useState<any[]>([]);
+  const [holidays, setHolidays] = useState<any[]>([]);
+  const [escalationRules, setEscalationRules] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
 
@@ -19,8 +23,15 @@ export default function SuperAdminSlaPage() {
     try {
       const res = await fetch('/api/super-admin/support/sla');
       const data = await res.json();
-      if (data.success) {
-        setPolicies(data.data || []);
+      if (data.success && data.data) {
+        if (Array.isArray(data.data)) {
+          setPolicies(data.data);
+        } else {
+          setPolicies(data.data.policies || []);
+          setBusinessHours(data.data.businessHours || []);
+          setHolidays(data.data.holidays || []);
+          setEscalationRules(data.data.escalationRules || []);
+        }
       }
     } catch {
       // ignore
@@ -52,13 +63,13 @@ export default function SuperAdminSlaPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-8 max-w-5xl">
       <div>
         <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">
-          Support SLA Policies
+          Support SLA Engine & Working Calendar
         </h1>
         <p className="text-xs text-slate-400 mt-1">
-          Define First Response and Resolution time targets by priority tier for customer support tickets.
+          Configure real business-hours SLA targets, weekly institutional calendar, public holidays, and auto-escalation triggers.
         </p>
       </div>
 
@@ -69,9 +80,15 @@ export default function SuperAdminSlaPage() {
         </div>
       )}
 
+      {/* SLA Policies Card */}
       <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+        <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+          <Clock className="w-5 h-5 text-emerald-400" />
+          <h2 className="text-sm font-bold text-white uppercase tracking-wider">Priority SLA Targets</h2>
+        </div>
+
         {loading ? (
-          <div className="py-16 text-center text-slate-400 text-xs font-mono">Loading SLA policies...</div>
+          <div className="py-12 text-center text-slate-400 text-xs font-mono">Loading SLA policies...</div>
         ) : (
           <div className="space-y-4">
             {policies.map((p) => (
@@ -82,6 +99,11 @@ export default function SuperAdminSlaPage() {
                       {p.priority}
                     </span>
                     <span className="font-bold text-white text-sm">{p.name}</span>
+                    {p.businessHoursOnly && (
+                      <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full border border-slate-700">
+                        Business Hours Only
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -123,7 +145,7 @@ export default function SuperAdminSlaPage() {
                   <button
                     type="button"
                     onClick={() => handleUpdate(p)}
-                    className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-sm transition"
+                    className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-sm transition cursor-pointer"
                   >
                     Save Policy
                   </button>
@@ -132,6 +154,62 @@ export default function SuperAdminSlaPage() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Business Hours & Working Calendar Card */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+          <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+            <Calendar className="w-5 h-5 text-teal-400" />
+            <h2 className="text-sm font-bold text-white uppercase tracking-wider">Business Working Week (Asia/Dhaka)</h2>
+          </div>
+
+          <div className="space-y-2 text-xs">
+            {businessHours.length > 0 ? (
+              businessHours.map((bh) => (
+                <div key={bh.id} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                  <span className="font-semibold text-slate-200">{bh.dayName}</span>
+                  {bh.isWorkingDay ? (
+                    <span className="font-mono text-emerald-400">{bh.openTime} - {bh.closeTime}</span>
+                  ) : (
+                    <span className="text-slate-500 font-semibold">Weekend / Off</span>
+                  )}
+                </div>
+              ))
+            ) : (
+              <div className="text-slate-500 py-4 text-center">Sunday - Thursday: 09:00 - 18:00 BST (Standard)</div>
+            )}
+          </div>
+        </div>
+
+        <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+          <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+            <Layers className="w-5 h-5 text-amber-400" />
+            <h2 className="text-sm font-bold text-white uppercase tracking-wider">Automated Escalation Rules</h2>
+          </div>
+
+          <div className="space-y-2 text-xs">
+            {escalationRules.length > 0 ? (
+              escalationRules.map((er) => (
+                <div key={er.id} className="p-3 rounded-lg bg-slate-950 border border-slate-800 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-white">{er.name}</span>
+                    <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                      {er.actionType}
+                    </span>
+                  </div>
+                  <p className="text-slate-400 text-[11px]">
+                    {er.unassignedMinutes ? `Unassigned >= ${er.unassignedMinutes}m • ` : ''}
+                    {er.firstResponseRemainingMinutes !== null && er.firstResponseRemainingMinutes !== undefined ? `First Response Overdue <= ${er.firstResponseRemainingMinutes}m • ` : ''}
+                    Status: {er.isActive ? 'Active' : 'Disabled'}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <div className="text-slate-500 py-4 text-center">Active auto-escalation engine running.</div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

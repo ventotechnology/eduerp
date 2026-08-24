@@ -1,5 +1,36 @@
 import { db } from '@/lib/db';
 import { AppError } from '@/lib/errors/app-error';
+import { hasPlatformPermission } from '@/lib/rbac/platform-guard';
+
+export const VALID_SUPPORT_PRIORITIES = ['LOW', 'NORMAL', 'HIGH', 'URGENT', 'CRITICAL'] as const;
+
+export const VALID_TICKET_STATUSES = [
+  'NEW',
+  'OPEN',
+  'ASSIGNED',
+  'IN_PROGRESS',
+  'WAITING_FOR_CUSTOMER',
+  'CUSTOMER_REPLIED',
+  'ESCALATED',
+  'RESOLVED',
+  'CLOSED',
+  'REOPENED',
+  'CANCELLED'
+] as const;
+
+export const VALID_TICKET_TRANSITIONS: Record<string, string[]> = {
+  NEW: ['OPEN', 'ASSIGNED', 'CANCELLED'],
+  OPEN: ['ASSIGNED', 'IN_PROGRESS', 'WAITING_FOR_CUSTOMER', 'CANCELLED'],
+  ASSIGNED: ['IN_PROGRESS', 'WAITING_FOR_CUSTOMER', 'RESOLVED', 'CANCELLED'],
+  IN_PROGRESS: ['WAITING_FOR_CUSTOMER', 'RESOLVED', 'ESCALATED'],
+  WAITING_FOR_CUSTOMER: ['CUSTOMER_REPLIED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'],
+  CUSTOMER_REPLIED: ['IN_PROGRESS', 'RESOLVED', 'WAITING_FOR_CUSTOMER'],
+  ESCALATED: ['IN_PROGRESS', 'RESOLVED', 'WAITING_FOR_CUSTOMER'],
+  RESOLVED: ['CLOSED', 'REOPENED'],
+  CLOSED: ['REOPENED'],
+  REOPENED: ['IN_PROGRESS', 'ASSIGNED', 'OPEN'],
+  CANCELLED: []
+};
 
 async function recordSupportAuditLog(data: {
   action: string;
@@ -53,11 +84,22 @@ export async function generateTicketNumber(): Promise<string> {
       return s.currentNumber;
     }
 
+    // Reset sequence counter to 1 if year has rolled over
+    if (s.year !== currentYear) {
+      const updated = await tx.supportSequence.update({
+        where: { id: 'ticket_seq' },
+        data: {
+          currentNumber: 1,
+          year: currentYear
+        }
+      });
+      return updated.currentNumber;
+    }
+
     const updated = await tx.supportSequence.update({
       where: { id: 'ticket_seq' },
       data: {
-        currentNumber: { increment: 1 },
-        year: currentYear
+        currentNumber: { increment: 1 }
       }
     });
 
@@ -68,20 +110,210 @@ export async function generateTicketNumber(): Promise<string> {
   return `TKT-${currentYear}-${padded}`;
 }
 
-export async function computeSlaDueDates(priority: string) {
-  const policy = await db.supportSlaPolicy.findUnique({
-    where: { priority }
-  });
+// -------------------------------------------------------------------------------------
+// REAL BUSINESS-HOURS SLA ENGINE
+// -------------------------------------------------------------------------------------
 
-  const firstResponseMinutes = policy?.firstResponseTargetMinutes || (priority === 'CRITICAL' ? 60 : priority === 'URGENT' ? 120 : priority === 'HIGH' ? 240 : 480);
-  const resolutionMinutes = policy?.resolutionTargetMinutes || (priority === 'CRITICAL' ? 240 : priority === 'URGENT' ? 720 : priority === 'HIGH' ? 1440 : 2880);
+export interface BusinessDayConfig {
+  dayOfWeek: number; // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+  isWorkingDay: boolean;
+  openMinutes: number;  // Minutes from midnight, e.g. 9*60 = 540 (09:00)
+  closeMinutes: number; // Minutes from midnight, e.g. 18*60 = 1080 (18:00)
+}
+
+export const DEFAULT_BANGLADESH_BUSINESS_WEEK: BusinessDayConfig[] = [
+  { dayOfWeek: 0, isWorkingDay: true, openMinutes: 9 * 60, closeMinutes: 18 * 60 }, // Sunday
+  { dayOfWeek: 1, isWorkingDay: true, openMinutes: 9 * 60, closeMinutes: 18 * 60 }, // Monday
+  { dayOfWeek: 2, isWorkingDay: true, openMinutes: 9 * 60, closeMinutes: 18 * 60 }, // Tuesday
+  { dayOfWeek: 3, isWorkingDay: true, openMinutes: 9 * 60, closeMinutes: 18 * 60 }, // Wednesday
+  { dayOfWeek: 4, isWorkingDay: true, openMinutes: 9 * 60, closeMinutes: 18 * 60 }, // Thursday
+  { dayOfWeek: 5, isWorkingDay: false, openMinutes: 0, closeMinutes: 0 },          // Friday (Weekend)
+  { dayOfWeek: 6, isWorkingDay: false, openMinutes: 0, closeMinutes: 0 }           // Saturday (Weekend)
+];
+
+function parseTimeToMinutes(timeStr: string): number {
+  const [h, m] = timeStr.split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+export async function getBusinessSchedule(timezone: string = 'Asia/Dhaka'): Promise<{
+  schedule: Map<number, BusinessDayConfig>;
+  holidays: Set<string>;
+  timezone: string;
+}> {
+  const dbHours = await db.supportBusinessHours.findMany({
+    where: { timezone }
+  }).catch(() => []);
+
+  const schedule = new Map<number, BusinessDayConfig>();
+  if (dbHours.length > 0) {
+    for (const h of dbHours) {
+      schedule.set(h.dayOfWeek, {
+        dayOfWeek: h.dayOfWeek,
+        isWorkingDay: h.isWorkingDay,
+        openMinutes: parseTimeToMinutes(h.openTime),
+        closeMinutes: parseTimeToMinutes(h.closeTime)
+      });
+    }
+  } else {
+    for (const d of DEFAULT_BANGLADESH_BUSINESS_WEEK) {
+      schedule.set(d.dayOfWeek, d);
+    }
+  }
+
+  const dbHolidays = await db.supportHoliday.findMany({
+    where: { isWorkingOverride: false }
+  }).catch(() => []);
+
+  const holidays = new Set<string>();
+  for (const h of dbHolidays) {
+    holidays.add(h.date.toISOString().split('T')[0]);
+  }
+
+  return { schedule, holidays, timezone };
+}
+
+export function calculateBusinessDueTime(
+  startTime: Date,
+  targetMinutes: number,
+  schedule: Map<number, BusinessDayConfig>,
+  holidays: Set<string>,
+  timezone: string = 'Asia/Dhaka'
+): Date {
+  if (targetMinutes <= 0) return new Date(startTime);
+
+  // Timezone offset helper (Bangladesh is UTC+6 = 360 mins)
+  // For exact arithmetic we convert timestamp to local minutes
+  const tzOffsetMinutes = timezone === 'Asia/Dhaka' ? 360 : 360;
+
+  let currentUtc = new Date(startTime.getTime());
+  let remainingMinutes = targetMinutes;
+  let safetyLoop = 0;
+
+  while (remainingMinutes > 0 && safetyLoop < 10000) {
+    safetyLoop++;
+    // Get local date components
+    const localMs = currentUtc.getTime() + tzOffsetMinutes * 60 * 1000;
+    const localDate = new Date(localMs);
+    const dayOfWeek = localDate.getUTCDay();
+    const dateKey = localDate.toISOString().split('T')[0];
+    const currentMinsFromMidnight = localDate.getUTCHours() * 60 + localDate.getUTCMinutes();
+
+    const dayConfig = schedule.get(dayOfWeek) || {
+      dayOfWeek,
+      isWorkingDay: false,
+      openMinutes: 0,
+      closeMinutes: 0
+    };
+
+    const isHoliday = holidays.has(dateKey);
+
+    if (!dayConfig.isWorkingDay || isHoliday) {
+      // Advance to midnight of next day (which is 00:00 local)
+      const minsToMidnight = 1440 - currentMinsFromMidnight;
+      currentUtc = new Date(currentUtc.getTime() + minsToMidnight * 60 * 1000);
+      continue;
+    }
+
+    if (currentMinsFromMidnight < dayConfig.openMinutes) {
+      // Before business hours: advance to openTime
+      const minsToOpen = dayConfig.openMinutes - currentMinsFromMidnight;
+      currentUtc = new Date(currentUtc.getTime() + minsToOpen * 60 * 1000);
+      continue;
+    }
+
+    if (currentMinsFromMidnight >= dayConfig.closeMinutes) {
+      // After business hours: advance to midnight
+      const minsToMidnight = 1440 - currentMinsFromMidnight;
+      currentUtc = new Date(currentUtc.getTime() + minsToMidnight * 60 * 1000);
+      continue;
+    }
+
+    // Within business hours
+    const availableToday = dayConfig.closeMinutes - currentMinsFromMidnight;
+    if (remainingMinutes <= availableToday) {
+      currentUtc = new Date(currentUtc.getTime() + remainingMinutes * 60 * 1000);
+      remainingMinutes = 0;
+    } else {
+      currentUtc = new Date(currentUtc.getTime() + availableToday * 60 * 1000);
+      remainingMinutes -= availableToday;
+    }
+  }
+
+  return currentUtc;
+}
+
+export async function computeSlaDueDates(
+  priority: string,
+  scope?: {
+    planTier?: string;
+    categoryCode?: string;
+    institutionType?: string;
+  }
+) {
+  // Multi-dimensional precedence resolution:
+  // 1. category + plan + institution + priority
+  // 2. plan + priority
+  // 3. category + priority
+  // 4. institution + priority
+  // 5. priority default
+  const policies = await db.supportSlaPolicy.findMany({
+    where: { priority, isActive: true },
+    orderBy: { displayPrecedence: 'desc' }
+  }).catch(() => []);
+
+  let matchedPolicy: any = null;
+  if (policies.length > 0) {
+    if (scope?.categoryCode && scope?.planTier && scope?.institutionType) {
+      matchedPolicy = policies.find(
+        (p) =>
+          p.categoryCode === scope.categoryCode &&
+          p.planTier === scope.planTier &&
+          p.institutionType === scope.institutionType
+      );
+    }
+    if (!matchedPolicy && scope?.planTier) {
+      matchedPolicy = policies.find((p) => p.planTier === scope.planTier && !p.categoryCode && !p.institutionType);
+    }
+    if (!matchedPolicy && scope?.categoryCode) {
+      matchedPolicy = policies.find((p) => p.categoryCode === scope.categoryCode && !p.planTier && !p.institutionType);
+    }
+    if (!matchedPolicy && scope?.institutionType) {
+      matchedPolicy = policies.find((p) => p.institutionType === scope.institutionType && !p.planTier && !p.categoryCode);
+    }
+    if (!matchedPolicy) {
+      matchedPolicy = policies.find((p) => !p.planTier && !p.categoryCode && !p.institutionType) || policies[0];
+    }
+  }
+
+  const firstResponseMinutes = matchedPolicy?.firstResponseTargetMinutes || (priority === 'CRITICAL' ? 60 : priority === 'URGENT' ? 120 : priority === 'HIGH' ? 240 : 480);
+  const resolutionMinutes = matchedPolicy?.resolutionTargetMinutes || (priority === 'CRITICAL' ? 240 : priority === 'URGENT' ? 720 : priority === 'HIGH' ? 1440 : 2880);
+  const businessHoursOnly = matchedPolicy ? matchedPolicy.businessHoursOnly : true;
 
   const now = new Date();
-  const firstResponseDueAt = new Date(now.getTime() + firstResponseMinutes * 60 * 1000);
-  const resolutionDueAt = new Date(now.getTime() + resolutionMinutes * 60 * 1000);
 
-  return { firstResponseDueAt, resolutionDueAt };
+  if (!businessHoursOnly) {
+    return {
+      firstResponseDueAt: new Date(now.getTime() + firstResponseMinutes * 60 * 1000),
+      resolutionDueAt: new Date(now.getTime() + resolutionMinutes * 60 * 1000),
+      policyName: matchedPolicy?.name || `${priority} SLA`
+    };
+  }
+
+  const { schedule, holidays, timezone } = await getBusinessSchedule('Asia/Dhaka');
+  const firstResponseDueAt = calculateBusinessDueTime(now, firstResponseMinutes, schedule, holidays, timezone);
+  const resolutionDueAt = calculateBusinessDueTime(now, resolutionMinutes, schedule, holidays, timezone);
+
+  return {
+    firstResponseDueAt,
+    resolutionDueAt,
+    policyName: matchedPolicy?.name || `${priority} Business Hours SLA`
+  };
 }
+
+// -------------------------------------------------------------------------------------
+// TICKET LIFECYCLE & WORKFLOW ENGINE
+// -------------------------------------------------------------------------------------
 
 export async function createSupportTicket(
   data: {
@@ -105,18 +337,32 @@ export async function createSupportTicket(
   }
 ) {
   if (!data.subject || !data.description || !data.categoryCode) {
-    throw AppError.badRequest('Subject, description, and category are required.');
+    throw AppError.badRequest('Subject, description, and category code are required.');
   }
 
-  // Tenant bound validation
   const tenantId = session.tenantId;
   if (!tenantId) {
     throw AppError.badRequest('Authenticated tenant context is required to create a ticket.');
   }
 
+  // Priority validation
   const priority = data.priority || 'NORMAL';
+  if (!VALID_SUPPORT_PRIORITIES.includes(priority as any)) {
+    throw AppError.badRequest(`Invalid priority '${priority}'. Allowed: ${VALID_SUPPORT_PRIORITIES.join(', ')}`);
+  }
+
+  // Category validation
+  const category = await db.supportCategory.findUnique({
+    where: { code: data.categoryCode }
+  });
+  if (!category || !category.isActive) {
+    throw AppError.badRequest(`Support category '${data.categoryCode}' does not exist or is inactive.`);
+  }
+
   const ticketNumber = await generateTicketNumber();
-  const { firstResponseDueAt, resolutionDueAt } = await computeSlaDueDates(priority);
+  const { firstResponseDueAt, resolutionDueAt } = await computeSlaDueDates(priority, {
+    categoryCode: data.categoryCode
+  });
 
   const ticket = await db.$transaction(async (tx) => {
     const createdTicket = await tx.supportTicket.create({
@@ -142,7 +388,7 @@ export async function createSupportTicket(
       }
     });
 
-    // Create initial message
+    // Initial message
     await tx.supportTicketMessage.create({
       data: {
         ticketId: createdTicket.id,
@@ -156,7 +402,7 @@ export async function createSupportTicket(
       }
     });
 
-    // Create status history
+    // Initial status history
     await tx.supportStatusHistory.create({
       data: {
         ticketId: createdTicket.id,
@@ -205,6 +451,7 @@ export async function listSupportTickets(
     userId: string;
     tenantId: string;
     isPlatformAdmin?: boolean;
+    role?: string;
   }
 ) {
   const page = Math.max(1, params.page || 1);
@@ -213,7 +460,7 @@ export async function listSupportTickets(
 
   const where: any = {};
 
-  // Strict Tenant Isolation for non-platform admins
+  // Strict Tenant Isolation for customer sessions
   if (!session.isPlatformAdmin) {
     where.tenantId = session.tenantId;
   } else if (params.tenantId && params.tenantId !== 'ALL') {
@@ -271,6 +518,7 @@ export async function getSupportTicket(
     userId: string;
     tenantId: string;
     isPlatformAdmin?: boolean;
+    role?: string;
   }
 ) {
   const ticket = await db.supportTicket.findUnique({
@@ -278,7 +526,8 @@ export async function getSupportTicket(
     include: {
       assignedTeam: true,
       statusHistory: { orderBy: { changedAt: 'asc' } },
-      csat: true
+      csat: true,
+      attachments: true
     }
   });
 
@@ -335,8 +584,12 @@ export async function addTicketMessage(
   }
 
   const visibility = data.visibility || 'PUBLIC_REPLY';
-  if (visibility === 'INTERNAL_NOTE' && !session.isPlatformAdmin) {
-    throw AppError.forbidden('Only authorized platform support agents may add internal notes.');
+
+  // Granular platform permission for INTERNAL_NOTE
+  if (visibility === 'INTERNAL_NOTE') {
+    if (!session.isPlatformAdmin || !hasPlatformPermission(session, 'SUPPORT_INTERNAL_NOTE')) {
+      throw AppError.forbidden("Permission denied: You do not have 'SUPPORT_INTERNAL_NOTE' authorization.");
+    }
   }
 
   const senderType = session.isPlatformAdmin ? 'SUPPORT_AGENT' : 'CUSTOMER';
@@ -362,12 +615,12 @@ export async function addTicketMessage(
         updateData.firstResponseAt = new Date();
         updateData.firstResponseBreached = ticket.firstResponseDueAt ? new Date() > ticket.firstResponseDueAt : false;
       }
-      if (ticket.status === 'NEW' || ticket.status === 'CUSTOMER_REPLIED') {
+      if (['NEW', 'OPEN', 'ASSIGNED', 'IN_PROGRESS', 'CUSTOMER_REPLIED'].includes(ticket.status)) {
         updateData.status = 'WAITING_FOR_CUSTOMER';
       }
     } else {
       // Customer replied
-      if (ticket.status === 'WAITING_FOR_CUSTOMER' || ticket.status === 'RESOLVED') {
+      if (['WAITING_FOR_CUSTOMER', 'RESOLVED'].includes(ticket.status)) {
         updateData.status = 'CUSTOMER_REPLIED';
       }
     }
@@ -419,37 +672,59 @@ export async function updateTicketStatus(
     name: string;
     tenantId: string;
     isPlatformAdmin?: boolean;
+    role?: string;
   }
 ) {
   const ticket = await db.supportTicket.findUnique({ where: { ticketNumber } });
   if (!ticket) throw AppError.notFound(`Ticket '${ticketNumber}' not found.`);
 
-  // If customer is changing status, they can only CONFIRM_RESOLUTION (CLOSE) or REOPEN
+  const newStatus = data.status;
+
+  // Validate state transition in state machine
+  const allowedNext = VALID_TICKET_TRANSITIONS[ticket.status] || [];
+  if (!allowedNext.includes(newStatus)) {
+    throw AppError.badRequest(
+      `Invalid ticket transition from '${ticket.status}' to '${newStatus}'. Allowed: ${allowedNext.join(', ') || 'none'}`
+    );
+  }
+
+  // Customer status rights enforcement
   if (!session.isPlatformAdmin) {
     if (ticket.tenantId !== session.tenantId) {
       throw AppError.forbidden(`Access to ticket '${ticketNumber}' denied.`);
     }
-    if (!['RESOLVED', 'CLOSED', 'REOPENED'].includes(data.status)) {
-      throw AppError.forbidden('Tenant users can only confirm resolution or reopen resolved tickets.');
+
+    // Customers can ONLY:
+    // 1. Confirm resolution: RESOLVED -> CLOSED
+    // 2. Reopen: RESOLVED / CLOSED -> REOPENED
+    // 3. Cancel: NEW / OPEN -> CANCELLED
+    const allowedCustomerStatuses = ['CLOSED', 'REOPENED', 'CANCELLED'];
+    if (!allowedCustomerStatuses.includes(newStatus)) {
+      throw AppError.forbidden(`Customers cannot set ticket status to '${newStatus}'. Only support staff may resolve or assign tickets.`);
+    }
+  } else {
+    // Platform staff requires SUPPORT_TICKET_STATUS permission
+    if (!hasPlatformPermission(session, 'SUPPORT_TICKET_STATUS')) {
+      throw AppError.forbidden("Permission denied: Requires 'SUPPORT_TICKET_STATUS' authorization.");
     }
   }
 
-  if (data.status === 'RESOLVED' && !data.resolutionSummary && !ticket.resolutionSummary) {
+  if (newStatus === 'RESOLVED' && !data.resolutionSummary && !ticket.resolutionSummary) {
     throw AppError.badRequest('A resolution summary is required when resolving a ticket.');
   }
 
   const updateData: any = {
-    status: data.status,
+    status: newStatus,
     updatedAt: new Date()
   };
 
-  if (data.status === 'RESOLVED') {
+  if (newStatus === 'RESOLVED') {
     updateData.resolvedAt = new Date();
     updateData.resolutionSummary = data.resolutionSummary || ticket.resolutionSummary;
     updateData.resolutionBreached = ticket.resolutionDueAt ? new Date() > ticket.resolutionDueAt : false;
-  } else if (data.status === 'CLOSED') {
+  } else if (newStatus === 'CLOSED') {
     updateData.closedAt = new Date();
-  } else if (data.status === 'REOPENED') {
+  } else if (newStatus === 'REOPENED') {
     updateData.reopenedAt = new Date();
     updateData.reopenCount = { increment: 1 };
   }
@@ -463,22 +738,22 @@ export async function updateTicketStatus(
     data: {
       ticketId: ticket.id,
       fromStatus: ticket.status,
-      toStatus: data.status,
+      toStatus: newStatus,
       changedByUserId: session.userId,
       changedByName: session.name,
-      reason: data.reason || (data.status === 'RESOLVED' ? data.resolutionSummary : `Status changed to ${data.status}`)
+      reason: data.reason || (newStatus === 'RESOLVED' ? data.resolutionSummary : `Status transitioned to ${newStatus}`)
     }
   });
 
   await recordSupportAuditLog({
-    action: data.status === 'RESOLVED' ? 'SUPPORT_RESOLVED' : data.status === 'REOPENED' ? 'SUPPORT_REOPENED' : 'SUPPORT_STATUS_CHANGED',
+    action: newStatus === 'RESOLVED' ? 'SUPPORT_RESOLVED' : newStatus === 'REOPENED' ? 'SUPPORT_REOPENED' : 'SUPPORT_STATUS_CHANGED',
     resourceType: 'SupportTicket',
     resourceId: ticket.id,
     tenantId: ticket.tenantId,
     userId: session.userId,
     userName: session.name,
     oldState: JSON.stringify({ status: ticket.status }),
-    newState: JSON.stringify({ status: data.status })
+    newState: JSON.stringify({ status: newStatus })
   });
 
   return updatedTicket;
@@ -496,10 +771,11 @@ export async function assignTicket(
     userId: string;
     name: string;
     isPlatformAdmin?: boolean;
+    role?: string;
   }
 ) {
-  if (!session.isPlatformAdmin) {
-    throw AppError.forbidden('Only platform support staff can assign tickets.');
+  if (!session.isPlatformAdmin || !hasPlatformPermission(session, 'SUPPORT_TICKET_ASSIGN')) {
+    throw AppError.forbidden("Permission denied: Requires 'SUPPORT_TICKET_ASSIGN' authorization.");
   }
 
   const ticket = await db.supportTicket.findUnique({ where: { ticketNumber } });
@@ -510,7 +786,7 @@ export async function assignTicket(
     assignedAgentName: data.agentName || null,
     assignedAgentEmail: data.agentEmail || null,
     assignedTeamId: data.teamId || null,
-    status: data.agentId ? 'ASSIGNED' : ticket.status
+    status: data.agentId && (ticket.status === 'NEW' || ticket.status === 'OPEN') ? 'ASSIGNED' : ticket.status
   };
 
   const updated = await db.supportTicket.update({
@@ -540,7 +816,12 @@ export async function submitTicketCsat(
   if (!ticket) throw AppError.notFound(`Ticket '${ticketNumber}' not found.`);
 
   if (ticket.tenantId !== session.tenantId) {
-    throw AppError.forbidden('You can only rate tickets from your own institution.');
+    throw AppError.forbidden('You can only rate tickets belonging to your institution.');
+  }
+
+  // CSAT Eligibility: Only allowed on RESOLVED or CLOSED tickets
+  if (ticket.status !== 'RESOLVED' && ticket.status !== 'CLOSED') {
+    throw AppError.badRequest('CSAT feedback is only available after a ticket has been resolved or closed.');
   }
 
   const rating = Math.max(1, Math.min(5, Number(data.rating) || 5));
@@ -581,13 +862,90 @@ export async function getSupportAnalytics() {
     })
   ]);
 
+  const totalCsatResponses = csatStats._count.id;
+  const averageCsat = totalCsatResponses > 0 && csatStats._avg.rating
+    ? Number(csatStats._avg.rating.toFixed(1))
+    : null; // null if no ratings yet
+
   return {
     totalTickets,
     openTickets,
     unassignedTickets,
     urgentTickets,
     resolvedTickets,
-    averageCsat: csatStats._avg.rating ? Number(csatStats._avg.rating.toFixed(1)) : 5.0,
-    totalCsatResponses: csatStats._count.id
+    averageCsat,
+    totalCsatResponses
   };
+}
+
+export async function evaluateEscalationRules() {
+  const rules = await db.supportEscalationRule.findMany({
+    where: { isActive: true }
+  });
+
+  if (rules.length === 0) return { evaluatedCount: 0, escalatedCount: 0 };
+
+  const openTickets = await db.supportTicket.findMany({
+    where: { status: { notIn: ['RESOLVED', 'CLOSED', 'CANCELLED'] } }
+  });
+
+  let escalatedCount = 0;
+  const now = new Date();
+
+  for (const ticket of openTickets) {
+    for (const rule of rules) {
+      let matches = true;
+
+      if (rule.priority && ticket.priority !== rule.priority) matches = false;
+      if (rule.status && ticket.status !== rule.status) matches = false;
+      if (rule.categoryCode && ticket.categoryCode !== rule.categoryCode) matches = false;
+      if (rule.reopenCountThreshold && ticket.reopenCount < rule.reopenCountThreshold) matches = false;
+
+      if (rule.unassignedMinutes && !ticket.assignedAgentId) {
+        const unassignedMins = Math.floor((now.getTime() - ticket.createdAt.getTime()) / (60 * 1000));
+        if (unassignedMins < rule.unassignedMinutes) matches = false;
+      }
+
+      if (rule.firstResponseRemainingMinutes && ticket.firstResponseDueAt && !ticket.firstResponseAt) {
+        const remaining = Math.floor((ticket.firstResponseDueAt.getTime() - now.getTime()) / (60 * 1000));
+        if (remaining > rule.firstResponseRemainingMinutes) matches = false;
+      }
+
+      if (rule.resolutionRemainingMinutes && ticket.resolutionDueAt && !ticket.resolvedAt) {
+        const remaining = Math.floor((ticket.resolutionDueAt.getTime() - now.getTime()) / (60 * 1000));
+        if (remaining > rule.resolutionRemainingMinutes) matches = false;
+      }
+
+      if (matches) {
+        const updates: any = { isEscalated: true, escalatedAt: now, escalationReason: `Auto-escalated by rule: ${rule.name}` };
+        if (rule.actionType === 'ESCALATE_PRIORITY' && rule.targetPriority) {
+          updates.priority = rule.targetPriority;
+        }
+        if (rule.actionType === 'ASSIGN_TEAM' && rule.targetTeamId) {
+          updates.assignedTeamId = rule.targetTeamId;
+        }
+
+        await db.supportTicket.update({
+          where: { id: ticket.id },
+          data: updates
+        });
+
+        await db.supportStatusHistory.create({
+          data: {
+            ticketId: ticket.id,
+            fromStatus: ticket.status,
+            toStatus: 'ESCALATED',
+            changedByUserId: 'SYSTEM_ESCALATION',
+            changedByName: 'SLA Escalation Engine',
+            reason: `Auto-escalation rule '${rule.name}' triggered.`
+          }
+        });
+
+        escalatedCount++;
+        break; // Match one rule per ticket
+      }
+    }
+  }
+
+  return { evaluatedCount: openTickets.length, escalatedCount };
 }

@@ -1,6 +1,37 @@
 import { db } from '@/lib/db';
 import { AppError } from '@/lib/errors/app-error';
 
+export function getUserAllowedVisibilities(session?: any): string[] {
+  if (!session || (!session.userId && !session.user?.id && !session.email)) {
+    return ['PUBLIC'];
+  }
+
+  const visibilities = ['PUBLIC', 'AUTHENTICATED'];
+  const role = session.role || session.user?.role || '';
+  const isPlatform = !!(session.isPlatformAdmin || session.user?.isPlatformAdmin);
+
+  const tenantAdminRoles = [
+    'SUPER_ADMIN',
+    'PRINCIPAL',
+    'HEADMASTER',
+    'DEAN',
+    'CHAIRMAN',
+    'DIRECTOR',
+    'ADMIN'
+  ];
+
+  if (tenantAdminRoles.includes(role) || isPlatform) {
+    visibilities.push('TENANT_ADMIN');
+  }
+
+  if (isPlatform) {
+    visibilities.push('PLATFORM_STAFF');
+    visibilities.push('INTERNAL_SUPPORT');
+  }
+
+  return visibilities;
+}
+
 export async function listKnowledgeCategories() {
   return db.knowledgeCategory.findMany({
     where: { isPublished: true },
@@ -18,8 +49,10 @@ export async function listKnowledgeArticles(params?: {
   categorySlug?: string;
   module?: string;
   role?: string;
+  institutionType?: string;
   search?: string;
   visibilityLevels?: string[]; // e.g. ['PUBLIC', 'AUTHENTICATED']
+  session?: any;
   language?: string;
   featuredOnly?: boolean;
   limit?: number;
@@ -29,7 +62,7 @@ export async function listKnowledgeArticles(params?: {
   const limit = Math.min(100, Math.max(1, params?.limit || 20));
   const skip = (page - 1) * limit;
 
-  const allowedVisibilities = params?.visibilityLevels || ['PUBLIC'];
+  const allowedVisibilities = params?.visibilityLevels || getUserAllowedVisibilities(params?.session);
 
   const where: any = {
     isPublished: true,
@@ -60,7 +93,7 @@ export async function listKnowledgeArticles(params?: {
     ];
   }
 
-  const [total, items] = await Promise.all([
+  const [total, rawItems] = await Promise.all([
     db.knowledgeArticle.count({ where }),
     db.knowledgeArticle.findMany({
       where,
@@ -75,6 +108,32 @@ export async function listKnowledgeArticles(params?: {
     })
   ]);
 
+  // Role and Institution Type Contextual Filtering
+  let items = rawItems;
+  if (params?.role && params.role !== 'ALL') {
+    items = items.filter((art) => {
+      if (!art.applicableRoles) return true;
+      try {
+        const roles = typeof art.applicableRoles === 'string' ? JSON.parse(art.applicableRoles) : art.applicableRoles;
+        return roles.includes('ALL') || roles.includes(params.role);
+      } catch {
+        return true;
+      }
+    });
+  }
+
+  if (params?.institutionType && params.institutionType !== 'ALL') {
+    items = items.filter((art) => {
+      if (!art.institutionTypes) return true;
+      try {
+        const types = typeof art.institutionTypes === 'string' ? JSON.parse(art.institutionTypes) : art.institutionTypes;
+        return types.includes('ALL') || types.includes(params.institutionType);
+      } catch {
+        return true;
+      }
+    });
+  }
+
   return {
     total,
     page,
@@ -86,7 +145,7 @@ export async function listKnowledgeArticles(params?: {
 
 export async function getKnowledgeArticleBySlug(
   slug: string,
-  userVisibilityLevels: string[] = ['PUBLIC']
+  visibilityLevelsOrSession?: string[] | any
 ) {
   const article = await db.knowledgeArticle.findUnique({
     where: { slug },
@@ -99,7 +158,11 @@ export async function getKnowledgeArticleBySlug(
     throw AppError.notFound(`Knowledge Base article '${slug}' not found.`);
   }
 
-  if (!userVisibilityLevels.includes(article.visibility)) {
+  const allowedVisibilities = Array.isArray(visibilityLevelsOrSession)
+    ? visibilityLevelsOrSession
+    : getUserAllowedVisibilities(visibilityLevelsOrSession);
+
+  if (!allowedVisibilities.includes(article.visibility)) {
     throw AppError.forbidden(`Access to this article is restricted to ${article.visibility} accounts.`);
   }
 
@@ -115,7 +178,7 @@ export async function getKnowledgeArticleBySlug(
       categoryId: article.categoryId,
       id: { not: article.id },
       isPublished: true,
-      visibility: { in: userVisibilityLevels }
+      visibility: { in: allowedVisibilities }
     },
     take: 4,
     orderBy: { viewCount: 'desc' },

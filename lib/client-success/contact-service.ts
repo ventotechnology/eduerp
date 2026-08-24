@@ -32,10 +32,10 @@ export const DEFAULT_CONTACT_SETTINGS = {
   postalCode: '1229',
   country: 'Bangladesh',
   generalEmail: 'teamhimu@gmail.com',
-  supportEmail: 'support@eduerp.us',
-  salesEmail: 'sales@eduerp.us',
-  billingEmail: 'billing@eduerp.us',
-  privacyEmail: 'privacy@eduerp.us',
+  supportEmail: 'teamhimu@gmail.com',
+  salesEmail: 'teamhimu@gmail.com',
+  billingEmail: 'teamhimu@gmail.com',
+  privacyEmail: 'teamhimu@gmail.com',
   phone: '+8801335556688',
   whatsapp: '+8801335556688',
   businessHours: 'Sunday - Thursday, 9:00 AM - 6:00 PM BST',
@@ -45,6 +45,19 @@ export const DEFAULT_CONTACT_SETTINGS = {
   youtubeUrl: 'https://youtube.com/@ventotechnology',
   websiteUrl: 'https://eduerp.us'
 };
+
+export const INQUIRY_STATUSES = [
+  'NEW',
+  'CONTACTED',
+  'QUALIFIED',
+  'DEMO_SCHEDULED',
+  'PROPOSAL_SENT',
+  'CONVERTED_TO_TENANT',
+  'CONVERTED_TO_TICKET',
+  'CLOSED',
+  'REJECTED',
+  'SPAM'
+] as const;
 
 export async function getPlatformContactSettings() {
   let settings = await db.platformContactSettings.findUnique({
@@ -58,6 +71,24 @@ export async function getPlatformContactSettings() {
   }
 
   return settings;
+}
+
+export async function syncProductionContactSettings() {
+  const current = await getPlatformContactSettings();
+  const updates: any = {};
+
+  if (current.supportEmail === 'support@eduerp.us') updates.supportEmail = 'teamhimu@gmail.com';
+  if (current.salesEmail === 'sales@eduerp.us') updates.salesEmail = 'teamhimu@gmail.com';
+  if (current.billingEmail === 'billing@eduerp.us') updates.billingEmail = 'teamhimu@gmail.com';
+  if (current.privacyEmail === 'privacy@eduerp.us') updates.privacyEmail = 'teamhimu@gmail.com';
+
+  if (Object.keys(updates).length > 0) {
+    return db.platformContactSettings.update({
+      where: { id: 'default' },
+      data: updates
+    });
+  }
+  return current;
 }
 
 export async function updatePlatformContactSettings(
@@ -93,7 +124,7 @@ export async function updatePlatformContactSettings(
 export async function generateInquiryNumber(): Promise<string> {
   const currentYear = new Date().getFullYear();
 
-  // Atomic increment on sequence record
+  // Atomic increment on sequence record with year rollover
   const seq = await db.$transaction(async (tx) => {
     let s = await tx.inquirySequence.findUnique({
       where: { id: 'inquiry_seq' }
@@ -110,11 +141,21 @@ export async function generateInquiryNumber(): Promise<string> {
       return s.currentNumber;
     }
 
+    if (s.year !== currentYear) {
+      const updated = await tx.inquirySequence.update({
+        where: { id: 'inquiry_seq' },
+        data: {
+          currentNumber: 1,
+          year: currentYear
+        }
+      });
+      return updated.currentNumber;
+    }
+
     const updated = await tx.inquirySequence.update({
       where: { id: 'inquiry_seq' },
       data: {
-        currentNumber: { increment: 1 },
-        year: currentYear
+        currentNumber: { increment: 1 }
       }
     });
 

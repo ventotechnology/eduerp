@@ -13,33 +13,98 @@ export async function seedClientSuccessData() {
       postalCode: DEFAULT_CONTACT_SETTINGS.postalCode,
       country: DEFAULT_CONTACT_SETTINGS.country,
       generalEmail: DEFAULT_CONTACT_SETTINGS.generalEmail,
+      supportEmail: DEFAULT_CONTACT_SETTINGS.supportEmail,
+      salesEmail: DEFAULT_CONTACT_SETTINGS.salesEmail,
+      billingEmail: DEFAULT_CONTACT_SETTINGS.billingEmail,
+      privacyEmail: DEFAULT_CONTACT_SETTINGS.privacyEmail,
       phone: DEFAULT_CONTACT_SETTINGS.phone,
       whatsapp: DEFAULT_CONTACT_SETTINGS.whatsapp
     }
   });
 
-  // 2. Support SLA Policies
-  const slaPolicies = [
-    { priority: 'CRITICAL', name: 'Critical Incident SLA', firstResponseTargetMinutes: 60, resolutionTargetMinutes: 240 },
-    { priority: 'URGENT', name: 'Urgent Operational SLA', firstResponseTargetMinutes: 120, resolutionTargetMinutes: 720 },
-    { priority: 'HIGH', name: 'High Priority SLA', firstResponseTargetMinutes: 240, resolutionTargetMinutes: 1440 },
-    { priority: 'NORMAL', name: 'Standard Business SLA', firstResponseTargetMinutes: 480, resolutionTargetMinutes: 2880 },
-    { priority: 'LOW', name: 'Low Priority Query SLA', firstResponseTargetMinutes: 1440, resolutionTargetMinutes: 4320 }
+  // 2. Support Business Hours (Bangladesh Sun-Thu 09:00 - 18:00)
+  const defaultBusinessHours = [
+    { timezone: 'Asia/Dhaka', dayOfWeek: 0, dayName: 'Sunday', isWorkingDay: true, openTime: '09:00', closeTime: '18:00' },
+    { timezone: 'Asia/Dhaka', dayOfWeek: 1, dayName: 'Monday', isWorkingDay: true, openTime: '09:00', closeTime: '18:00' },
+    { timezone: 'Asia/Dhaka', dayOfWeek: 2, dayName: 'Tuesday', isWorkingDay: true, openTime: '09:00', closeTime: '18:00' },
+    { timezone: 'Asia/Dhaka', dayOfWeek: 3, dayName: 'Wednesday', isWorkingDay: true, openTime: '09:00', closeTime: '18:00' },
+    { timezone: 'Asia/Dhaka', dayOfWeek: 4, dayName: 'Thursday', isWorkingDay: true, openTime: '09:00', closeTime: '18:00' },
+    { timezone: 'Asia/Dhaka', dayOfWeek: 5, dayName: 'Friday', isWorkingDay: false, openTime: '00:00', closeTime: '00:00' },
+    { timezone: 'Asia/Dhaka', dayOfWeek: 6, dayName: 'Saturday', isWorkingDay: false, openTime: '00:00', closeTime: '00:00' }
   ];
 
-  for (const sla of slaPolicies) {
-    await db.supportSlaPolicy.upsert({
-      where: { priority: sla.priority },
-      create: sla,
-      update: {
-        name: sla.name,
-        firstResponseTargetMinutes: sla.firstResponseTargetMinutes,
-        resolutionTargetMinutes: sla.resolutionTargetMinutes
-      }
+  for (const bh of defaultBusinessHours) {
+    await db.supportBusinessHours.upsert({
+      where: { timezone_dayOfWeek: { timezone: bh.timezone, dayOfWeek: bh.dayOfWeek } },
+      create: bh,
+      update: bh
     });
   }
 
-  // 3. Support Teams
+  // 3. Support Holidays
+  const defaultHolidays = [
+    { name: 'Bangladesh Independence Day', date: new Date('2026-03-26T00:00:00Z'), isWorkingOverride: false },
+    { name: 'Bengali New Year (Pohela Boishakh)', date: new Date('2026-04-14T00:00:00Z'), isWorkingOverride: false },
+    { name: 'Bangladesh Victory Day', date: new Date('2026-12-16T00:00:00Z'), isWorkingOverride: false }
+  ];
+
+  for (const hol of defaultHolidays) {
+    const existing = await db.supportHoliday.findFirst({ where: { name: hol.name } });
+    if (!existing) {
+      await db.supportHoliday.create({ data: hol });
+    }
+  }
+
+  // 4. Support SLA Policies
+  const slaPolicies = [
+    { priority: 'CRITICAL', name: 'Critical Incident SLA', firstResponseTargetMinutes: 60, resolutionTargetMinutes: 240, businessHoursOnly: false, displayPrecedence: 10 },
+    { priority: 'URGENT', name: 'Urgent Operational SLA', firstResponseTargetMinutes: 120, resolutionTargetMinutes: 720, businessHoursOnly: true, displayPrecedence: 8 },
+    { priority: 'HIGH', name: 'High Priority SLA', firstResponseTargetMinutes: 240, resolutionTargetMinutes: 1440, businessHoursOnly: true, displayPrecedence: 6 },
+    { priority: 'NORMAL', name: 'Standard Business SLA', firstResponseTargetMinutes: 480, resolutionTargetMinutes: 2880, businessHoursOnly: true, displayPrecedence: 4 },
+    { priority: 'LOW', name: 'Low Priority Query SLA', firstResponseTargetMinutes: 1440, resolutionTargetMinutes: 4320, businessHoursOnly: true, displayPrecedence: 2 }
+  ];
+
+  for (const sla of slaPolicies) {
+    const existing = await db.supportSlaPolicy.findFirst({
+      where: { priority: sla.priority, planTier: null, categoryCode: null, institutionType: null }
+    });
+
+    if (existing) {
+      await db.supportSlaPolicy.update({
+        where: { id: existing.id },
+        data: sla
+      });
+    } else {
+      await db.supportSlaPolicy.create({ data: sla });
+    }
+  }
+
+  // 5. Support Escalation Rules
+  const defaultEscalations = [
+    {
+      name: 'Unassigned Critical Ticket Escalation',
+      priority: 'CRITICAL',
+      unassignedMinutes: 30,
+      actionType: 'MARK_ESCALATED',
+      isActive: true
+    },
+    {
+      name: 'Overdue First Response Escalation',
+      firstResponseRemainingMinutes: 0,
+      actionType: 'ESCALATE_PRIORITY',
+      targetPriority: 'URGENT',
+      isActive: true
+    }
+  ];
+
+  for (const esc of defaultEscalations) {
+    const existing = await db.supportEscalationRule.findFirst({ where: { name: esc.name } });
+    if (!existing) {
+      await db.supportEscalationRule.create({ data: esc });
+    }
+  }
+
+  // 6. Support Teams
   const supportTeams = [
     { code: 'TECH_SUPPORT', name: 'Technical Support', description: 'Core system stability, bug fixes and login issues' },
     { code: 'IMPLEMENTATION', name: 'Implementation & Onboarding', description: 'New institution onboarding and initial setup' },

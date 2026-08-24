@@ -6156,10 +6156,10 @@ model PlatformContactSettings {
   postalCode    String   @default("1229")
   country       String   @default("Bangladesh")
   generalEmail  String   @default("teamhimu@gmail.com")
-  supportEmail  String   @default("support@eduerp.us")
-  salesEmail    String   @default("sales@eduerp.us")
-  billingEmail  String   @default("billing@eduerp.us")
-  privacyEmail  String   @default("privacy@eduerp.us")
+  supportEmail  String   @default("teamhimu@gmail.com")
+  salesEmail    String   @default("teamhimu@gmail.com")
+  billingEmail  String   @default("teamhimu@gmail.com")
+  privacyEmail  String   @default("teamhimu@gmail.com")
   phone         String   @default("+8801335556688")
   whatsapp      String   @default("+8801335556688")
   businessHours String   @default("Sunday - Thursday, 9:00 AM - 6:00 PM BST")
@@ -6446,6 +6446,13 @@ model TrainingAttempt {
   @@index([userId])
 }
 
+model TrainingCertificateSequence {
+  id            String   @id @default("cert_seq")
+  currentNumber Int      @default(0)
+  year          Int      @default(2026)
+  updatedAt     DateTime @updatedAt
+}
+
 model TrainingCertificate {
   id                String         @id @default(uuid())
   certificateNumber String         @unique // CERT-TRN-2026-000001
@@ -6456,12 +6463,18 @@ model TrainingCertificate {
   userEmail         String
   institutionName   String?
   score             Float?
+  status            String         @default("ACTIVE") // ACTIVE, REVOKED
+  revokedAt         DateTime?
+  revokedBy         String?
+  revocationReason  String?
+  signatureHash     String? // Cryptographic integrity hash
   issuedAt          DateTime       @default(now())
   verificationUrl   String
 
   @@index([certificateNumber])
   @@index([userId])
   @@index([courseId])
+  @@index([status])
 }
 
 model SupportSequence {
@@ -6513,18 +6526,71 @@ model SupportTeamMember {
   @@index([userId])
 }
 
+model SupportBusinessHours {
+  id           String   @id @default(uuid())
+  timezone     String   @default("Asia/Dhaka")
+  dayOfWeek    Int // 0=Sunday, 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday
+  dayName      String // Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday
+  isWorkingDay Boolean  @default(true)
+  openTime     String   @default("09:00") // HH:MM
+  closeTime    String   @default("18:00") // HH:MM
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([timezone, dayOfWeek])
+}
+
+model SupportHoliday {
+  id                String   @id @default(uuid())
+  name              String
+  date              DateTime // Start of day date in local timezone
+  isWorkingOverride Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([date])
+}
+
 model SupportSlaPolicy {
   id                         String   @id @default(uuid())
   name                       String
-  priority                   String   @unique // LOW, NORMAL, HIGH, URGENT, CRITICAL
+  priority                   String // LOW, NORMAL, HIGH, URGENT, CRITICAL
+  planTier                   String? // FREE, BASIC, STANDARD, PREMIUM, ENTERPRISE or null for all
+  categoryCode               String? // Category code or null for all
+  institutionType            String? // SCHOOL, COLLEGE, MADRASHA, UNIVERSITY, etc. or null for all
   firstResponseTargetMinutes Int // e.g. 480 (8 hrs), 240 (4 hrs), 120 (2 hrs), 60 (1 hr)
   resolutionTargetMinutes    Int // e.g. 2880 (48 hrs), 1440 (24 hrs), 720 (12 hrs), 240 (4 hrs)
   businessHoursOnly          Boolean  @default(true)
+  displayPrecedence          Int      @default(0) // Higher precedence matches first
   isActive                   Boolean  @default(true)
   createdAt                  DateTime @default(now())
   updatedAt                  DateTime @updatedAt
 
   @@index([priority])
+  @@index([planTier])
+  @@index([categoryCode])
+  @@index([institutionType])
+}
+
+model SupportEscalationRule {
+  id                            String   @id @default(uuid())
+  name                          String
+  priority                      String? // Filter by priority or null
+  status                        String? // Filter by status or null
+  unassignedMinutes             Int? // If unassigned for >= X minutes
+  firstResponseRemainingMinutes Int? // If first response due within <= X minutes or overdue (< 0)
+  resolutionRemainingMinutes    Int? // If resolution due within <= X minutes or overdue (< 0)
+  reopenCountThreshold          Int? // If reopen count >= X
+  categoryCode                  String? // Filter by category or null
+  subscriptionPlan              String? // Filter by plan or null
+  actionType                    String // ESCALATE_PRIORITY, ASSIGN_TEAM, MARK_ESCALATED, NOTIFY_MANAGER
+  targetPriority                String? // New priority if action is ESCALATE_PRIORITY
+  targetTeamId                  String? // Team to assign if action is ASSIGN_TEAM
+  isActive                      Boolean  @default(true)
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @updatedAt
+
+  @@index([isActive])
 }
 
 model SupportTicket {

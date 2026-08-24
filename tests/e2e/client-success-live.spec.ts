@@ -2,9 +2,9 @@ import { test, expect } from '@playwright/test';
 
 const BASE_URL = process.env.PLAYWRIGHT_TEST_BASE_URL || 'https://eduerp.us';
 
-test.describe('COMMAND 11F — Client Success, Help Center, Training Academy & Support Live Tests', () => {
+test.describe('COMMAND 11F & 11F.1 — Client Success, Security, SLA & Verification Live Tests', () => {
 
-  test('1. Public Contact Page renders official Nikunja-2 address and WhatsApp link', async ({ page }) => {
+  test('1. Public Contact Page renders official teamhimu@gmail.com and WhatsApp link', async ({ page }) => {
     await page.goto(`${BASE_URL}/contact`);
     await page.waitForLoadState('networkidle');
 
@@ -17,9 +17,15 @@ test.describe('COMMAND 11F — Client Success, Help Center, Training Academy & S
     // Verify WhatsApp link target
     const waLink = page.getByRole('link', { name: /Chat on WhatsApp/i });
     await expect(waLink).toHaveAttribute('href', /wa\.me\/8801335556688/);
+
+    // Verify no old placeholder emails appear
+    const bodyText = await page.textContent('body');
+    expect(bodyText).not.toContain('support@eduerp.us');
+    expect(bodyText).not.toContain('sales@eduerp.us');
+    expect(bodyText).not.toContain('billing@eduerp.us');
   });
 
-  test('2. Public Contact Page submits prospective institutional inquiry', async ({ page }) => {
+  test('2. Public Contact Page submits prospective institutional inquiry with year sequence', async ({ page }) => {
     await page.goto(`${BASE_URL}/contact`);
     await page.waitForLoadState('networkidle');
 
@@ -33,10 +39,21 @@ test.describe('COMMAND 11F — Client Success, Help Center, Training Academy & S
     await page.click('button[type="submit"]');
 
     await expect(page.getByText('Inquiry Registered Successfully!')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText(/INQ-2026-/)).toBeVisible();
+    const currentYear = new Date().getFullYear();
+    await expect(page.getByText(new RegExp(`INQ-${currentYear}-`))).toBeVisible();
   });
 
-  test('3. Public Help Center loads categories and performs live search', async ({ page }) => {
+  test('3. Public Privacy Policy page renders official DPO contact details', async ({ page }) => {
+    await page.goto(`${BASE_URL}/privacy`);
+    await page.waitForLoadState('networkidle');
+
+    await expect(page.getByRole('heading', { name: /5\. Data Protection Officer/i })).toBeVisible();
+    await expect(page.getByText('teamhimu@gmail.com')).toBeVisible();
+    await expect(page.getByText('+8801335556688')).toBeVisible();
+    await expect(page.getByText(/House 2\/B, Road 8, Nikunja-2/i)).toBeVisible();
+  });
+
+  test('4. Public Help Center loads categories and performs live search', async ({ page }) => {
     await page.goto(`${BASE_URL}/help`);
     await page.waitForLoadState('networkidle');
 
@@ -51,7 +68,7 @@ test.describe('COMMAND 11F — Client Success, Help Center, Training Academy & S
     await expect(page.getByText(/How to Log in to your Institution Portal/i).first()).toBeVisible();
   });
 
-  test('4. Training Academy displays course curriculum and certificate verification', async ({ page }) => {
+  test('5. Training Academy displays course curriculum outline', async ({ page }) => {
     await page.goto(`${BASE_URL}/training`);
     await page.waitForLoadState('networkidle');
 
@@ -66,15 +83,14 @@ test.describe('COMMAND 11F — Client Success, Help Center, Training Academy & S
     await expect(page.getByText('Navigating the EduERP Workspace').first()).toBeVisible();
   });
 
-  test('5. Public Certificate Verification validates or flags credential authenticity', async ({ page }) => {
-    // Valid certificate lookup
+  test('6. Public Certificate Verification validates or flags credential authenticity', async ({ page }) => {
     await page.goto(`${BASE_URL}/verify/training/CERT-TRN-INVALID-999`);
     await page.waitForLoadState('networkidle');
 
     await expect(page.getByText('Invalid or Unverified Credential')).toBeVisible();
   });
 
-  test('6. Public FAQ and Release Notes pages load formatted content', async ({ page }) => {
+  test('7. Public FAQ and Release Notes pages load formatted content', async ({ page }) => {
     await page.goto(`${BASE_URL}/help/faq`);
     await page.waitForLoadState('networkidle');
     await expect(page.getByRole('heading', { name: 'Frequently Asked Questions' })).toBeVisible();
