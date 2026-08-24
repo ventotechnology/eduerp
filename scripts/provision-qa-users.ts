@@ -681,19 +681,129 @@ export async function provisionQAUsers(options: { rotatePasswords?: boolean } = 
     tenantMap.set(t.slug, tenant.id);
 
     // Ensure institution record with required fields
-    await db.institution.upsert({
+    const institution = await db.institution.upsert({
       where: { tenantId: tenant.id },
       update: { name: t.name },
       create: {
         tenantId: tenant.id,
         name: t.name,
         shortName: t.shortName,
+        instituteCode: t.shortName,
         address: t.address,
         district: t.district,
         division: t.division,
         upazilaThana: t.district,
         phone: t.phone,
         email: t.email,
+      },
+    });
+
+    // Ensure Main Campus
+    const campus = await db.campus.upsert({
+      where: { id: `campus-${t.slug}` },
+      update: {},
+      create: {
+        id: `campus-${t.slug}`,
+        institutionId: institution.id,
+        name: `${t.name} (Main Campus)`,
+        code: 'MAIN',
+        address: t.address,
+        isMain: true,
+      },
+    });
+
+    // Ensure Academic Year 2026
+    const ay = await db.academicYear.upsert({
+      where: { institutionId_name: { institutionId: institution.id, name: '2026' } },
+      update: { isCurrent: true, status: 'ACTIVE' },
+      create: {
+        institutionId: institution.id,
+        name: '2026',
+        code: 'AY-2026',
+        startDate: new Date('2026-01-01'),
+        endDate: new Date('2026-12-31'),
+        status: 'ACTIVE',
+        isCurrent: true,
+      },
+    });
+
+    // Ensure Shifts
+    const morningShift = await db.shift.upsert({
+      where: { institutionId_code: { institutionId: institution.id, code: 'SFT-MORN' } },
+      update: {},
+      create: {
+        institutionId: institution.id,
+        name: 'Morning Shift',
+        code: 'SFT-MORN',
+        startTime: '07:30',
+        endTime: '12:30',
+        isActive: true,
+      },
+    });
+
+    // Ensure Default Classes depending on institution type
+    const classNames = t.institutionType === 'COLLEGE'
+      ? ['Class 11', 'Class 12']
+      : t.institutionType === 'MADRASHA'
+      ? ['Dakhil 6', 'Dakhil 7', 'Dakhil 8', 'Dakhil 9', 'Dakhil 10']
+      : ['Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10'];
+
+    for (let seq = 0; seq < classNames.length; seq++) {
+      const clsName = classNames[seq];
+      const cls = await db.class.upsert({
+        where: { institutionId_name_shift: { institutionId: institution.id, name: clsName, shift: 'Morning' } },
+        update: {},
+        create: {
+          institutionId: institution.id,
+          name: clsName,
+          numericValue: seq + 6,
+          sequence: seq + 1,
+          shift: 'Morning',
+          stage: 'SECONDARY',
+        },
+      });
+
+      // Ensure Sections
+      await db.section.upsert({
+        where: { id: `sec-${cls.id}-padma` },
+        update: {},
+        create: {
+          id: `sec-${cls.id}-padma`,
+          classId: cls.id,
+          name: 'Padma',
+          capacity: 40,
+        },
+      });
+    }
+
+    // Ensure Polytechnic Trades if Polytechnic
+    if (t.institutionType === 'POLYTECHNIC' || t.institutionType === 'TECHNICAL_INSTITUTE') {
+      await db.technologyTrade.upsert({
+        where: { id: `trade-${t.slug}-cmt` },
+        update: {},
+        create: {
+          id: `trade-${t.slug}-cmt`,
+          institutionId: institution.id,
+          name: 'Computer Technology',
+          code: 'CMT',
+          btebCode: '685',
+          durationSemesters: 8,
+        },
+      });
+    }
+
+    // Ensure Admission Settings
+    await db.admissionSetting.upsert({
+      where: { institutionId: institution.id },
+      update: {},
+      create: {
+        institutionId: institution.id,
+        isOnlineAdmissionOpen: true,
+        applicationFee: 0,
+        admissionFeeDefault: 5000,
+        isTestRequired: false,
+        maxCapacityPerClass: 40,
+        applicationNumberPrefix: t.shortName || 'APP',
       },
     });
   }
