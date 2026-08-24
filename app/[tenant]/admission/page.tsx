@@ -100,8 +100,9 @@ export default function AdmissionPage() {
 
       if (!res.ok || !json.success) {
         if (res.status === 401) throw new Error('Session expired. Please log in again.');
-        if (res.status === 403) throw new Error('You do not have permission to view admission records.');
-        throw new Error(json.error?.message || 'Unable to load admission applications.');
+        if (res.status === 403) throw new Error('You do not have permission to view admission records for this institution.');
+        const errorMsg = typeof json.error === 'string' ? json.error : (json.error?.message || json.message || 'Unable to load admission applications.');
+        throw new Error(errorMsg);
       }
 
       setApplications(Array.isArray(json.data) ? json.data : []);

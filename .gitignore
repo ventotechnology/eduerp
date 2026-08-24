@@ -44,10 +44,12 @@ dev.db-journal
 backups/
 logs/
 
-# QA Credentials
+# QA Credentials & Private Exports
 EDUERP-ONLINE-TEST-CREDENTIALS.txt
 EDUERP-ONLINE-TEST-CREDENTIALS.csv
 qa-credentials/
+private/
+*.xlsx
 
 # vercel
 .vercel

@@ -457,4 +457,97 @@ export class SaasPlanService {
 
     return updated;
   }
+
+  /**
+   * Create a new custom subscription plan
+   */
+  static async createPlan(data: SubscriptionPlanInput) {
+    const { features, tier, ...scalarData } = data;
+    const plan = await db.subscriptionPlan.create({
+      data: {
+        ...scalarData,
+        tier: tier || SubscriptionTier.STARTER
+      },
+      include: { features: true }
+    });
+
+    if (features && Array.isArray(features)) {
+      for (const feat of features) {
+        await db.planFeature.create({
+          data: {
+            planId: plan.id,
+            featureKey: feat.featureKey,
+            name: feat.name,
+            description: feat.description,
+            isEnabled: feat.isEnabled,
+            limitValue: feat.limitValue
+          }
+        });
+      }
+    }
+
+    return db.subscriptionPlan.findUnique({
+      where: { id: plan.id },
+      include: { features: true }
+    });
+  }
+
+  /**
+   * Clones an existing subscription plan
+   */
+  static async clonePlan(sourcePlanId: string, newCode: string, newName: string) {
+    const source = await db.subscriptionPlan.findUnique({
+      where: { id: sourcePlanId },
+      include: { features: true }
+    });
+    if (!source) throw new Error('Source plan not found');
+
+    const newSlug = newName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const { id, createdAt, updatedAt, features, ...sourceData } = source;
+
+    const cloned = await db.subscriptionPlan.create({
+      data: {
+        ...sourceData,
+        code: newCode.toUpperCase(),
+        name: newName,
+        slug: newSlug,
+        displayOrder: source.displayOrder + 1,
+        isPublic: false
+      }
+    });
+
+    for (const feat of features) {
+      await db.planFeature.create({
+        data: {
+          planId: cloned.id,
+          featureKey: feat.featureKey,
+          name: feat.name,
+          description: feat.description,
+          isEnabled: feat.isEnabled,
+          limitValue: feat.limitValue
+        }
+      });
+    }
+
+    return db.subscriptionPlan.findUnique({
+      where: { id: cloned.id },
+      include: { features: true }
+    });
+  }
+
+  /**
+   * Delete or archive plan safely
+   */
+  static async deletePlan(id: string) {
+    const subCount = await db.subscription.count({ where: { planId: id } });
+    if (subCount > 0) {
+      return db.subscriptionPlan.update({
+        where: { id },
+        data: { isActive: false, isPublic: false }
+      });
+    }
+    return db.subscriptionPlan.delete({
+      where: { id }
+    });
+  }
 }

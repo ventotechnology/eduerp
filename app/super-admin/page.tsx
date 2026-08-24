@@ -2,8 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useTenant } from '@/lib/tenant-context';
-import { PRESET_DEMO_TENANTS } from '@/lib/constants';
 import {
   Building2,
   DollarSign,
@@ -24,25 +22,22 @@ import {
   RefreshCw,
   Zap,
   ShieldCheck,
-  Check
+  Shield,
+  ShoppingBag,
+  KeyRound,
+  FileText,
+  AlertCircle
 } from 'lucide-react';
 
-export default function SuperAdminPage() {
-  const { switchTenant } = useTenant();
-
-  const [activeTab, setActiveTab] = useState<'saas' | 'plans' | 'gateways' | 'tenants' | 'health'>('saas');
+export default function SuperAdminOverviewPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Plan Editing Modal State
-  const [editingPlan, setEditingPlan] = useState<any | null>(null);
-  const [savingPlan, setSavingPlan] = useState(false);
-
-  // Fetch live SaaS metrics & plans
   const fetchSaasData = async () => {
     try {
       setLoading(true);
+      setError(null);
       const res = await fetch('/api/super-admin/saas');
       const resData = await res.json();
       if (resData.success) {
@@ -61,641 +56,330 @@ export default function SuperAdminPage() {
     fetchSaasData();
   }, []);
 
-  // Save Plan Edits
-  const handleSavePlan = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingPlan) return;
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-slate-400">
+        <RefreshCw className="w-8 h-8 animate-spin text-emerald-500 mb-3" />
+        <p className="text-xs font-mono">Loading SaaS Platform Control Plane...</p>
+      </div>
+    );
+  }
 
-    setSavingPlan(true);
-    try {
-      const res = await fetch('/api/plans', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: editingPlan.id,
-          name: editingPlan.name,
-          monthlyPrice: Number(editingPlan.monthlyPrice),
-          annualPrice: Number(editingPlan.annualPrice),
-          monthlyDiscount: Number(editingPlan.monthlyDiscount || 0),
-          annualDiscount: Number(editingPlan.annualDiscount || 0),
-          maxStudents: Number(editingPlan.maxStudents),
-          maxCampuses: Number(editingPlan.maxCampuses),
-          maxStorageGb: Number(editingPlan.maxStorageGb),
-          includedSms: Number(editingPlan.includedSms),
-          isActive: editingPlan.isActive,
-          isFeatured: editingPlan.isFeatured,
-          badge: editingPlan.badge,
-          buttonText: editingPlan.buttonText
-        })
-      });
+  if (error) {
+    return (
+      <div className="p-6 rounded-2xl bg-rose-950/40 border border-rose-800 text-rose-300 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <AlertCircle className="w-6 h-6 text-rose-400 shrink-0" />
+          <div>
+            <h3 className="font-bold text-sm text-white">SaaS Platform Access Error</h3>
+            <p className="text-xs">{error}</p>
+          </div>
+        </div>
+        <button
+          onClick={fetchSaasData}
+          className="px-4 py-2 bg-rose-800 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
-      const updatedData = await res.json();
-      if (updatedData.success) {
-        setEditingPlan(null);
-        await fetchSaasData();
-      } else {
-        alert(updatedData.error || 'Failed to update plan');
-      }
-    } catch (err: any) {
-      alert(err.message || 'Failed to save plan changes');
-    } finally {
-      setSavingPlan(false);
-    }
-  };
-
-  // Toggle Gateway
-  const handleToggleGateway = async (gw: string, isEnabled: boolean) => {
-    try {
-      await fetch('/api/super-admin/saas', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'TOGGLE_GATEWAY',
-          gateway: gw,
-          gatewayData: { isEnabled }
-        })
-      });
-      await fetchSaasData();
-    } catch (err) {
-      // silent
-    }
-  };
-
-  const metrics = data?.metrics || {
-    mrr: 0,
-    arr: 0,
-    activeSubscribers: 0,
-    totalSubscriptions: 0,
-    totalCollected: 0
-  };
+  const { metrics, tenants = [], plans = [], recentOrders = [], gatewayHealth, systemHealth } = data || {};
 
   return (
-    <div className="flex-1 bg-slate-950 text-slate-100 p-6 space-y-6">
-      {/* Top SaaS Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-800">
+    <div className="space-y-8">
+      {/* Top Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-slate-900 to-slate-800/80 p-6 rounded-3xl border border-slate-800 shadow-sm">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800">
-              SaaS Commercial Operations & Control Plane
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase tracking-wider">
+              Control Plane v2.0
             </span>
+            <span className="text-xs text-slate-400">• Database: PostgreSQL 16</span>
           </div>
           <h1 className="text-2xl font-black tracking-tight text-white">
-            Platform Super Admin Dashboard
+            SaaS Platform Overview
           </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Live database-driven packages, bKash gateway diagnostics, subscription revenue velocity, and multi-tenant management.
+          <p className="text-xs text-slate-400 mt-1 max-w-2xl">
+            Unified multi-tenant control plane for institutions, commercial subscriptions, DB-driven pricing, and client demo vaults.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
+          <Link
+            href="/super-admin/institutions"
+            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition flex items-center gap-2 shadow-lg shadow-emerald-600/20"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Onboard Institution</span>
+          </Link>
           <button
             onClick={fetchSaasData}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 text-xs font-medium transition"
+            title="Refresh Metrics"
+            className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl border border-slate-700 transition"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Refresh</span>
+            <RefreshCw className="w-4 h-4" />
           </button>
-          <Link
-            href="/pricing"
-            target="_blank"
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold transition shadow-md shadow-emerald-500/20"
-          >
-            <span>View Public /pricing</span>
-            <ExternalLink className="w-3.5 h-3.5" />
-          </Link>
         </div>
       </div>
 
-      {/* 4 SaaS Executive Metric Cards */}
+      {/* Commercial & Operational Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-slate-900/90 p-5 rounded-2xl border border-slate-800 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400">Monthly Recurring Revenue</span>
-            <DollarSign className="w-4 h-4 text-emerald-400" />
+        {/* MRR Card */}
+        <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-400 mb-3">
+            <span className="text-xs font-semibold">Monthly Recurring Revenue</span>
+            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
+              <DollarSign className="w-4 h-4" />
+            </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-white">BDT {metrics.mrr.toLocaleString()}</span>
-            <span className="text-[11px] font-bold text-emerald-400 flex items-center">
-              <ArrowUpRight className="w-3 h-3" /> Live MRR
+          <div>
+            <span className="text-2xl font-black text-white">
+              BDT {metrics?.mrr?.toLocaleString() || 0}
             </span>
+            <div className="flex items-center justify-between text-[11px] text-slate-400 mt-2 pt-2 border-t border-slate-800/80">
+              <span>ARR: BDT {metrics?.arr?.toLocaleString() || 0}</span>
+              <span className="text-emerald-400 font-semibold">Commercial</span>
+            </div>
           </div>
-          <span className="text-[11px] text-slate-500 block mt-1">
-            ARR Run-Rate: BDT {metrics.arr.toLocaleString()}
-          </span>
         </div>
 
-        <div className="bg-slate-900/90 p-5 rounded-2xl border border-slate-800 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400">Active Subscriptions</span>
-            <Users className="w-4 h-4 text-teal-400" />
+        {/* Paying & Trial Institutions */}
+        <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-400 mb-3">
+            <span className="text-xs font-semibold">Active Customers</span>
+            <div className="p-2 rounded-xl bg-blue-500/10 text-blue-400">
+              <Building2 className="w-4 h-4" />
+            </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-white">{metrics.activeSubscribers}</span>
-            <span className="text-[11px] font-bold text-slate-400">
-              / {metrics.totalSubscriptions} total
-            </span>
+          <div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-black text-white">
+                {metrics?.payingTenantsCount || 0}
+              </span>
+              <span className="text-xs text-slate-400 font-medium">Paying</span>
+              <span className="text-sm font-bold text-amber-400 ml-auto">
+                +{metrics?.trialTenantsCount || 0} Trial
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-slate-400 mt-2 pt-2 border-t border-slate-800/80">
+              <span>Total Commercial: {(metrics?.payingTenantsCount || 0) + (metrics?.trialTenantsCount || 0)}</span>
+              <Link href="/super-admin/institutions" className="text-blue-400 hover:underline">
+                View All →
+              </Link>
+            </div>
           </div>
-          <span className="text-[11px] text-slate-500 block mt-1">
-            Paying Educational Tenants
-          </span>
         </div>
 
-        <div className="bg-slate-900/90 p-5 rounded-2xl border border-slate-800 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400">Total Billed Revenue</span>
-            <DollarSign className="w-4 h-4 text-sky-400" />
+        {/* Demo Verticals */}
+        <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-400 mb-3">
+            <span className="text-xs font-semibold">Canonical Demo Verticals</span>
+            <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400">
+              <Sparkles className="w-4 h-4" />
+            </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-white">BDT {metrics.totalCollected.toLocaleString()}</span>
+          <div>
+            <span className="text-2xl font-black text-white">
+              {metrics?.demoTenantsCount || 0}
+            </span>
+            <div className="flex items-center justify-between text-[11px] text-slate-400 mt-2 pt-2 border-t border-slate-800/80">
+              <span>8 Specialized Engines</span>
+              <Link href="/super-admin/demo-credentials" className="text-purple-400 hover:underline">
+                Client Vault →
+              </Link>
+            </div>
           </div>
-          <span className="text-[11px] text-slate-500 block mt-1">
-            Platform SaaS Invoices Paid
-          </span>
         </div>
 
-        <div className="bg-slate-900/90 p-5 rounded-2xl border border-slate-800 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400">bKash Gateway Status</span>
-            <Radio className="w-4 h-4 text-pink-400 animate-pulse" />
+        {/* bKash Gateway Health */}
+        <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-400 mb-3">
+            <span className="text-xs font-semibold">bKash Gateway Status</span>
+            <div className="p-2 rounded-xl bg-pink-500/10 text-pink-400">
+              <Zap className="w-4 h-4" />
+            </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className={`text-base font-bold ${
-              data?.gatewayHealth?.bkash?.status === 'CONNECTED' ? 'text-emerald-400' : 'text-amber-400'
-            }`}>
-              {data?.gatewayHealth?.bkash?.status || 'CHECKING'}
-            </span>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className={`w-2.5 h-2.5 rounded-full ${
+                gatewayHealth?.bkash?.status === 'CONNECTED' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+              }`} />
+              <span className="text-base font-extrabold text-white">
+                {gatewayHealth?.bkash?.status === 'CONNECTED' ? 'LIVE PRODUCTION' : (gatewayHealth?.bkash?.status || 'CONFIGURED')}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-slate-400 mt-2 pt-2 border-t border-slate-800/80">
+              <span>Latency: {gatewayHealth?.bkash?.latencyMs || 0}ms</span>
+              <Link href="/super-admin/gateways" className="text-pink-400 hover:underline">
+                Config →
+              </Link>
+            </div>
           </div>
-          <span className="text-[11px] text-slate-400 block mt-1 truncate">
-            {data?.gatewayHealth?.bkash?.message || 'Testing live connection...'}
-          </span>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-800 pb-px">
-        <button
-          onClick={() => setActiveTab('saas')}
-          className={`px-4 py-2 text-xs font-bold rounded-t-xl transition ${
-            activeTab === 'saas'
-              ? 'bg-slate-900 text-emerald-400 border-t-2 border-emerald-500 border-x border-slate-800'
-              : 'text-slate-400 hover:text-white'
-          }`}
+      {/* Quick Access Control Matrix */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Link
+          href="/super-admin/institutions"
+          className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 transition group flex items-start gap-4"
         >
-          SaaS Orders & Revenue
-        </button>
-        <button
-          onClick={() => setActiveTab('plans')}
-          className={`px-4 py-2 text-xs font-bold rounded-t-xl transition ${
-            activeTab === 'plans'
-              ? 'bg-slate-900 text-emerald-400 border-t-2 border-emerald-500 border-x border-slate-800'
-              : 'text-slate-400 hover:text-white'
-          }`}
+          <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-400 group-hover:scale-105 transition shrink-0">
+            <Building2 className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-white group-hover:text-emerald-400 transition flex items-center gap-1.5">
+              <span>Institution Management</span>
+              <ArrowUpRight className="w-3.5 h-3.5 opacity-60" />
+            </h3>
+            <p className="text-xs text-slate-400 mt-1">
+              Onboard new schools/colleges, manage campus subscriptions, and launch authorized persona sessions.
+            </p>
+          </div>
+        </Link>
+
+        <Link
+          href="/super-admin/plans"
+          className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 transition group flex items-start gap-4"
         >
-          Packages & Pricing Editor
-        </button>
-        <button
-          onClick={() => setActiveTab('gateways')}
-          className={`px-4 py-2 text-xs font-bold rounded-t-xl transition ${
-            activeTab === 'gateways'
-              ? 'bg-slate-900 text-emerald-400 border-t-2 border-emerald-500 border-x border-slate-800'
-              : 'text-slate-400 hover:text-white'
-          }`}
+          <div className="p-3 rounded-xl bg-blue-500/10 text-blue-400 group-hover:scale-105 transition shrink-0">
+            <CreditCard className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-white group-hover:text-blue-400 transition flex items-center gap-1.5">
+              <span>Plans & Feature Matrix</span>
+              <ArrowUpRight className="w-3.5 h-3.5 opacity-60" />
+            </h3>
+            <p className="text-xs text-slate-400 mt-1">
+              Dynamically configure 4 public tiers, limits, student caps, and module entitlements without redeployment.
+            </p>
+          </div>
+        </Link>
+
+        <Link
+          href="/super-admin/demo-credentials"
+          className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 transition group flex items-start gap-4"
         >
-          Payment Gateways & bKash
-        </button>
-        <button
-          onClick={() => setActiveTab('tenants')}
-          className={`px-4 py-2 text-xs font-bold rounded-t-xl transition ${
-            activeTab === 'tenants'
-              ? 'bg-slate-900 text-emerald-400 border-t-2 border-emerald-500 border-x border-slate-800'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          Institution Tenants ({PRESET_DEMO_TENANTS.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('health')}
-          className={`px-4 py-2 text-xs font-bold rounded-t-xl transition ${
-            activeTab === 'health'
-              ? 'bg-slate-900 text-emerald-400 border-t-2 border-emerald-500 border-x border-slate-800'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          System Health
-        </button>
+          <div className="p-3 rounded-xl bg-purple-500/10 text-purple-400 group-hover:scale-105 transition shrink-0">
+            <KeyRound className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-white group-hover:text-purple-400 transition flex items-center gap-1.5">
+              <span>Client Demo Vault</span>
+              <ArrowUpRight className="w-3.5 h-3.5 opacity-60" />
+            </h3>
+            <p className="text-xs text-slate-400 mt-1">
+              Generate one-time client test packs, reset demo credentials, and export XLSX packs for prospects.
+            </p>
+          </div>
+        </Link>
       </div>
 
-      {/* Tab Content */}
-      {activeTab === 'saas' && (
-        <div className="space-y-6">
-          {/* Recent Orders */}
-          <div className="bg-slate-900/90 rounded-2xl border border-slate-800 p-6 shadow-sm">
-            <h2 className="text-base font-bold text-white mb-4">Recent Subscription Orders</h2>
-            {data?.recentOrders?.length === 0 ? (
-              <div className="text-center py-6 text-xs text-slate-400">
-                No subscription orders recorded yet. Visit /pricing to test signups.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-800 text-slate-400">
-                      <th className="pb-3 font-semibold">Order #</th>
-                      <th className="pb-3 font-semibold">Institution / Tenant</th>
-                      <th className="pb-3 font-semibold">Plan</th>
-                      <th className="pb-3 font-semibold">Cycle</th>
-                      <th className="pb-3 font-semibold">Amount</th>
-                      <th className="pb-3 font-semibold">Gateway</th>
-                      <th className="pb-3 font-semibold">Status</th>
-                      <th className="pb-3 font-semibold">Created</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60">
-                    {data?.recentOrders?.map((ord: any) => (
-                      <tr key={ord.id} className="text-slate-300">
-                        <td className="py-3 font-mono font-bold text-emerald-400">
-                          {ord.orderNumber}
-                        </td>
-                        <td className="py-3 font-medium text-white">
-                          {ord.signup?.institutionName || ord.tenant?.slug || 'New Application'}
-                        </td>
-                        <td className="py-3">{ord.plan?.name}</td>
-                        <td className="py-3 uppercase text-[11px]">{ord.billingCycle}</td>
-                        <td className="py-3 font-extrabold text-white">BDT {ord.totalAmount?.toLocaleString()}</td>
-                        <td className="py-3 uppercase">{ord.gateway || 'None'}</td>
-                        <td className="py-3">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-                            ord.status === 'FULFILLED' || ord.status === 'PAID'
-                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                              : ord.status === 'PROCESSING'
-                              ? 'bg-amber-500/20 text-amber-400'
-                              : 'bg-slate-800 text-slate-400'
-                          }`}>
-                            {ord.status}
-                          </span>
-                        </td>
-                        <td className="py-3 text-slate-400">
-                          {new Date(ord.createdAt).toLocaleString()}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+      {/* Two Column Section: Recent Institutions & Recent Orders */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent Institutions */}
+        <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-base font-bold text-white">Educational Institutions</h2>
+              <p className="text-xs text-slate-400">Canonical demos & provisioned customer organizations</p>
+            </div>
+            <Link
+              href="/super-admin/institutions"
+              className="text-xs text-emerald-400 font-semibold hover:underline"
+            >
+              View All ({tenants.length}) →
+            </Link>
           </div>
 
-          {/* Recent Invoices */}
-          <div className="bg-slate-900/90 rounded-2xl border border-slate-800 p-6 shadow-sm">
-            <h2 className="text-base font-bold text-white mb-4">Platform SaaS Invoices</h2>
-            {data?.recentInvoices?.length === 0 ? (
-              <div className="text-center py-6 text-xs text-slate-400">
-                No invoices issued yet.
+          <div className="space-y-2.5">
+            {tenants.slice(0, 5).map((t: any) => (
+              <div
+                key={t.id}
+                className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800/80 flex items-center justify-between"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center font-mono text-xs font-bold text-white">
+                    {t.type?.slice(0, 2) || 'SC'}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-xs text-white">{t.name}</span>
+                      {t.isDemoTenant && (
+                        <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                          DEMO
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[11px] font-mono text-slate-400">/{t.slug}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold text-slate-300">{t.activePlan}</span>
+                  <Link
+                    href={`/${t.slug}/dashboard`}
+                    target="_blank"
+                    className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
               </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-800 text-slate-400">
-                      <th className="pb-3 font-semibold">Invoice #</th>
-                      <th className="pb-3 font-semibold">Tenant</th>
-                      <th className="pb-3 font-semibold">Period</th>
-                      <th className="pb-3 font-semibold">Amount</th>
-                      <th className="pb-3 font-semibold">Method</th>
-                      <th className="pb-3 font-semibold">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60">
-                    {data?.recentInvoices?.map((inv: any) => (
-                      <tr key={inv.id} className="text-slate-300">
-                        <td className="py-3 font-mono font-bold text-emerald-400">
-                          {inv.invoiceNumber}
-                        </td>
-                        <td className="py-3 font-mono text-slate-200">
-                          {inv.tenant?.slug || 'N/A'}
-                        </td>
-                        <td className="py-3 text-slate-400">{inv.billingPeriod}</td>
-                        <td className="py-3 font-extrabold text-white">BDT {inv.totalAmount?.toLocaleString()}</td>
-                        <td className="py-3 uppercase">{inv.paymentMethod || 'BKASH'}</td>
-                        <td className="py-3">
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                            {inv.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            ))}
           </div>
         </div>
-      )}
 
-      {/* Plans & Pricing Editor Tab */}
-      {activeTab === 'plans' && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-white">
-              SaaS Packages & Tier Configuration (Database Driven)
-            </h2>
-            <span className="text-xs text-emerald-400">
-              Modifications immediately update public /pricing without code redeploys.
-            </span>
+        {/* Recent Orders */}
+        <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-base font-bold text-white">Commercial Orders</h2>
+              <p className="text-xs text-slate-400">SaaS subscription orders & payments</p>
+            </div>
+            <Link
+              href="/super-admin/orders"
+              className="text-xs text-emerald-400 font-semibold hover:underline"
+            >
+              View All Orders →
+            </Link>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {data?.plans?.map((p: any) => (
-              <div key={p.id} className="p-5 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-extrabold text-lg text-white">{p.name}</span>
-                    <span className="font-mono text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-400">
-                      {p.code}
+          {recentOrders.length === 0 ? (
+            <div className="py-12 text-center text-xs text-slate-500">
+              No recent commercial subscription orders.
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {recentOrders.slice(0, 5).map((ord: any) => (
+                <div
+                  key={ord.id}
+                  className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800/80 flex items-center justify-between"
+                >
+                  <div>
+                    <span className="font-mono text-xs font-bold text-emerald-400 block">
+                      {ord.orderNumber}
+                    </span>
+                    <span className="text-xs text-slate-300">
+                      {ord.signup?.institutionName || ord.tenant?.slug || 'SaaS Plan Order'}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-400 mb-4 min-h-[36px]">{p.description}</p>
-
-                  <div className="p-3 rounded-xl bg-slate-950 border border-slate-800/80 space-y-1.5 text-xs text-slate-300 mb-4">
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Monthly:</span>
-                      <span className="font-bold text-white">BDT {p.monthlyPrice.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Annual:</span>
-                      <span className="font-bold text-white">BDT {p.annualPrice.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Max Students:</span>
-                      <span className="font-semibold text-emerald-400">{p.maxStudents.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Max Campuses:</span>
-                      <span className="font-semibold text-white">{p.maxCampuses}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Storage:</span>
-                      <span className="font-semibold text-white">{p.maxStorageGb} GB</span>
-                    </div>
+                  <div className="text-right">
+                    <span className="font-bold text-xs text-white block">
+                      BDT {ord.totalAmount?.toLocaleString()}
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-400 uppercase">
+                      {ord.status}
+                    </span>
                   </div>
                 </div>
-
-                <button
-                  onClick={() => setEditingPlan(p)}
-                  className="w-full py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center gap-2 border border-slate-700 transition"
-                >
-                  <Edit2 className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Edit Pricing & Limits</span>
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Payment Gateways Tab */}
-      {activeTab === 'gateways' && (
-        <div className="space-y-6">
-          <h2 className="text-base font-bold text-white mb-2">Payment Gateway Configurations</h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {data?.gateways?.map((gw: any) => (
-              <div key={gw.id} className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center font-bold text-xs text-white">
-                      {gw.gateway.slice(0, 4)}
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-white">{gw.displayName || gw.name}</h3>
-                      <span className="text-xs text-slate-400">{gw.provider || 'Gateway Provider'}</span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleToggleGateway(gw.gateway, !gw.isEnabled)}
-                    className={`px-3 py-1 rounded-full text-xs font-bold uppercase transition ${
-                      gw.isEnabled
-                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                        : 'bg-slate-800 text-slate-500'
-                    }`}
-                  >
-                    {gw.isEnabled ? 'Enabled' : 'Disabled'}
-                  </button>
-                </div>
-
-                <p className="text-xs text-slate-300">{gw.instructions}</p>
-
-                <div className="pt-3 border-t border-slate-800 flex justify-between text-xs text-slate-400">
-                  <span>Limits: BDT {gw.minAmount} - BDT {gw.maxAmount.toLocaleString()}</span>
-                  <span>Mode: {gw.isSandbox ? 'Sandbox / Test' : 'Live Production'}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Institutional Tenants Tab */}
-      {activeTab === 'tenants' && (
-        <div className="space-y-4">
-          <h2 className="text-base font-bold text-white">Demo & Institutional Workspaces</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {PRESET_DEMO_TENANTS.map((t) => (
-              <div key={t.slug} className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
-                <h3 className="text-sm font-bold text-white">{t.name}</h3>
-                <div className="text-xs text-emerald-400 font-mono">/{t.slug}</div>
-                <div className="text-[11px] text-slate-400">{t.type} · {t.board}</div>
-                <button
-                  onClick={() => switchTenant(t.slug)}
-                  className="w-full mt-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200"
-                >
-                  Enter Portal
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* System Health Tab */}
-      {activeTab === 'health' && (
-        <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
-          <h2 className="text-base font-bold text-white">Infrastructure & Runtime Verification</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="p-4 rounded-xl bg-slate-950 border border-slate-800">
-              <span className="text-xs text-slate-400">PostgreSQL Container</span>
-              <div className="text-sm font-bold text-emerald-400 mt-1 flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4" /> Healthy & Migrated
-              </div>
+              ))}
             </div>
-            <div className="p-4 rounded-xl bg-slate-950 border border-slate-800">
-              <span className="text-xs text-slate-400">bKash Merchant API</span>
-              <div className="text-sm font-bold text-emerald-400 mt-1 flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4" /> Token Grant 200 OK
-              </div>
-            </div>
-            <div className="p-4 rounded-xl bg-slate-950 border border-slate-800">
-              <span className="text-xs text-slate-400">Multi-Tenant Routing</span>
-              <div className="text-sm font-bold text-emerald-400 mt-1 flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4" /> Subdomain & Path Sync
-              </div>
-            </div>
-          </div>
+          )}
         </div>
-      )}
-
-      {/* Plan Editing Modal */}
-      {editingPlan && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <h3 className="text-lg font-bold text-white">
-                Edit Package: {editingPlan.name}
-              </h3>
-              <button
-                onClick={() => setEditingPlan(null)}
-                className="text-slate-400 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSavePlan} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">
-                    Monthly Price (BDT)
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    value={editingPlan.monthlyPrice}
-                    onChange={(e) => setEditingPlan({ ...editingPlan, monthlyPrice: Number(e.target.value) })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">
-                    Annual Price (BDT)
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    value={editingPlan.annualPrice}
-                    onChange={(e) => setEditingPlan({ ...editingPlan, annualPrice: Number(e.target.value) })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">
-                    Max Students
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    value={editingPlan.maxStudents}
-                    onChange={(e) => setEditingPlan({ ...editingPlan, maxStudents: Number(e.target.value) })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">
-                    Max Campuses
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    value={editingPlan.maxCampuses}
-                    onChange={(e) => setEditingPlan({ ...editingPlan, maxCampuses: Number(e.target.value) })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">
-                    Storage (GB)
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    value={editingPlan.maxStorageGb}
-                    onChange={(e) => setEditingPlan({ ...editingPlan, maxStorageGb: Number(e.target.value) })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1">
-                    Included SMS
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    value={editingPlan.includedSms}
-                    onChange={(e) => setEditingPlan({ ...editingPlan, includedSms: Number(e.target.value) })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1">
-                  Badge (e.g. Most Popular)
-                </label>
-                <input
-                  type="text"
-                  value={editingPlan.badge || ''}
-                  onChange={(e) => setEditingPlan({ ...editingPlan, badge: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs"
-                />
-              </div>
-
-              <div className="flex items-center gap-4 pt-2">
-                <label className="flex items-center gap-2 text-xs text-slate-300">
-                  <input
-                    type="checkbox"
-                    checked={editingPlan.isActive}
-                    onChange={(e) => setEditingPlan({ ...editingPlan, isActive: e.target.checked })}
-                    className="rounded bg-slate-950 border-slate-800 text-emerald-500"
-                  />
-                  <span>Active & Public</span>
-                </label>
-                <label className="flex items-center gap-2 text-xs text-slate-300">
-                  <input
-                    type="checkbox"
-                    checked={editingPlan.isFeatured}
-                    onChange={(e) => setEditingPlan({ ...editingPlan, isFeatured: e.target.checked })}
-                    className="rounded bg-slate-950 border-slate-800 text-emerald-500"
-                  />
-                  <span>Featured Card</span>
-                </label>
-              </div>
-
-              <div className="pt-4 flex justify-end gap-3 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setEditingPlan(null)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 text-xs font-semibold text-slate-300 hover:text-white"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingPlan}
-                  className="px-4 py-2 rounded-xl bg-emerald-500 text-slate-950 text-xs font-bold hover:bg-emerald-400 flex items-center gap-1.5"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  <span>{savingPlan ? 'Saving...' : 'Save & Publish'}</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }

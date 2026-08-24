@@ -2,11 +2,9 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { useTenant } from '@/lib/tenant-context';
-import { PRESET_DEMO_TENANTS } from '@/lib/constants';
+import { PublicFooter } from '@/components/layout/public-footer';
 import {
   GraduationCap,
-  Lock,
   Sparkles,
   Shield,
   Building2,
@@ -22,14 +20,13 @@ import {
   Bot,
   Zap,
   Globe,
-  Compass
+  Compass,
+  ExternalLink
 } from 'lucide-react';
 
 export default function HomePage() {
-  const { switchTenant } = useTenant();
-
   return (
-    <div className="flex-1 bg-slate-950 text-slate-100 flex flex-col">
+    <div className="flex-1 bg-slate-950 text-slate-100 flex flex-col antialiased">
       {/* Top Navbar */}
       <header className="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -46,43 +43,49 @@ export default function HomePage() {
               </span>
             </div>
           </Link>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 text-xs font-semibold">
             <Link
               href="/pricing"
-              className="text-sm font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
+              className="text-slate-300 hover:text-emerald-400 transition"
             >
               Pricing & Plans
             </Link>
             <Link
+              href="/demo"
+              className="text-slate-300 hover:text-emerald-400 transition hidden sm:inline-block"
+            >
+              Demo Showroom
+            </Link>
+            <Link
               href="/results"
-              className="text-sm font-medium text-slate-300 hover:text-white transition-colors hidden sm:inline-block"
+              className="text-slate-300 hover:text-white transition hidden md:inline-block"
             >
               Public Results
             </Link>
             <Link
               href="/login"
-              className="text-sm font-medium text-slate-300 hover:text-white transition-colors"
+              className="text-slate-300 hover:text-white transition"
             >
               Sign In
             </Link>
             <Link
               href="/signup"
-              className="px-4 py-2 text-sm font-bold rounded-xl bg-emerald-500 text-slate-950 hover:bg-emerald-400 transition-all shadow-md shadow-emerald-500/20"
+              className="px-4 py-2 rounded-xl bg-emerald-500 text-slate-950 hover:bg-emerald-400 transition font-bold shadow-md shadow-emerald-500/20"
             >
-              Get Started
+              Start Free Trial
             </Link>
           </div>
         </div>
       </header>
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden pt-12 pb-20 px-6 border-b border-slate-800">
+      <section className="relative overflow-hidden pt-16 pb-20 px-6 border-b border-slate-800">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(16,185,129,0.15),rgba(255,255,255,0))] pointer-events-none" />
 
         <div className="max-w-6xl mx-auto text-center relative z-10">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-950/80 border border-emerald-800 text-emerald-300 text-xs font-semibold mb-6">
             <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-            <span>EduERP: Commercial SaaS Platform with Live bKash Checkout</span>
+            <span>EduERP: Next-Gen SaaS Platform with PostgreSQL 16 & Multi-Tenant Partitioning</span>
           </div>
 
           <h1 className="text-4xl md:text-6xl font-black tracking-tight text-white max-w-4xl mx-auto leading-tight">
@@ -103,184 +106,142 @@ export default function HomePage() {
               <ArrowRight className="w-4 h-4" />
             </Link>
             <Link
-              href="/pricing"
-              className="px-6 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm border border-slate-700 transition"
+              href="/demo"
+              className="px-6 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm border border-slate-800 transition flex items-center gap-2"
             >
-              <span>Compare Pricing Packages</span>
-            </Link>
-          </div>
-
-          {/* Quick Launch Vertical Cards */}
-          <div className="mt-14 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-left">
-            {PRESET_DEMO_TENANTS.map((tenant) => {
-              const icons = {
-                SCHOOL: Building2,
-                COLLEGE: GraduationCap,
-                MADRASHA: BookCheck,
-                UNIVERSITY: Microscope,
-                POLYTECHNIC: Layers,
-                SCHOOL_AND_COLLEGE: Building2,
-                TECHNICAL_INSTITUTE: Layers,
-                TRAINING_INSTITUTE: Layers,
-                OTHER: Building2
-              };
-              const Icon = icons[tenant.type] || Building2;
-
-              return (
-                <div
-                  key={tenant.slug}
-                  className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 hover:shadow-2xl transition group flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <div
-                        className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold shadow-md"
-                        style={{ backgroundColor: tenant.primaryColor }}
-                      >
-                        <Icon className="w-5 h-5" />
-                      </div>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider bg-slate-800 text-slate-300 border border-slate-700">
-                        {tenant.type}
-                      </span>
-                    </div>
-
-                    <h3 className="font-bold text-white text-base group-hover:text-emerald-400 transition leading-snug">
-                      {tenant.name}
-                    </h3>
-                    <p className="text-xs text-slate-400 mt-2 line-clamp-3">
-                      {tenant.description}
-                    </p>
-                  </div>
-
-                  <Link
-                    href={`/${tenant.shortName.toLowerCase()}/dashboard`}
-                    onClick={() => switchTenant(tenant.slug)}
-                    className="mt-5 w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold text-white transition shadow-md group-hover:brightness-110"
-                    style={{ backgroundColor: tenant.primaryColor }}
-                  >
-                    <span>Launch {tenant.type} Demo</span>
-                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition" />
-                  </Link>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Quick SaaS Control Strip */}
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-4 text-xs font-semibold">
-            <Link
-              href="/pricing"
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 border border-emerald-500 text-slate-950 font-bold hover:bg-emerald-500 transition shadow-md shadow-emerald-600/30"
-            >
-              <Zap className="w-4 h-4" />
-              <span>SaaS Pricing & bKash Onboarding</span>
-            </Link>
-
-            <Link
-              href="/login"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 hover:bg-slate-800 transition shadow-sm"
-            >
-              <Lock className="w-4 h-4 text-slate-400" />
-              <span>Sign In with Existing Tenant</span>
-            </Link>
-
-            <Link
-              href="/super-admin"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-900/40 border border-purple-700 text-purple-200 hover:bg-purple-900/60 transition shadow-sm"
-            >
-              <Shield className="w-4 h-4 text-purple-400" />
-              <span>Platform Super Admin</span>
-            </Link>
-
-            <Link
-              href="/verify/VRF-DIMS-9041-A1"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-300 hover:bg-slate-800 transition shadow-sm"
-            >
-              <QrCode className="w-4 h-4 text-emerald-400" />
-              <span>Certificate Verification Portal</span>
+              <span>Explore 8 Vertical Demos</span>
+              <ExternalLink className="w-4 h-4 text-emerald-400" />
             </Link>
           </div>
         </div>
       </section>
 
-      {/* 12 Core Pillars Section */}
-      <section className="py-16 px-6 max-w-6xl mx-auto">
+      {/* 8 Institutional Verticals Grid */}
+      <section className="py-16 px-6 max-w-7xl mx-auto w-full">
         <div className="text-center mb-12">
           <h2 className="text-2xl md:text-3xl font-bold text-white">
-            Comprehensive 105-Module Education Operating System
+            Configurable Vertical Architecture
           </h2>
-          <p className="text-slate-400 text-sm mt-2 max-w-2xl mx-auto">
+          <p className="text-slate-400 text-xs md:text-sm mt-2 max-w-2xl mx-auto">
+            One robust database engine dynamically optimized for 8 distinct educational institution models.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Link
+            href="/demo-school/dashboard"
+            target="_blank"
+            className="p-5 rounded-3xl bg-slate-900 border border-slate-800 hover:border-emerald-500/50 transition group space-y-3"
+          >
+            <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold">
+              SC
+            </div>
+            <h3 className="font-bold text-white text-sm group-hover:text-emerald-400 transition">K-12 School Engine</h3>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Classes 1-10, daily period attendance, SMS notifications, and term exam grade sheets.
+            </p>
+          </Link>
+
+          <Link
+            href="/demo-college/dashboard"
+            target="_blank"
+            className="p-5 rounded-3xl bg-slate-900 border border-slate-800 hover:border-blue-500/50 transition group space-y-3"
+          >
+            <div className="w-10 h-10 rounded-2xl bg-blue-500/10 text-blue-400 flex items-center justify-center font-bold">
+              CL
+            </div>
+            <h3 className="font-bold text-white text-sm group-hover:text-blue-400 transition">HSC College Engine</h3>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Classes 11-12, Science/Arts/Commerce group selection, 4th subject, and BISE board exports.
+            </p>
+          </Link>
+
+          <Link
+            href="/demo-madrasha/dashboard"
+            target="_blank"
+            className="p-5 rounded-3xl bg-slate-900 border border-slate-800 hover:border-teal-500/50 transition group space-y-3"
+          >
+            <div className="w-10 h-10 rounded-2xl bg-teal-500/10 text-teal-400 flex items-center justify-center font-bold">
+              MD
+            </div>
+            <h3 className="font-bold text-white text-sm group-hover:text-teal-400 transition">Madrasha & 30-Para Hifz</h3>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Dakhil, Alim, Kamil plus 30-Para Sabak, Sabki, Dour tracking and Waqf accounting.
+            </p>
+          </Link>
+
+          <Link
+            href="/demo-university/dashboard"
+            target="_blank"
+            className="p-5 rounded-3xl bg-slate-900 border border-slate-800 hover:border-purple-500/50 transition group space-y-3"
+          >
+            <div className="w-10 h-10 rounded-2xl bg-purple-500/10 text-purple-400 flex items-center justify-center font-bold">
+              UN
+            </div>
+            <h3 className="font-bold text-white text-sm group-hover:text-purple-400 transition">University Open Credit</h3>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Semester credit hours, prerequisites, faculty workloads, thesis defense, and CGPA calculations.
+            </p>
+          </Link>
+        </div>
+
+        <div className="mt-6 text-center">
+          <Link
+            href="/demo"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-400 hover:text-emerald-300"
+          >
+            <span>View All 8 Institutional Verticals in Demo Directory</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+      </section>
+
+      {/* 105 Modules Grid */}
+      <section className="py-16 px-6 max-w-6xl mx-auto border-t border-slate-800">
+        <div className="text-center mb-12">
+          <h2 className="text-2xl md:text-3xl font-bold text-white">
+            105 Native Modules Built into One Core
+          </h2>
+          <p className="text-slate-400 text-xs md:text-sm mt-2 max-w-2xl mx-auto">
             From online admission to graduation and alumni, all synchronized with double-entry accounting, smart biometrics, LMS and AI analytics.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800">
-            <div className="w-10 h-10 rounded-xl bg-blue-950 text-blue-400 flex items-center justify-center mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs text-slate-300">
+          <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2">
+            <div className="w-10 h-10 rounded-xl bg-blue-950 text-blue-400 flex items-center justify-center mb-3">
               <Compass className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-white text-base">Online Admission & Test Engine</h3>
-            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+            <h3 className="font-bold text-white text-sm">Online Admission & Test Engine</h3>
+            <p className="text-slate-400 leading-relaxed">
               Paperless application workflow, online application fee collection, timed MCQ/written admission tests, automatic scoring, and merit list generation.
             </p>
           </div>
 
-          <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800">
-            <div className="w-10 h-10 rounded-xl bg-emerald-950 text-emerald-400 flex items-center justify-center mb-4">
-              <BookCheck className="w-5 h-5" />
-            </div>
-            <h3 className="font-bold text-white text-base">Madrasha & 30-Para Hifz Engine</h3>
-            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-              Specialized tracking for Ebtedayee, Dakhil, Alim, Kamil plus full 30-Para daily Sabak, Sabki, Dour, Surah, Ayat, and Ustad evaluation.
-            </p>
-          </div>
-
-          <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800">
-            <div className="w-10 h-10 rounded-xl bg-purple-950 text-purple-400 flex items-center justify-center mb-4">
-              <Microscope className="w-5 h-5" />
-            </div>
-            <h3 className="font-bold text-white text-base">University & Higher Ed Engine</h3>
-            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-              Faculties, Departments, Semester Credit Hour system, Course Add/Drop, Retakes, Credit-weighted CGPA, Thesis defense, and Research grants.
-            </p>
-          </div>
-
-          <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800">
-            <div className="w-10 h-10 rounded-xl bg-amber-950 text-amber-400 flex items-center justify-center mb-4">
-              <Award className="w-5 h-5" />
-            </div>
-            <h3 className="font-bold text-white text-base">Exams, GPA/CGPA & QR Verification</h3>
-            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-              Configurable theory/practical/assignment marks, automated GPA/CGPA calculation, and branded PDF report cards with tamper-proof QR codes.
-            </p>
-          </div>
-
-          <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800">
-            <div className="w-10 h-10 rounded-xl bg-cyan-950 text-cyan-400 flex items-center justify-center mb-4">
+          <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2">
+            <div className="w-10 h-10 rounded-xl bg-emerald-950 text-emerald-400 flex items-center justify-center mb-3">
               <DollarSign className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-white text-base">Fees, bKash/Nagad & Accounts</h3>
-            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-              Dynamic fee rules, sibling discounts, Bangladesh gateway checkouts (bKash, Nagad, Rocket, Cards) & full Double-Entry General Ledger.
+            <h3 className="font-bold text-white text-sm">Fees, bKash & Double-Entry Ledger</h3>
+            <p className="text-slate-400 leading-relaxed">
+              Automated monthly tuition invoicing, sibling discounts, Bangladesh gateway checkouts (bKash, Nagad, Rocket, Cards) & full Double-Entry Accounting.
             </p>
           </div>
 
-          <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800">
-            <div className="w-10 h-10 rounded-xl bg-pink-950 text-pink-400 flex items-center justify-center mb-4">
-              <Bot className="w-5 h-5" />
+          <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2">
+            <div className="w-10 h-10 rounded-xl bg-purple-950 text-purple-400 flex items-center justify-center mb-3">
+              <Award className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-white text-base">AI Copilot & Predictive Analytics</h3>
-            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-              RBAC-aware natural language assistant for Principals/VCs and predictive machine learning models flagging student dropout and fee default risks.
+            <h3 className="font-bold text-white text-sm">Exams, GPA/CGPA & QR Verification</h3>
+            <p className="text-slate-400 leading-relaxed">
+              Configurable theory/practical/assignment marks, automated GPA/CGPA calculation, and branded PDF report cards with tamper-proof QR codes.
             </p>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="mt-auto py-8 px-6 border-t border-slate-800 text-center text-xs text-slate-500">
-        <p>© 2026 EduERP OS. All rights reserved. Designed for Schools, Colleges, Madrasahs & Universities.</p>
-      </footer>
+      <PublicFooter />
     </div>
   );
 }
