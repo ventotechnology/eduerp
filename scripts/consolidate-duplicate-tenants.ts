@@ -77,18 +77,18 @@ export async function consolidateDuplicateTenants() {
       console.log(`   - Moved ${movedUsers.count} users to canonical tenant.`);
     }
 
-    // 3. Remove Legacy Institution and Tenant
-    if (legacyTenant.institution) {
-      await db.campus.deleteMany({ where: { institutionId: legacyTenant.institution.id } });
-      await db.admissionSetting.deleteMany({ where: { institutionId: legacyTenant.institution.id } });
-      await db.academicYear.deleteMany({ where: { institutionId: legacyTenant.institution.id } });
-      await db.shift.deleteMany({ where: { institutionId: legacyTenant.institution.id } });
-      await db.class.deleteMany({ where: { institutionId: legacyTenant.institution.id } });
-      await db.institution.delete({ where: { id: legacyTenant.institution.id } });
-    }
-
-    await db.tenant.delete({ where: { id: legacyTenant.id } });
-    console.log(`✅ Removed legacy duplicate tenant '${legacySlug}'. Canonical '${canonicalSlug}' is active.`);
+    // 3. Safely Archive Legacy Tenant so it does not conflict with canonical aliases
+    const archivedSlug = `_archived_${legacySlug.replace(/-/g, '_')}_${legacyTenant.id.slice(0, 8)}`;
+    await db.tenant.update({
+      where: { id: legacyTenant.id },
+      data: {
+        slug: archivedSlug,
+        isActive: false,
+        isDemoTenant: false
+      }
+    });
+    console.log(`✅ Safely archived legacy duplicate tenant '${legacySlug}' -> '${archivedSlug}'.`);
+    console.log(`   Canonical '${canonicalSlug}' is now the primary recipient for alias '${legacySlug}'.`);
   }
 
   // Verify Owner Application APP-2026-0002
