@@ -648,20 +648,9 @@ export async function provisionQAUsers(options: { rotatePasswords?: boolean } = 
   console.log('=== EDUERP SAFE QA PROVISIONING & CREDENTIAL GENERATION ===');
   console.log(`Action: ${options.rotatePasswords ? 'ROTATING ALL PASSWORDS' : 'PROVISIONING / SYNCING QA USERS'}`);
 
-  // 1. Subscription Plans
-  const plans = [
-    { tier: 'STARTER', name: 'Starter Tier', priceMonthlyBdt: 4500, priceMonthlyUsd: 45, maxStudents: 500, maxCampuses: 1, maxStorageGb: 20, includedSms: 2000 },
-    { tier: 'PROFESSIONAL', name: 'Professional Tier', priceMonthlyBdt: 12500, priceMonthlyUsd: 120, maxStudents: 2500, maxCampuses: 3, maxStorageGb: 100, includedSms: 10000 },
-    { tier: 'ENTERPRISE', name: 'Enterprise Tier', priceMonthlyBdt: 28000, priceMonthlyUsd: 270, maxStudents: 10000, maxCampuses: 10, maxStorageGb: 1000, includedSms: 50000 },
-  ];
-
-  for (const p of plans) {
-    await db.subscriptionPlan.upsert({
-      where: { tier: p.tier as any },
-      update: {},
-      create: p as any,
-    });
-  }
+  // 1. Subscription Plans & Gateways
+  const { SaasPlanService } = await import('../lib/services/saas-plan.service');
+  await SaasPlanService.seedInitialPlans();
 
   // 2. Demo Tenants & Institutions
   const demoTenants = [

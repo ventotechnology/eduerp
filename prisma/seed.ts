@@ -2,6 +2,7 @@ import { seedProductionQA } from "../scripts/seed-production-qa";
 import { db } from '../lib/db';
 import { hashPassword } from '../lib/auth/password';
 import { PRESET_DEMO_TENANTS } from '../lib/constants';
+import { SaasPlanService } from '../lib/services/saas-plan.service';
 
 async function main() {
   await seedProductionQA();
@@ -10,51 +11,8 @@ async function main() {
 
   const defaultPasswordHash = hashPassword('Admin@123456');
 
-  // 1. Seed Subscription Plans
-  await db.subscriptionPlan.upsert({
-    where: { tier: 'STARTER' },
-    update: {},
-    create: {
-      tier: 'STARTER',
-      name: 'Starter Tier',
-      priceMonthlyBdt: 4500,
-      priceMonthlyUsd: 45,
-      maxStudents: 500,
-      maxCampuses: 1,
-      maxStorageGb: 20,
-      includedSms: 2000
-    }
-  });
-
-  await db.subscriptionPlan.upsert({
-    where: { tier: 'PROFESSIONAL' },
-    update: {},
-    create: {
-      tier: 'PROFESSIONAL',
-      name: 'Professional Tier',
-      priceMonthlyBdt: 12500,
-      priceMonthlyUsd: 120,
-      maxStudents: 2500,
-      maxCampuses: 3,
-      maxStorageGb: 100,
-      includedSms: 10000
-    }
-  });
-
-  await db.subscriptionPlan.upsert({
-    where: { tier: 'ENTERPRISE' },
-    update: {},
-    create: {
-      tier: 'ENTERPRISE',
-      name: 'Enterprise Tier',
-      priceMonthlyBdt: 28000,
-      priceMonthlyUsd: 270,
-      maxStudents: 10000,
-      maxCampuses: 10,
-      maxStorageGb: 1000,
-      includedSms: 50000
-    }
-  });
+  // 1. Seed SaaS Subscription Plans & Payment Gateways
+  await SaasPlanService.seedInitialPlans();
 
   // 2. Global Platform Super Admin
   await db.user.upsert({

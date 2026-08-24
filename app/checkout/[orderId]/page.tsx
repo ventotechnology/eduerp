@@ -1,0 +1,64 @@
+import { SaasSignupService } from '@/lib/services/saas-signup.service';
+import CheckoutClient from './checkout-client';
+import Link from 'next/link';
+import { notFound } from 'next/navigation';
+
+export const dynamic = 'force-dynamic';
+
+export default async function CheckoutPage({
+  params
+}: {
+  params: Promise<{ orderId: string }>
+}) {
+  const { orderId } = await params;
+  const data = await SaasSignupService.getOrderDetails(orderId);
+
+  if (!data) {
+    notFound();
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+      {/* Header */}
+      <header className="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center font-black text-slate-950 text-xl shadow-lg shadow-emerald-500/20">
+              E
+            </div>
+            <div className="flex flex-col">
+              <span className="font-extrabold text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-100 to-slate-400">
+                EduERP
+              </span>
+              <span className="text-[10px] text-emerald-400 font-semibold tracking-wider uppercase -mt-1">
+                Secure Checkout
+              </span>
+            </div>
+          </Link>
+          <div className="text-xs text-slate-400 font-mono">
+            Order: {data.order.orderNumber}
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="flex-1 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-extrabold text-white tracking-tight">
+            Complete Subscription Payment
+          </h1>
+          <p className="mt-1 text-sm text-slate-400">
+            Pay securely to immediately provision and activate your EduERP institutional instance.
+          </p>
+        </div>
+
+        <CheckoutClient initialData={JSON.parse(JSON.stringify(data))} />
+      </main>
+
+      {/* Footer */}
+      <footer className="border-t border-slate-800/80 bg-slate-900/40 py-6 text-center text-xs text-slate-500">
+        <p>© {new Date().getFullYear()} EduERP Platform. PCI-DSS Compliant & Official bKash Merchant Gateway.</p>
+      </footer>
+    </div>
+  );
+}

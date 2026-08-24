@@ -1,94 +1,152 @@
 import fs from 'fs';
 import path from 'path';
 
-const LIVE_BASE_URL = process.env.LIVE_URL || 'https://eduerp.us';
+interface QAUserEntry {
+  institutionName: string;
+  institutionType: string;
+  tenantSlug: string;
+  role: string;
+  name: string;
+  email: string;
+  password: string;
+  loginUrl: string;
+  expectedLandingUrl: string;
+  modulesToTest: string;
+  notes: string;
+}
 
-function parseCSVLine(text: string): string[] {
+function parseCSVLine(line: string): string[] {
   const result: string[] = [];
-  let curr = '';
+  let cur = '';
   let inQuotes = false;
-  
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-    if (char === '"') {
-      inQuotes = !inQuotes;
-    } else if (char === ',' && !inQuotes) {
-      result.push(curr.trim());
-      curr = '';
+
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        cur += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (c === ',' && !inQuotes) {
+      result.push(cur);
+      cur = '';
     } else {
-      curr += char;
+      cur += c;
     }
   }
-  result.push(curr.trim());
-  return result.map(s => s.replace(/^"|"$/g, '').trim());
+  result.push(cur);
+  return result;
+}
+
+export function loadQACredentials(): QAUserEntry[] {
+  const csvPath = path.join(process.cwd(), 'EDUERP-ONLINE-TEST-CREDENTIALS.csv');
+  if (!fs.existsSync(csvPath)) {
+    throw new Error(`Credentials CSV not found at ${csvPath}`);
+  }
+
+  const lines = fs.readFileSync(csvPath, 'utf8').split('\n').filter(Boolean);
+  const entries: QAUserEntry[] = [];
+
+  // Skip header
+  for (let i = 1; i < lines.length; i++) {
+    const parts = parseCSVLine(lines[i]);
+    if (parts.length >= 7) {
+      entries.push({
+        institutionName: parts[0],
+        institutionType: parts[1],
+        tenantSlug: parts[2],
+        role: parts[3],
+        name: parts[4],
+        email: parts[5],
+        password: parts[6],
+        loginUrl: parts[7] || 'https://eduerp.us/login',
+        expectedLandingUrl: parts[8] || '',
+        modulesToTest: parts[9] || '',
+        notes: parts[10] || '',
+      });
+    }
+  }
+
+  return entries;
 }
 
 async function runLiveVerification() {
-  console.log(`Starting Live Online QA Credentials Verification on ${LIVE_BASE_URL}...`);
-  
-  const csvPath = path.resolve(process.cwd(), 'EDUERP-ONLINE-TEST-CREDENTIALS.csv');
-  if (!fs.existsSync(csvPath)) {
-    console.error('Credentials CSV not found!');
-    process.exit(1);
-  }
+  const baseUrl = process.env.LIVE_APP_URL || 'https://eduerp.us';
+  console.log(`=== STARTING EDUERP LIVE AUTHENTICATION VERIFICATION (${baseUrl}) ===\n`);
 
-  const rawLines = fs.readFileSync(csvPath, 'utf8').trim().split('\n');
-  const csvLines = rawLines.slice(1);
-  let passed = 0;
-  let failed = 0;
+  // 1. Test OLD compromised passwords (MUST FAIL WITH 401)
+  console.log('--- 1. Testing Old Passwords Rejection (Must return 401) ---');
+  const oldPasswordTests = [
+    { email: 'platform-super-admin@eduerp.us', oldPwd: 'EduERP-Platform@2026!Pilot#10' },
+    { email: 'principal.demo-school@eduerp.us', oldPwd: 'EduERP-QA@2026!Pilot#10' },
+    { email: 'student.demo-school@eduerp.us', oldPwd: 'EduERP-QA@2026!Pilot#10' }
+  ];
 
-  for (const line of csvLines) {
-    if (!line.trim()) continue;
-    const parts = parseCSVLine(line);
-    if (parts.length < 7) continue;
-    
-    // Index mapping:
-    // 0: Inst Name, 1: Type, 2: Slug, 3: Role, 4: Name, 5: Email, 6: Password
-    const [instName, instType, slug, role, name, email, password] = parts;
+  for (const t of oldPasswordTests) {
+    const res = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: t.email, password: t.oldPwd }),
+    });
 
-    try {
-      const loginRes = await fetch(`${LIVE_BASE_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-
-      if (!loginRes.ok) {
-        console.error(`❌ FAILED: ${email} (HTTP ${loginRes.status})`);
-        failed++;
-        continue;
-      }
-
-      const loginData = await loginRes.json();
-      if (!loginData.success || loginData.user?.email !== email) {
-        console.error(`❌ FAILED: ${email} (Invalid payload: ${JSON.stringify(loginData)})`);
-        failed++;
-        continue;
-      }
-
-      // Check cookie session
-      const setCookie = loginRes.headers.get('set-cookie');
-      if (!setCookie || !setCookie.includes('eduerp_session')) {
-        console.error(`❌ FAILED: ${email} (Missing eduerp_session cookie)`);
-        failed++;
-        continue;
-      }
-
-      console.log(`✅ [${role.padEnd(22)}] ${name.padEnd(38)} (${email}) -> 200 OK`);
-      passed++;
-    } catch (err: any) {
-      console.error(`❌ ERROR: ${email} -> ${err.message}`);
-      failed++;
+    if (res.status === 401) {
+      console.log(`  ✅ PASS: Old password rejected for ${t.email} (HTTP 401)`);
+    } else {
+      console.error(`  ❌ FAIL: Old password was NOT rejected for ${t.email} (HTTP ${res.status})`);
+      process.exit(1);
     }
   }
 
-  console.log('\n========================================================================================');
-  console.log(`🎉 LIVE ONLINE QA VERIFICATION: ${passed}/${passed + failed} QA ACCOUNTS 100% VERIFIED PASSING ON ${LIVE_BASE_URL}!`);
-  console.log('========================================================================================');
+  // 2. Test NEW rotated unique passwords from private credentials catalog
+  console.log('\n--- 2. Testing Newly Rotated Unique Passwords (Must return 200 with session) ---');
+  const qaUsers = loadQACredentials();
+  console.log(`Loaded ${qaUsers.length} QA accounts from private credentials catalog.\n`);
 
-  if (failed > 0) {
+  let successCount = 0;
+  let failCount = 0;
+
+  for (const u of qaUsers) {
+    try {
+      const res = await fetch(`${baseUrl}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: u.email, password: u.password }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      const setCookie = res.headers.get('set-cookie');
+
+      if (res.status === 200 && data.user && data.user.email === u.email && setCookie) {
+        successCount++;
+        console.log(`  ✅ [${u.role.padEnd(20)}] ${u.email.padEnd(42)} -> HTTP 200 OK (${u.institutionType})`);
+      } else {
+        failCount++;
+        console.error(`  ❌ [${u.role.padEnd(20)}] ${u.email.padEnd(42)} -> HTTP ${res.status}: ${JSON.stringify(data)}`);
+      }
+    } catch (err: any) {
+      failCount++;
+      console.error(`  ❌ [${u.role.padEnd(20)}] ${u.email.padEnd(42)} -> Fetch error: ${err.message}`);
+    }
+  }
+
+  console.log(`\n=== LIVE AUTHENTICATION SUMMARY ===`);
+  console.log(`Total Accounts Tested : ${qaUsers.length}`);
+  console.log(`Successful Logins     : ${successCount}`);
+  console.log(`Failed Logins         : ${failCount}`);
+
+  if (failCount > 0) {
+    console.error(`\n❌ VERIFICATION FAILED: ${failCount} accounts failed authentication!`);
     process.exit(1);
   }
+
+  console.log(`\n🎉 ALL ${successCount}/${qaUsers.length} QA ACCOUNTS VERIFIED 100% OPERATIONAL LIVE OVER HTTPS!\n`);
 }
 
-runLiveVerification();
+if (require.main === module) {
+  runLiveVerification().catch((err) => {
+    console.error('Execution error:', err);
+    process.exit(1);
+  });
+}

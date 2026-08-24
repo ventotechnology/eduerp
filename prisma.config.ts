@@ -4,6 +4,6 @@ import 'dotenv/config';
 export default defineConfig({
   schema: 'prisma/schema.prisma',
   datasource: {
-    url: process.env.DATABASE_URL || 'file:./dev.db'
+    url: process.env.DATABASE_URL || 'postgresql://humayun@localhost:5432/eduerp_dev'
   }
 });
