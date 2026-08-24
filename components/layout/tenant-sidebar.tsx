@@ -1,11 +1,12 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { useTenant } from '@/lib/tenant-context';
 import { getTenantRouteSlug } from '@/lib/tenant/tenant-aliases';
 import { getTranslation } from '@/lib/i18n';
+import { ContextualHelpDrawer } from '@/components/support/contextual-help-drawer';
 import {
   LayoutDashboard,
   GraduationCap,
@@ -34,6 +35,7 @@ export function TenantSidebar() {
   const pathname = usePathname();
   const params = useParams();
   const { tenantSlug, branding, institutionType, institutionTypeConfig, language, activeRole } = useTenant();
+  const [helpDrawerOpen, setHelpDrawerOpen] = useState(false);
 
   const urlTenant = (params?.tenant as string) || '';
   const routeSlug = getTenantRouteSlug(urlTenant, tenantSlug);
@@ -206,9 +208,22 @@ export function TenantSidebar() {
         </nav>
       </div>
 
-      {/* Footer / Tenant Mode Indicator */}
-      <div className="p-3 border-t border-slate-800 bg-slate-950/60 text-xs">
-        <div className="flex items-center justify-between text-slate-400 mb-1">
+      {/* Help & Support Button + Footer / Tenant Mode Indicator */}
+      <div className="p-3 border-t border-slate-800 bg-slate-950/60 text-xs space-y-2">
+        <button
+          onClick={() => setHelpDrawerOpen(true)}
+          className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-emerald-400 font-semibold text-xs transition"
+        >
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Help & Guides</span>
+          </div>
+          <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-mono">
+            Support
+          </span>
+        </button>
+
+        <div className="flex items-center justify-between text-slate-400 text-[11px] pt-1 border-t border-slate-800/60">
           <span>Engine:</span>
           <span className="text-emerald-400 font-semibold">{institutionType}</span>
         </div>
@@ -217,6 +232,12 @@ export function TenantSidebar() {
           <span className="text-slate-200">{institutionTypeConfig.gradingType.replace(/_/g, ' ')}</span>
         </div>
       </div>
+
+      <ContextualHelpDrawer
+        isOpen={helpDrawerOpen}
+        onClose={() => setHelpDrawerOpen(false)}
+        currentModule={pathname.split('/')[2]?.toUpperCase() || 'DASHBOARD'}
+      />
     </aside>
   );
 }

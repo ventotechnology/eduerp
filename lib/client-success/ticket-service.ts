@@ -1,0 +1,593 @@
+import { db } from '@/lib/db';
+import { AppError } from '@/lib/errors/app-error';
+
+async function recordSupportAuditLog(data: {
+  action: string;
+  resourceType: string;
+  resourceId: string;
+  tenantId?: string | null;
+  userId?: string;
+  userName: string;
+  oldState?: string;
+  newState?: string;
+}) {
+  let validTenantId: string | null = null;
+  if (data.tenantId) {
+    const t = await db.tenant.findFirst({
+      where: { OR: [{ id: data.tenantId }, { slug: data.tenantId }] },
+      select: { id: true }
+    }).catch(() => null);
+    if (t) validTenantId = t.id;
+  }
+
+  return db.auditLog.create({
+    data: {
+      action: data.action,
+      resourceType: data.resourceType,
+      resourceId: data.resourceId,
+      tenant: validTenantId ? { connect: { id: validTenantId } } : undefined,
+      userId: data.userId || null,
+      userName: data.userName,
+      previousState: data.oldState || null,
+      newState: data.newState || null
+    }
+  }).catch(() => null);
+}
+
+export async function generateTicketNumber(): Promise<string> {
+  const currentYear = new Date().getFullYear();
+
+  const seq = await db.$transaction(async (tx) => {
+    let s = await tx.supportSequence.findUnique({
+      where: { id: 'ticket_seq' }
+    });
+
+    if (!s) {
+      s = await tx.supportSequence.create({
+        data: {
+          id: 'ticket_seq',
+          currentNumber: 1,
+          year: currentYear
+        }
+      });
+      return s.currentNumber;
+    }
+
+    const updated = await tx.supportSequence.update({
+      where: { id: 'ticket_seq' },
+      data: {
+        currentNumber: { increment: 1 },
+        year: currentYear
+      }
+    });
+
+    return updated.currentNumber;
+  });
+
+  const padded = String(seq).padStart(6, '0');
+  return `TKT-${currentYear}-${padded}`;
+}
+
+export async function computeSlaDueDates(priority: string) {
+  const policy = await db.supportSlaPolicy.findUnique({
+    where: { priority }
+  });
+
+  const firstResponseMinutes = policy?.firstResponseTargetMinutes || (priority === 'CRITICAL' ? 60 : priority === 'URGENT' ? 120 : priority === 'HIGH' ? 240 : 480);
+  const resolutionMinutes = policy?.resolutionTargetMinutes || (priority === 'CRITICAL' ? 240 : priority === 'URGENT' ? 720 : priority === 'HIGH' ? 1440 : 2880);
+
+  const now = new Date();
+  const firstResponseDueAt = new Date(now.getTime() + firstResponseMinutes * 60 * 1000);
+  const resolutionDueAt = new Date(now.getTime() + resolutionMinutes * 60 * 1000);
+
+  return { firstResponseDueAt, resolutionDueAt };
+}
+
+export async function createSupportTicket(
+  data: {
+    subject: string;
+    categoryCode: string;
+    relatedModule?: string;
+    priority?: string;
+    description: string;
+    businessImpact?: string;
+    affectedUrl?: string;
+    preferredContact?: string;
+  },
+  session: {
+    userId: string;
+    name: string;
+    email: string;
+    role: string;
+    tenantId: string;
+    institutionId?: string;
+    isPlatformAdmin?: boolean;
+  }
+) {
+  if (!data.subject || !data.description || !data.categoryCode) {
+    throw AppError.badRequest('Subject, description, and category are required.');
+  }
+
+  // Tenant bound validation
+  const tenantId = session.tenantId;
+  if (!tenantId) {
+    throw AppError.badRequest('Authenticated tenant context is required to create a ticket.');
+  }
+
+  const priority = data.priority || 'NORMAL';
+  const ticketNumber = await generateTicketNumber();
+  const { firstResponseDueAt, resolutionDueAt } = await computeSlaDueDates(priority);
+
+  const ticket = await db.$transaction(async (tx) => {
+    const createdTicket = await tx.supportTicket.create({
+      data: {
+        ticketNumber,
+        tenantId,
+        institutionId: session.institutionId || null,
+        creatorUserId: session.userId,
+        creatorName: session.name || 'Tenant User',
+        creatorEmail: session.email,
+        creatorRole: session.role || 'USER',
+        subject: data.subject,
+        categoryCode: data.categoryCode,
+        relatedModule: data.relatedModule || 'OTHER',
+        priority,
+        status: 'NEW',
+        description: data.description,
+        businessImpact: data.businessImpact || null,
+        affectedUrl: data.affectedUrl || null,
+        preferredContact: data.preferredContact || 'IN_APP',
+        firstResponseDueAt,
+        resolutionDueAt
+      }
+    });
+
+    // Create initial message
+    await tx.supportTicketMessage.create({
+      data: {
+        ticketId: createdTicket.id,
+        senderUserId: session.userId,
+        senderName: session.name || 'Tenant User',
+        senderEmail: session.email,
+        senderRole: session.role || 'USER',
+        senderType: 'CUSTOMER',
+        message: data.description,
+        visibility: 'PUBLIC_REPLY'
+      }
+    });
+
+    // Create status history
+    await tx.supportStatusHistory.create({
+      data: {
+        ticketId: createdTicket.id,
+        fromStatus: 'NONE',
+        toStatus: 'NEW',
+        changedByUserId: session.userId,
+        changedByName: session.name || 'Tenant User',
+        reason: 'Ticket Created'
+      }
+    });
+
+    return createdTicket;
+  });
+
+  // Audit log
+  await recordSupportAuditLog({
+    action: 'SUPPORT_TICKET_CREATED',
+    resourceType: 'SupportTicket',
+    resourceId: ticket.id,
+    tenantId,
+    userId: session.userId,
+    userName: session.name,
+    newState: JSON.stringify({
+      ticketNumber,
+      subject: data.subject,
+      categoryCode: data.categoryCode,
+      priority
+    })
+  });
+
+  return ticket;
+}
+
+export async function listSupportTickets(
+  params: {
+    status?: string;
+    priority?: string;
+    categoryCode?: string;
+    module?: string;
+    tenantId?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  },
+  session: {
+    userId: string;
+    tenantId: string;
+    isPlatformAdmin?: boolean;
+  }
+) {
+  const page = Math.max(1, params.page || 1);
+  const limit = Math.min(100, Math.max(1, params.limit || 20));
+  const skip = (page - 1) * limit;
+
+  const where: any = {};
+
+  // Strict Tenant Isolation for non-platform admins
+  if (!session.isPlatformAdmin) {
+    where.tenantId = session.tenantId;
+  } else if (params.tenantId && params.tenantId !== 'ALL') {
+    where.tenantId = params.tenantId;
+  }
+
+  if (params.status && params.status !== 'ALL') {
+    where.status = params.status;
+  }
+  if (params.priority && params.priority !== 'ALL') {
+    where.priority = params.priority;
+  }
+  if (params.categoryCode && params.categoryCode !== 'ALL') {
+    where.categoryCode = params.categoryCode;
+  }
+  if (params.module && params.module !== 'ALL') {
+    where.relatedModule = params.module;
+  }
+  if (params.search) {
+    where.OR = [
+      { ticketNumber: { contains: params.search, mode: 'insensitive' } },
+      { subject: { contains: params.search, mode: 'insensitive' } },
+      { creatorName: { contains: params.search, mode: 'insensitive' } },
+      { creatorEmail: { contains: params.search, mode: 'insensitive' } }
+    ];
+  }
+
+  const [total, items] = await Promise.all([
+    db.supportTicket.count({ where }),
+    db.supportTicket.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        assignedTeam: { select: { id: true, name: true, code: true } },
+        _count: { select: { messages: true } },
+        csat: true
+      },
+      skip,
+      take: limit
+    })
+  ]);
+
+  return {
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+    items
+  };
+}
+
+export async function getSupportTicket(
+  ticketNumber: string,
+  session: {
+    userId: string;
+    tenantId: string;
+    isPlatformAdmin?: boolean;
+  }
+) {
+  const ticket = await db.supportTicket.findUnique({
+    where: { ticketNumber },
+    include: {
+      assignedTeam: true,
+      statusHistory: { orderBy: { changedAt: 'asc' } },
+      csat: true
+    }
+  });
+
+  if (!ticket) {
+    throw AppError.notFound(`Ticket '${ticketNumber}' not found.`);
+  }
+
+  // Strict Tenant Isolation check
+  if (!session.isPlatformAdmin && ticket.tenantId !== session.tenantId) {
+    throw AppError.forbidden(`Access to ticket '${ticketNumber}' denied.`);
+  }
+
+  // Messages Query: STRICT INTERNAL NOTE ISOLATION
+  const messageWhere: any = { ticketId: ticket.id };
+  if (!session.isPlatformAdmin) {
+    messageWhere.visibility = 'PUBLIC_REPLY';
+  }
+
+  const messages = await db.supportTicketMessage.findMany({
+    where: messageWhere,
+    orderBy: { createdAt: 'asc' },
+    include: {
+      attachments: true
+    }
+  });
+
+  return {
+    ...ticket,
+    messages
+  };
+}
+
+export async function addTicketMessage(
+  ticketNumber: string,
+  data: {
+    message: string;
+    visibility?: 'PUBLIC_REPLY' | 'INTERNAL_NOTE';
+  },
+  session: {
+    userId: string;
+    name: string;
+    email: string;
+    role: string;
+    tenantId: string;
+    isPlatformAdmin?: boolean;
+  }
+) {
+  const ticket = await db.supportTicket.findUnique({ where: { ticketNumber } });
+  if (!ticket) throw AppError.notFound(`Ticket '${ticketNumber}' not found.`);
+
+  // Strict Tenant Isolation check
+  if (!session.isPlatformAdmin && ticket.tenantId !== session.tenantId) {
+    throw AppError.forbidden(`Access to ticket '${ticketNumber}' denied.`);
+  }
+
+  const visibility = data.visibility || 'PUBLIC_REPLY';
+  if (visibility === 'INTERNAL_NOTE' && !session.isPlatformAdmin) {
+    throw AppError.forbidden('Only authorized platform support agents may add internal notes.');
+  }
+
+  const senderType = session.isPlatformAdmin ? 'SUPPORT_AGENT' : 'CUSTOMER';
+
+  const message = await db.supportTicketMessage.create({
+    data: {
+      ticketId: ticket.id,
+      senderUserId: session.userId,
+      senderName: session.name,
+      senderEmail: session.email,
+      senderRole: session.role,
+      senderType,
+      message: data.message,
+      visibility
+    }
+  });
+
+  // Lifecycle updates on public replies
+  if (visibility === 'PUBLIC_REPLY') {
+    const updateData: any = {};
+    if (session.isPlatformAdmin) {
+      if (!ticket.firstResponseAt) {
+        updateData.firstResponseAt = new Date();
+        updateData.firstResponseBreached = ticket.firstResponseDueAt ? new Date() > ticket.firstResponseDueAt : false;
+      }
+      if (ticket.status === 'NEW' || ticket.status === 'CUSTOMER_REPLIED') {
+        updateData.status = 'WAITING_FOR_CUSTOMER';
+      }
+    } else {
+      // Customer replied
+      if (ticket.status === 'WAITING_FOR_CUSTOMER' || ticket.status === 'RESOLVED') {
+        updateData.status = 'CUSTOMER_REPLIED';
+      }
+    }
+
+    if (Object.keys(updateData).length > 0) {
+      await db.supportTicket.update({
+        where: { id: ticket.id },
+        data: updateData
+      });
+
+      if (updateData.status && updateData.status !== ticket.status) {
+        await db.supportStatusHistory.create({
+          data: {
+            ticketId: ticket.id,
+            fromStatus: ticket.status,
+            toStatus: updateData.status,
+            changedByUserId: session.userId,
+            changedByName: session.name,
+            reason: session.isPlatformAdmin ? 'Support Agent Public Reply' : 'Customer Public Reply'
+          }
+        });
+      }
+    }
+  }
+
+  // Audit log
+  await recordSupportAuditLog({
+    action: visibility === 'INTERNAL_NOTE' ? 'SUPPORT_INTERNAL_NOTE_ADDED' : 'SUPPORT_REPLY_SENT',
+    resourceType: 'SupportTicketMessage',
+    resourceId: message.id,
+    tenantId: ticket.tenantId,
+    userId: session.userId,
+    userName: session.name,
+    newState: JSON.stringify({ ticketNumber, visibility, senderType })
+  });
+
+  return message;
+}
+
+export async function updateTicketStatus(
+  ticketNumber: string,
+  data: {
+    status: string;
+    reason?: string;
+    resolutionSummary?: string;
+  },
+  session: {
+    userId: string;
+    name: string;
+    tenantId: string;
+    isPlatformAdmin?: boolean;
+  }
+) {
+  const ticket = await db.supportTicket.findUnique({ where: { ticketNumber } });
+  if (!ticket) throw AppError.notFound(`Ticket '${ticketNumber}' not found.`);
+
+  // If customer is changing status, they can only CONFIRM_RESOLUTION (CLOSE) or REOPEN
+  if (!session.isPlatformAdmin) {
+    if (ticket.tenantId !== session.tenantId) {
+      throw AppError.forbidden(`Access to ticket '${ticketNumber}' denied.`);
+    }
+    if (!['RESOLVED', 'CLOSED', 'REOPENED'].includes(data.status)) {
+      throw AppError.forbidden('Tenant users can only confirm resolution or reopen resolved tickets.');
+    }
+  }
+
+  if (data.status === 'RESOLVED' && !data.resolutionSummary && !ticket.resolutionSummary) {
+    throw AppError.badRequest('A resolution summary is required when resolving a ticket.');
+  }
+
+  const updateData: any = {
+    status: data.status,
+    updatedAt: new Date()
+  };
+
+  if (data.status === 'RESOLVED') {
+    updateData.resolvedAt = new Date();
+    updateData.resolutionSummary = data.resolutionSummary || ticket.resolutionSummary;
+    updateData.resolutionBreached = ticket.resolutionDueAt ? new Date() > ticket.resolutionDueAt : false;
+  } else if (data.status === 'CLOSED') {
+    updateData.closedAt = new Date();
+  } else if (data.status === 'REOPENED') {
+    updateData.reopenedAt = new Date();
+    updateData.reopenCount = { increment: 1 };
+  }
+
+  const updatedTicket = await db.supportTicket.update({
+    where: { id: ticket.id },
+    data: updateData
+  });
+
+  await db.supportStatusHistory.create({
+    data: {
+      ticketId: ticket.id,
+      fromStatus: ticket.status,
+      toStatus: data.status,
+      changedByUserId: session.userId,
+      changedByName: session.name,
+      reason: data.reason || (data.status === 'RESOLVED' ? data.resolutionSummary : `Status changed to ${data.status}`)
+    }
+  });
+
+  await recordSupportAuditLog({
+    action: data.status === 'RESOLVED' ? 'SUPPORT_RESOLVED' : data.status === 'REOPENED' ? 'SUPPORT_REOPENED' : 'SUPPORT_STATUS_CHANGED',
+    resourceType: 'SupportTicket',
+    resourceId: ticket.id,
+    tenantId: ticket.tenantId,
+    userId: session.userId,
+    userName: session.name,
+    oldState: JSON.stringify({ status: ticket.status }),
+    newState: JSON.stringify({ status: data.status })
+  });
+
+  return updatedTicket;
+}
+
+export async function assignTicket(
+  ticketNumber: string,
+  data: {
+    agentId?: string;
+    agentName?: string;
+    agentEmail?: string;
+    teamId?: string;
+  },
+  session: {
+    userId: string;
+    name: string;
+    isPlatformAdmin?: boolean;
+  }
+) {
+  if (!session.isPlatformAdmin) {
+    throw AppError.forbidden('Only platform support staff can assign tickets.');
+  }
+
+  const ticket = await db.supportTicket.findUnique({ where: { ticketNumber } });
+  if (!ticket) throw AppError.notFound(`Ticket '${ticketNumber}' not found.`);
+
+  const updateData: any = {
+    assignedAgentId: data.agentId || null,
+    assignedAgentName: data.agentName || null,
+    assignedAgentEmail: data.agentEmail || null,
+    assignedTeamId: data.teamId || null,
+    status: data.agentId ? 'ASSIGNED' : ticket.status
+  };
+
+  const updated = await db.supportTicket.update({
+    where: { id: ticket.id },
+    data: updateData
+  });
+
+  await recordSupportAuditLog({
+    action: 'SUPPORT_TICKET_ASSIGNED',
+    resourceType: 'SupportTicket',
+    resourceId: ticket.id,
+    tenantId: ticket.tenantId,
+    userId: session.userId,
+    userName: session.name,
+    newState: JSON.stringify(updateData)
+  });
+
+  return updated;
+}
+
+export async function submitTicketCsat(
+  ticketNumber: string,
+  data: { rating: number; comment?: string },
+  session: { userId: string; tenantId: string }
+) {
+  const ticket = await db.supportTicket.findUnique({ where: { ticketNumber } });
+  if (!ticket) throw AppError.notFound(`Ticket '${ticketNumber}' not found.`);
+
+  if (ticket.tenantId !== session.tenantId) {
+    throw AppError.forbidden('You can only rate tickets from your own institution.');
+  }
+
+  const rating = Math.max(1, Math.min(5, Number(data.rating) || 5));
+
+  return db.supportCsat.upsert({
+    where: { ticketId: ticket.id },
+    create: {
+      ticketId: ticket.id,
+      userId: session.userId,
+      rating,
+      comment: data.comment || null
+    },
+    update: {
+      rating,
+      comment: data.comment || null,
+      submittedAt: new Date()
+    }
+  });
+}
+
+export async function getSupportAnalytics() {
+  const [
+    totalTickets,
+    openTickets,
+    unassignedTickets,
+    urgentTickets,
+    resolvedTickets,
+    csatStats
+  ] = await Promise.all([
+    db.supportTicket.count(),
+    db.supportTicket.count({ where: { status: { in: ['NEW', 'OPEN', 'ASSIGNED', 'IN_PROGRESS', 'CUSTOMER_REPLIED'] } } }),
+    db.supportTicket.count({ where: { assignedAgentId: null, status: { notIn: ['RESOLVED', 'CLOSED', 'CANCELLED'] } } }),
+    db.supportTicket.count({ where: { priority: { in: ['URGENT', 'CRITICAL'] }, status: { notIn: ['RESOLVED', 'CLOSED'] } } }),
+    db.supportTicket.count({ where: { status: { in: ['RESOLVED', 'CLOSED'] } } }),
+    db.supportCsat.aggregate({
+      _avg: { rating: true },
+      _count: { id: true }
+    })
+  ]);
+
+  return {
+    totalTickets,
+    openTickets,
+    unassignedTickets,
+    urgentTickets,
+    resolvedTickets,
+    averageCsat: csatStats._avg.rating ? Number(csatStats._avg.rating.toFixed(1)) : 5.0,
+    totalCsatResponses: csatStats._count.id
+  };
+}

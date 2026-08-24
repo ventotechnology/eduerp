@@ -6142,3 +6142,503 @@ model DataQualityIssue {
   @@index([institutionId])
   @@index([ruleId])
 }
+
+// ====================================================
+// COMMAND 11F: Client Success, Help, Training & Support
+// ====================================================
+
+model PlatformContactSettings {
+  id            String   @id @default("default")
+  companyName   String   @default("Vento Technology")
+  productName   String   @default("EduERP")
+  address       String   @default("House 2/B, Road 8, Nikunja-2, Khilkhet")
+  city          String   @default("Dhaka")
+  postalCode    String   @default("1229")
+  country       String   @default("Bangladesh")
+  generalEmail  String   @default("teamhimu@gmail.com")
+  supportEmail  String   @default("support@eduerp.us")
+  salesEmail    String   @default("sales@eduerp.us")
+  billingEmail  String   @default("billing@eduerp.us")
+  privacyEmail  String   @default("privacy@eduerp.us")
+  phone         String   @default("+8801335556688")
+  whatsapp      String   @default("+8801335556688")
+  businessHours String   @default("Sunday - Thursday, 9:00 AM - 6:00 PM BST")
+  timezone      String   @default("Asia/Dhaka")
+  facebookUrl   String?
+  linkedinUrl   String?
+  youtubeUrl    String?
+  websiteUrl    String   @default("https://eduerp.us")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model InquirySequence {
+  id            String   @id @default("inquiry_seq")
+  currentNumber Int      @default(0)
+  year          Int      @default(2026)
+  updatedAt     DateTime @updatedAt
+}
+
+model ContactInquiry {
+  id                String          @id @default(uuid())
+  inquiryNumber     String          @unique // INQ-2026-000001
+  fullName          String
+  institutionName   String
+  email             String
+  phone             String
+  whatsapp          String?
+  institutionType   InstitutionType @default(SCHOOL)
+  district          String?
+  country           String          @default("Bangladesh")
+  studentCount      Int?
+  campusCount       Int?
+  subject           String
+  category          String // "Product Demo", "Pricing", "Implementation", "Data Migration", "Training", "Technical Support", "Billing", "Partnership", "Custom Development", "Other"
+  preferredContact  String          @default("EMAIL") // "EMAIL", "PHONE", "WHATSAPP"
+  preferredDemoDate DateTime?
+  requirements      String?
+  status            String          @default("NEW") // "NEW", "CONTACTED", "QUALIFIED", "SCHEDULE_DEMO", "PROPOSAL_SENT", "CONVERTED_TO_TENANT", "CONVERTED_TO_TICKET", "CLOSED", "SPAM"
+  assignedToUserId  String?
+  assignedToName    String?
+  internalNotes     String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([inquiryNumber])
+  @@index([status])
+  @@index([email])
+  @@index([createdAt])
+}
+
+model KnowledgeCategory {
+  id           String             @id @default(uuid())
+  name         String
+  slug         String             @unique
+  description  String?
+  icon         String?
+  displayOrder Int                @default(0)
+  isPublished  Boolean            @default(true)
+  articles     KnowledgeArticle[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([slug])
+  @@index([displayOrder])
+}
+
+model KnowledgeArticle {
+  id               String            @id @default(uuid())
+  title            String
+  slug             String            @unique
+  summary          String
+  body             String
+  categoryId       String
+  category         KnowledgeCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  tags             String            @default("[]") // JSON string array of tags
+  relatedModule    String? // ADMISSION, SIS, ACADEMICS, ATTENDANCE, EXAM, LMS, FINANCE, HR, FACILITIES, HIFZ, UNIVERSITY, etc.
+  institutionTypes String            @default("[\"ALL\"]") // JSON string array of applicable InstitutionTypes
+  applicableRoles  String            @default("[\"ALL\"]") // JSON string array of applicable roles
+  language         String            @default("en") // en, bn, ar
+  visibility       String            @default("PUBLIC") // PUBLIC, AUTHENTICATED, TENANT_ADMIN, PLATFORM_STAFF, INTERNAL_SUPPORT
+  isFeatured       Boolean           @default(false)
+  isPublished      Boolean           @default(true)
+  version          String            @default("1.0")
+  authorName       String            @default("EduERP Product Team")
+  viewCount        Int               @default(0)
+  helpfulCount     Int               @default(0)
+  notHelpfulCount  Int               @default(0)
+  seoTitle         String?
+  seoDescription   String?
+  videoUrl         String?
+  publishedAt      DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([slug])
+  @@index([categoryId])
+  @@index([relatedModule])
+  @@index([visibility])
+  @@index([isPublished])
+}
+
+model FaqCategory {
+  id           String    @id @default(uuid())
+  name         String
+  slug         String    @unique
+  displayOrder Int       @default(0)
+  faqs         FaqItem[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([slug])
+}
+
+model FaqItem {
+  id              String      @id @default(uuid())
+  categoryId      String
+  category        FaqCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  question        String
+  answer          String
+  relatedModule   String?
+  displayOrder    Int         @default(0)
+  isPublished     Boolean     @default(true)
+  helpfulCount    Int         @default(0)
+  notHelpfulCount Int         @default(0)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([categoryId])
+  @@index([relatedModule])
+}
+
+model ReleaseNote {
+  id           String   @id @default(uuid())
+  version      String   @unique // e.g. "v1.1.0"
+  title        String
+  slug         String   @unique
+  releaseDate  DateTime @default(now())
+  summary      String
+  newFeatures  String? // JSON array or markdown
+  improvements String? // JSON array or markdown
+  bugFixes     String? // JSON array or markdown
+  knownIssues  String? // JSON array or markdown
+  isPublished  Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([version])
+  @@index([slug])
+}
+
+model TrainingCourse {
+  id                 String                @id @default(uuid())
+  title              String
+  slug               String                @unique
+  description        String
+  audience           String // "Platform Administrator", "Principal", "Teacher", "Finance Officer", etc.
+  targetRole         String // "SUPER_ADMIN", "PRINCIPAL", "TEACHER", "ACCOUNTANT", "ALL", etc.
+  institutionType    InstitutionType?
+  difficulty         String                @default("BEGINNER") // BEGINNER, INTERMEDIATE, ADVANCED
+  durationMinutes    Int                   @default(60)
+  language           String                @default("en")
+  thumbnailUrl       String?
+  isPublished        Boolean               @default(true)
+  isFeatured         Boolean               @default(false)
+  certificateEnabled Boolean               @default(true)
+  passingScore       Int                   @default(80)
+  displayOrder       Int                   @default(0)
+  modules            TrainingModule[]
+  enrollments        TrainingEnrollment[]
+  certificates       TrainingCertificate[]
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  @@index([slug])
+  @@index([targetRole])
+}
+
+model TrainingModule {
+  id           String           @id @default(uuid())
+  courseId     String
+  course       TrainingCourse   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?
+  displayOrder Int              @default(0)
+  lessons      TrainingLesson[]
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([courseId])
+  @@index([displayOrder])
+}
+
+model TrainingLesson {
+  id              String             @id @default(uuid())
+  moduleId        String
+  module          TrainingModule     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  title           String
+  slug            String
+  lessonType      String             @default("ARTICLE") // ARTICLE, VIDEO, DOCUMENT, CHECKLIST, QUIZ, EXTERNAL_LINK, LIVE_SESSION
+  content         String // Markdown / structured text
+  videoUrl        String? // null = "VIDEO TUTORIAL COMING SOON"
+  durationMinutes Int                @default(10)
+  displayOrder    Int                @default(0)
+  isOptional      Boolean            @default(false)
+  quiz            TrainingQuiz?
+  progress        TrainingProgress[]
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([moduleId])
+  @@index([displayOrder])
+}
+
+model TrainingQuiz {
+  id           String                 @id @default(uuid())
+  lessonId     String                 @unique
+  lesson       TrainingLesson         @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  title        String
+  passingScore Int                    @default(80)
+  questions    TrainingQuizQuestion[]
+  attempts     TrainingAttempt[]
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+}
+
+model TrainingQuizQuestion {
+  id              String       @id @default(uuid())
+  quizId          String
+  quiz            TrainingQuiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  question        String
+  optionsJson     String // JSON array of options [{ id, text }]
+  correctOptionId String
+  explanation     String?
+  displayOrder    Int          @default(0)
+
+  @@index([quizId])
+}
+
+model TrainingEnrollment {
+  id              String             @id @default(uuid())
+  courseId        String
+  course          TrainingCourse     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  userId          String
+  userEmail       String
+  userName        String
+  tenantId        String?
+  status          String             @default("ENROLLED") // ENROLLED, IN_PROGRESS, COMPLETED
+  progressPercent Float              @default(0)
+  completedAt     DateTime?
+  progressRecords TrainingProgress[]
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@unique([courseId, userId])
+  @@index([userId])
+  @@index([tenantId])
+}
+
+model TrainingProgress {
+  id           String             @id @default(uuid())
+  enrollmentId String
+  enrollment   TrainingEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  lessonId     String
+  lesson       TrainingLesson     @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  userId       String
+  isCompleted  Boolean            @default(false)
+  completedAt  DateTime?
+
+  @@unique([enrollmentId, lessonId])
+  @@index([userId])
+}
+
+model TrainingAttempt {
+  id          String       @id @default(uuid())
+  quizId      String
+  quiz        TrainingQuiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  userId      String
+  score       Float
+  passed      Boolean
+  answersJson String
+  attemptedAt DateTime     @default(now())
+
+  @@index([quizId])
+  @@index([userId])
+}
+
+model TrainingCertificate {
+  id                String         @id @default(uuid())
+  certificateNumber String         @unique // CERT-TRN-2026-000001
+  courseId          String
+  course            TrainingCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  userId            String
+  userName          String
+  userEmail         String
+  institutionName   String?
+  score             Float?
+  issuedAt          DateTime       @default(now())
+  verificationUrl   String
+
+  @@index([certificateNumber])
+  @@index([userId])
+  @@index([courseId])
+}
+
+model SupportSequence {
+  id            String   @id @default("ticket_seq")
+  currentNumber Int      @default(0)
+  year          Int      @default(2026)
+  updatedAt     DateTime @updatedAt
+}
+
+model SupportCategory {
+  id              String   @id @default(uuid())
+  name            String
+  code            String   @unique
+  description     String?
+  defaultPriority String   @default("NORMAL")
+  displayOrder    Int      @default(0)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([code])
+}
+
+model SupportTeam {
+  id          String              @id @default(uuid())
+  name        String // Technical Support, Implementation, Training, Billing, Data Migration, Product, Integrations
+  code        String              @unique
+  description String?
+  isActive    Boolean             @default(true)
+  members     SupportTeamMember[]
+  tickets     SupportTicket[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@index([code])
+}
+
+model SupportTeamMember {
+  id        String      @id @default(uuid())
+  teamId    String
+  team      SupportTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId    String
+  userName  String
+  userEmail String
+  role      String      @default("AGENT") // LEAD, AGENT
+  createdAt DateTime    @default(now())
+
+  @@unique([teamId, userId])
+  @@index([userId])
+}
+
+model SupportSlaPolicy {
+  id                         String   @id @default(uuid())
+  name                       String
+  priority                   String   @unique // LOW, NORMAL, HIGH, URGENT, CRITICAL
+  firstResponseTargetMinutes Int // e.g. 480 (8 hrs), 240 (4 hrs), 120 (2 hrs), 60 (1 hr)
+  resolutionTargetMinutes    Int // e.g. 2880 (48 hrs), 1440 (24 hrs), 720 (12 hrs), 240 (4 hrs)
+  businessHoursOnly          Boolean  @default(true)
+  isActive                   Boolean  @default(true)
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  @@index([priority])
+}
+
+model SupportTicket {
+  id                    String                    @id @default(uuid())
+  ticketNumber          String                    @unique // TKT-2026-000001
+  tenantId              String
+  institutionId         String?
+  creatorUserId         String
+  creatorName           String
+  creatorEmail          String
+  creatorRole           String
+  subject               String
+  categoryCode          String
+  relatedModule         String? // LOGIN, ADMISSION, SIS, ACADEMICS, ATTENDANCE, EXAM, LMS, FINANCE, HR, FACILITIES, etc.
+  priority              String                    @default("NORMAL") // LOW, NORMAL, HIGH, URGENT, CRITICAL
+  status                String                    @default("NEW") // NEW, OPEN, ASSIGNED, IN_PROGRESS, WAITING_FOR_CUSTOMER, CUSTOMER_REPLIED, ESCALATED, RESOLVED, CLOSED, REOPENED, CANCELLED
+  description           String
+  businessImpact        String?
+  affectedUrl           String?
+  preferredContact      String                    @default("IN_APP") // IN_APP, EMAIL, PHONE, WHATSAPP
+  assignedTeamId        String?
+  assignedTeam          SupportTeam?              @relation(fields: [assignedTeamId], references: [id])
+  assignedAgentId       String?
+  assignedAgentName     String?
+  assignedAgentEmail    String?
+  firstResponseAt       DateTime?
+  firstResponseDueAt    DateTime?
+  firstResponseBreached Boolean                   @default(false)
+  resolutionDueAt       DateTime?
+  resolutionBreached    Boolean                   @default(false)
+  resolvedAt            DateTime?
+  resolutionSummary     String?
+  closedAt              DateTime?
+  reopenedAt            DateTime?
+  reopenCount           Int                       @default(0)
+  isEscalated           Boolean                   @default(false)
+  escalatedAt           DateTime?
+  escalationReason      String?
+  messages              SupportTicketMessage[]
+  attachments           SupportTicketAttachment[]
+  statusHistory         SupportStatusHistory[]
+  csat                  SupportCsat?
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+
+  @@index([ticketNumber])
+  @@index([tenantId])
+  @@index([creatorUserId])
+  @@index([status])
+  @@index([priority])
+  @@index([assignedAgentId])
+  @@index([assignedTeamId])
+  @@index([createdAt])
+}
+
+model SupportTicketMessage {
+  id           String                    @id @default(uuid())
+  ticketId     String
+  ticket       SupportTicket             @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  senderUserId String
+  senderName   String
+  senderEmail  String
+  senderRole   String
+  senderType   String // CUSTOMER, SUPPORT_AGENT, SYSTEM
+  message      String
+  visibility   String                    @default("PUBLIC_REPLY") // PUBLIC_REPLY, INTERNAL_NOTE
+  attachments  SupportTicketAttachment[]
+  createdAt    DateTime                  @default(now())
+  editedAt     DateTime?
+
+  @@index([ticketId])
+  @@index([visibility])
+  @@index([createdAt])
+}
+
+model SupportTicketAttachment {
+  id               String                @id @default(uuid())
+  ticketId         String
+  ticket           SupportTicket         @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  messageId        String?
+  message          SupportTicketMessage? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  fileName         String
+  fileSize         Int
+  mimeType         String
+  filePath         String
+  uploadedByUserId String
+  createdAt        DateTime              @default(now())
+
+  @@index([ticketId])
+  @@index([messageId])
+}
+
+model SupportStatusHistory {
+  id              String        @id @default(uuid())
+  ticketId        String
+  ticket          SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  fromStatus      String
+  toStatus        String
+  changedByUserId String
+  changedByName   String
+  reason          String?
+  changedAt       DateTime      @default(now())
+
+  @@index([ticketId])
+}
+
+model SupportCsat {
+  id          String        @id @default(uuid())
+  ticketId    String        @unique
+  ticket      SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  userId      String
+  rating      Int // 1 to 5
+  comment     String?
+  submittedAt DateTime      @default(now())
+
+  @@index([rating])
+}

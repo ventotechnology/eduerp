@@ -22,7 +22,14 @@ import {
   Menu,
   X,
   Server,
-  Plus
+  Plus,
+  Headphones,
+  MessageSquare,
+  BookOpen,
+  HelpCircle,
+  Sparkles,
+  Phone,
+  Clock
 } from 'lucide-react';
 
 interface NavItem {
@@ -32,18 +39,50 @@ interface NavItem {
   badge?: string;
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { label: 'Overview', href: '/super-admin', icon: LayoutDashboard },
-  { label: 'Institutions', href: '/super-admin/institutions', icon: Building2 },
-  { label: 'Subscriptions', href: '/super-admin/subscriptions', icon: CreditCard },
-  { label: 'Plans & Pricing', href: '/super-admin/plans', icon: Tag },
-  { label: 'Orders & Revenue', href: '/super-admin/orders', icon: ShoppingBag },
-  { label: 'Payment Gateways', href: '/super-admin/gateways', icon: Zap },
-  { label: 'Platform Users', href: '/super-admin/users', icon: Users },
-  { label: 'Demo & Client Vault', href: '/super-admin/demo-credentials', icon: KeyRound },
-  { label: 'Platform Settings', href: '/super-admin/settings', icon: Settings },
-  { label: 'Audit Logs', href: '/super-admin/audit', icon: FileText },
-  { label: 'System Health', href: '/super-admin/health', icon: Activity },
+interface NavGroup {
+  title?: string;
+  items: NavItem[];
+}
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    items: [
+      { label: 'Overview', href: '/super-admin', icon: LayoutDashboard }
+    ]
+  },
+  {
+    title: 'Commercial & Tenants',
+    items: [
+      { label: 'Institutions', href: '/super-admin/institutions', icon: Building2 },
+      { label: 'Subscriptions', href: '/super-admin/subscriptions', icon: CreditCard },
+      { label: 'Plans & Pricing', href: '/super-admin/plans', icon: Tag },
+      { label: 'Orders & Revenue', href: '/super-admin/orders', icon: ShoppingBag },
+      { label: 'Payment Gateways', href: '/super-admin/gateways', icon: Zap }
+    ]
+  },
+  {
+    title: 'Client Success & Support',
+    items: [
+      { label: 'Support Desk', href: '/super-admin/support', icon: Headphones },
+      { label: 'Ticket Queue', href: '/super-admin/support/tickets', icon: FileText },
+      { label: 'Sales Inquiries', href: '/super-admin/inquiries', icon: MessageSquare },
+      { label: 'Knowledge Base', href: '/super-admin/knowledge', icon: BookOpen },
+      { label: 'FAQs CMS', href: '/super-admin/faqs', icon: HelpCircle },
+      { label: 'Release Notes', href: '/super-admin/releases', icon: Sparkles }
+    ]
+  },
+  {
+    title: 'Platform & Controls',
+    items: [
+      { label: 'Platform Users', href: '/super-admin/users', icon: Users },
+      { label: 'Contact Settings', href: '/super-admin/contact-settings', icon: Phone },
+      { label: 'SLA Policies', href: '/super-admin/sla', icon: Clock },
+      { label: 'Demo Vault', href: '/super-admin/demo-credentials', icon: KeyRound },
+      { label: 'Platform Settings', href: '/super-admin/settings', icon: Settings },
+      { label: 'Audit Logs', href: '/super-admin/audit', icon: FileText },
+      { label: 'System Health', href: '/super-admin/health', icon: Activity }
+    ]
+  }
 ];
 
 export default function SuperAdminLayout({
@@ -137,33 +176,44 @@ export default function SuperAdminLayout({
           </div>
 
           {/* Navigation Links */}
-          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-            {NAV_ITEMS.map((item) => {
-              const Icon = item.icon;
-              const isActive = pathname === item.href || (item.href !== '/super-admin' && pathname.startsWith(item.href));
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setSidebarOpen(false)}
-                  className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition ${
-                    isActive
-                      ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                      : 'text-slate-400 hover:bg-slate-800/80 hover:text-slate-200'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-400' : 'text-slate-400'}`} />
-                    <span>{item.label}</span>
-                  </div>
-                  {item.badge && (
-                    <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-emerald-500/20 text-emerald-300">
-                      {item.badge}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
+          <nav className="flex-1 px-3 py-4 space-y-4 overflow-y-auto">
+            {NAV_GROUPS.map((group, gIdx) => (
+              <div key={gIdx} className="space-y-1">
+                {group.title && (
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-3 py-1 block">
+                    {group.title}
+                  </span>
+                )}
+                <div className="space-y-0.5">
+                  {group.items.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = pathname === item.href || (item.href !== '/super-admin' && pathname.startsWith(item.href));
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setSidebarOpen(false)}
+                        className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition ${
+                          isActive
+                            ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                            : 'text-slate-400 hover:bg-slate-800/80 hover:text-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-400' : 'text-slate-400'}`} />
+                          <span>{item.label}</span>
+                        </div>
+                        {item.badge && (
+                          <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-emerald-500/20 text-emerald-300">
+                            {item.badge}
+                          </span>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </nav>
 
           {/* User Identity & Logout */}
