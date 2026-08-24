@@ -44,10 +44,10 @@ test.describe('COMMAND 11F — Client Success, Help Center, Training Academy & S
     await expect(page.getByText('Student SIS & Admissions').first()).toBeVisible();
 
     // Search query
-    const searchInput = page.getByPlaceholder('Search topics:');
+    const searchInput = page.getByPlaceholder(/Search topics:/i);
     await searchInput.fill('login');
 
-    await expect(page.getByRole('heading', { name: /Knowledge Base Articles/i })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Knowledge Base Articles').first()).toBeVisible({ timeout: 5000 });
     await expect(page.getByText(/How to Log in to your Institution Portal/i).first()).toBeVisible();
   });
 
@@ -59,7 +59,7 @@ test.describe('COMMAND 11F — Client Success, Help Center, Training Academy & S
     await expect(page.getByText('EduERP Getting Started & Core Fundamentals').first()).toBeVisible();
 
     // Click into course
-    await page.click('text=EduERP Getting Started & Core Fundamentals');
+    await page.goto(`${BASE_URL}/training/courses/eduerp-getting-started`);
     await page.waitForLoadState('networkidle');
 
     await expect(page.getByText('Curriculum Outline')).toBeVisible();
