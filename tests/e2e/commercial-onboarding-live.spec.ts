@@ -76,7 +76,7 @@ test.describe('Command 12 — Commercial Onboarding, Pricing & Entitlements Live
     // Check dashboard or onboarding wizard loaded
     await page.waitForLoadState('networkidle');
     const pageText = await page.textContent('body');
-    expect(pageText.length).toBeGreaterThan(100);
-    expect(pageText).toMatch(/Pilot|EduERP|Dashboard|Academic|Overview/i);
+    expect((pageText || '').length).toBeGreaterThan(100);
+    expect(pageText || '').toMatch(/Pilot|EduERP|Dashboard|Academic|Overview/i);
   });
 });

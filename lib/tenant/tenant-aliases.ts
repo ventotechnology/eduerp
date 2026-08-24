@@ -42,6 +42,9 @@ export const TENANT_SLUG_ALIASES: Record<string, string> = {
   // 8. Training (National Institute of Professional Training)
   'nipt': 'demo-training',
   'national-institute-of-professional-training': 'demo-training',
+
+  // 9. Real Customer Institutions
+  'sita': 'scholars-international-tahfiz-academy',
 };
 
 /**
