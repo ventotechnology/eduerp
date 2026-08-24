@@ -937,13 +937,13 @@ export async function provisionQAUsers(options: { rotatePasswords?: boolean } = 
     envLines.push(`E2E_ACCOUNTANT_PASSWORD="${accountant.password}"`);
   }
 
-  const hr = findCred('demo-school', 'HR_ADMIN');
+  const hr = findCred('demo-school', 'HR_MANAGER') || findCred('demo-school', 'HR_ADMIN');
   if (hr) {
     envLines.push(`E2E_HR_EMAIL="${hr.email}"`);
     envLines.push(`E2E_HR_PASSWORD="${hr.password}"`);
   }
 
-  const exam = findCred('demo-school', 'EXAM_CONTROLLER');
+  const exam = findCred('demo-school', 'COORDINATOR') || findCred('demo-school', 'VICE_PRINCIPAL') || principal;
   if (exam) {
     envLines.push(`E2E_EXAM_EMAIL="${exam.email}"`);
     envLines.push(`E2E_EXAM_PASSWORD="${exam.password}"`);
