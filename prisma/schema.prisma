@@ -421,6 +421,7 @@ model Institution {
   assets                    AssetRecord[]
   admissionApplications     AdmissionApplication[]
   admissionTests            AdmissionTest[]
+  admissionSetting          AdmissionSetting?
   exams                     Exam[]
   assessmentComponents      AssessmentComponent[]
   markDistributionTemplates MarkDistributionTemplate[]
@@ -519,6 +520,7 @@ model Campus {
   createdAt     DateTime    @default(now())
 
   students              Student[]
+  enrollments           Enrollment[]
   employees             Employee[]
   classrooms            Classroom[]
   buildings             Building[]
@@ -673,6 +675,7 @@ model AcademicYear {
 
   sessions              Session[]
   admissionApplications AdmissionApplication[]
+  admissionSettings     AdmissionSetting[]
   teacherAssignments    TeacherAssignment[]
   timetableEntries      TimetableEntry[]
   enrollments           Enrollment[]
@@ -721,7 +724,9 @@ model Shift {
   isActive        Boolean     @default(true)
   createdAt       DateTime    @default(now())
 
-  periods Period[]
+  periods               Period[]
+  admissionApplications AdmissionApplication[]
+  enrollments           Enrollment[]
 
   @@unique([institutionId, code])
   @@index([institutionId])
@@ -736,7 +741,8 @@ model AcademicGroup {
   description   String?
   createdAt     DateTime    @default(now())
 
-  combinations SubjectCombinationTemplate[]
+  combinations          SubjectCombinationTemplate[]
+  admissionApplications AdmissionApplication[]
 
   @@unique([institutionId, code])
   @@index([institutionId])
@@ -755,6 +761,8 @@ model SubjectCombinationTemplate {
   fourthSubjectChoices   String // JSON array
   practicalSubjectCodes  String? // JSON array
   createdAt              DateTime      @default(now())
+
+  admissionApplications AdmissionApplication[]
 
   @@unique([institutionId, code])
   @@index([institutionId])
@@ -831,12 +839,14 @@ model Program {
 }
 
 model Batch {
-  id        String    @id @default(uuid())
-  programId String
-  program   Program   @relation(fields: [programId], references: [id], onDelete: Cascade)
-  name      String // "Batch 2026", "HSC 2026"
-  year      Int
-  students  Student[]
+  id                    String                 @id @default(uuid())
+  programId             String
+  program               Program                @relation(fields: [programId], references: [id], onDelete: Cascade)
+  name                  String // "Batch 2026", "HSC 2026"
+  year                  Int
+  students              Student[]
+  admissionApplications AdmissionApplication[]
+  enrollments           Enrollment[]
 
   @@index([programId])
 }
@@ -920,12 +930,13 @@ model Section {
   roomNumber String?
   capacity   Int     @default(40)
 
-  students           Student[]
-  routines           TimetableEntry[]
-  attendanceSessions AttendanceSession[]
-  teacherAssignments TeacherAssignment[]
-  examSchedules      ExamSchedule[]
-  enrollments        Enrollment[]
+  students              Student[]
+  routines              TimetableEntry[]
+  attendanceSessions    AttendanceSession[]
+  teacherAssignments    TeacherAssignment[]
+  examSchedules         ExamSchedule[]
+  enrollments           Enrollment[]
+  admissionApplications AdmissionApplication[]
 
   @@index([classId])
 }
@@ -1151,6 +1162,34 @@ model StudentGuardian {
 // 6. Admission Engine & Online Testing
 // ----------------------------------------------------
 
+model AdmissionSetting {
+  id                      String        @id @default(uuid())
+  institutionId           String        @unique
+  institution             Institution   @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  isOnlineAdmissionOpen   Boolean       @default(true)
+  applicationStartDate    DateTime?
+  applicationEndDate      DateTime?
+  academicYearId          String?
+  academicYear            AcademicYear? @relation(fields: [academicYearId], references: [id])
+  applicationFee          Float         @default(0)
+  admissionFeeDefault     Float         @default(0)
+  isTestRequired          Boolean       @default(false)
+  isInterviewRequired     Boolean       @default(false)
+  autoMeritCalculation    Boolean       @default(true)
+  testWeight              Float         @default(50) // %
+  previousResultWeight    Float         @default(30) // %
+  interviewWeight         Float         @default(20) // %
+  maxCapacityPerClass     Int           @default(40)
+  allowPortalUserCreation Boolean       @default(true)
+  instructionsText        String?
+  requiredDocumentsJson   String? // JSON array of required doc names
+  applicationNumberPrefix String        @default("APP")
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+
+  @@index([institutionId])
+}
+
 model AdmissionApplication {
   id             String       @id @default(uuid())
   institutionId  String
@@ -1160,35 +1199,72 @@ model AdmissionApplication {
   academicYearId String
   academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
 
-  applicationNumber String   @unique // e.g. "APP-2026-0001"
-  firstName         String
-  lastName          String
-  dateOfBirth       DateTime
-  gender            String
-  bloodGroup        String?
-  religion          String?
-  phone             String
-  email             String?
-  presentAddress    String
-  permanentAddress  String
+  applicationNumber  String   @unique // e.g. "APP-2026-0001"
+  firstName          String
+  middleName         String?
+  lastName           String
+  photoUrl           String?
+  dateOfBirth        DateTime
+  gender             String
+  bloodGroup         String?
+  religion           String?
+  nationality        String   @default("Bangladeshi")
+  nidBirthCertNumber String?
+  phone              String
+  email              String?
+  presentAddress     String
+  permanentAddress   String
 
-  desiredClassId   String?
-  desiredClass     Class?   @relation(fields: [desiredClassId], references: [id])
-  desiredProgramId String?
-  desiredProgram   Program? @relation(fields: [desiredProgramId], references: [id])
+  // Academic Placement Targets
+  desiredClassId       String?
+  desiredClass         Class?                      @relation(fields: [desiredClassId], references: [id])
+  desiredProgramId     String?
+  desiredProgram       Program?                    @relation(fields: [desiredProgramId], references: [id])
+  shiftId              String?
+  shift                Shift?                      @relation(fields: [shiftId], references: [id])
+  sectionId            String?
+  section              Section?                    @relation(fields: [sectionId], references: [id])
+  academicGroupId      String?
+  academicGroup        AcademicGroup?              @relation(fields: [academicGroupId], references: [id])
+  subjectCombinationId String?
+  subjectCombination   SubjectCombinationTemplate? @relation(fields: [subjectCombinationId], references: [id])
+  technologyTradeId    String?
+  technologyTrade      TechnologyTrade?            @relation(fields: [technologyTradeId], references: [id])
+  batchId              String?
+  batch                Batch?                      @relation(fields: [batchId], references: [id])
+  hifzProgram          Boolean                     @default(false)
 
+  // Guardian Information
   guardianName       String
   guardianPhone      String
   guardianRelation   String  @default("Father")
   guardianOccupation String?
+  fatherName         String?
+  fatherPhone        String?
+  fatherProfession   String?
+  motherName         String?
+  motherPhone        String?
+  motherProfession   String?
 
+  // Previous Education & Documents
   previousSchool String?
+  previousClass  String?
   previousGpa    Float?
+  documentsJson  String? // Stored JSON array of document objects
 
-  status               String @default("SUBMITTED") // DRAFT, SUBMITTED, UNDER_REVIEW, VERIFIED, TEST_ELIGIBLE, TESTED, INTERVIEW, SELECTED, WAITLISTED, REJECTED, ADMITTED
-  applicationFeeStatus String @default("PENDING") // PENDING, PAID
+  // Status & Lifecycle
+  status               String    @default("SUBMITTED") // DRAFT, SUBMITTED, UNDER_REVIEW, VERIFIED, TEST_ELIGIBLE, TESTED, INTERVIEW, SELECTED, WAITLISTED, REJECTED, ADMITTED
+  applicationFeeStatus String    @default("PENDING") // NOT_REQUIRED, PENDING, PAID
+  applicationFeeAmount Float?
+  admissionFeeStatus   String    @default("PENDING") // NOT_REQUIRED, PENDING, PAID, WAIVED
+  admissionFeeAmount   Float?
+  waiverPercentage     Float?
   testScore            Float?
+  interviewScore       Float?
+  interviewNotes       String?
+  interviewDate        DateTime?
   meritRank            Int?
+  admittedStudentId    String?
 
   testAttempts AdmissionTestAttempt[]
   createdAt    DateTime               @default(now())
@@ -1234,6 +1310,8 @@ model Enrollment {
   id             String        @id @default(uuid())
   studentId      String
   student        Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  campusId       String?
+  campus         Campus?       @relation(fields: [campusId], references: [id])
   sessionId      String?
   session        Session?      @relation(fields: [sessionId], references: [id])
   academicYearId String?
@@ -1242,14 +1320,23 @@ model Enrollment {
   class          Class?        @relation(fields: [classId], references: [id])
   sectionId      String?
   section        Section?      @relation(fields: [sectionId], references: [id])
+  shiftId        String?
+  shift          Shift?        @relation(fields: [shiftId], references: [id])
+  batchId        String?
+  batch          Batch?        @relation(fields: [batchId], references: [id])
   rollNumber     String?
   status         String        @default("ACTIVE") // ACTIVE, COMPLETED, PROMOTED, REPEATED, DROPPED
   enrollmentDate DateTime      @default(now())
   academicStatus String        @default("REGULAR")
+  hifzEnrolled   Boolean       @default(false)
+  hifzProgram    String?
+  remarks        String?
 
   @@index([studentId])
   @@index([sessionId])
   @@index([academicYearId])
+  @@index([campusId])
+  @@index([classId])
 }
 
 model CourseRegistration {
@@ -2396,14 +2483,15 @@ model TimetableEntry {
 }
 
 model TechnologyTrade {
-  id                String      @id @default(uuid())
-  institutionId     String
-  institution       Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
-  name              String // "Computer Technology", "Electrical Technology"
-  code              String // CMT, ET, CT
-  btebCode          String? // "685"
-  durationSemesters Int         @default(8)
-  description       String?
+  id                    String                 @id @default(uuid())
+  institutionId         String
+  institution           Institution            @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  name                  String // "Computer Technology", "Electrical Technology"
+  code                  String // CMT, ET, CT
+  btebCode              String? // "685"
+  durationSemesters     Int                    @default(8)
+  description           String?
+  admissionApplications AdmissionApplication[]
 
   @@unique([institutionId, code])
   @@index([institutionId])

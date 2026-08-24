@@ -83,3 +83,38 @@ export async function getStudentHifzHistory(tenantIdentifier: string, studentId:
     orderBy: { date: 'desc' }
   });
 }
+
+/**
+ * Retrieves all students enrolled in Hifz or having records in this institution.
+ */
+export async function getTenantHifzStudents(tenantIdentifier: string) {
+  const tenant = await requireTenant(tenantIdentifier);
+
+  const students = await db.student.findMany({
+    where: {
+      campus: { institutionId: tenant.institutionId },
+      OR: [
+        { enrollments: { some: { hifzEnrolled: true, status: 'ACTIVE' } } },
+        { hifzRecords: { some: {} } }
+      ]
+    },
+    include: {
+      campus: true,
+      section: {
+        include: { class: true }
+      },
+      enrollments: {
+        where: { status: 'ACTIVE' },
+        include: { class: true, section: true }
+      },
+      hifzRecords: {
+        take: 1,
+        orderBy: { date: 'desc' }
+      }
+    },
+    orderBy: { firstName: 'asc' }
+  });
+
+  return students;
+}
+

@@ -53,39 +53,85 @@ export function requireTenantUser(session: SessionUser, targetTenantId: string):
   }
 }
 
+export interface ResolvedTenantContext {
+  tenantId: string;
+  institutionId: string;
+  tenantSlug: string;
+  name: string;
+  institutionType: string;
+  subscriptionTier?: string;
+}
+
 /**
- * Creates a tenant-scoped query wrapper that guarantees tenant boundary conditions.
+ * Standardized tenant context resolver for APIs and server actions.
+ * - Authenticated: Uses session.tenantId authoritatively (or allows platform admins to target any tenant).
+ * - Public: Safely resolves the active tenant by slug.
  */
-export function createTenantDb(tenantId: string) {
-  return {
-    tenantId,
-    students: {
-      findMany: (args: any = {}) =>
-        db.student.findMany({
-          ...args,
-          where: {
-            ...args.where,
-            campus: { institution: { tenantId } }
-          }
-        }),
-      findUnique: (args: any) =>
-        db.student.findFirst({
-          ...args,
-          where: {
-            ...args.where,
-            campus: { institution: { tenantId } }
-          }
-        })
-    },
-    invoices: {
-      findMany: (args: any = {}) =>
-        db.invoice.findMany({
-          ...args,
-          where: {
-            ...args.where,
-            student: { campus: { institution: { tenantId } } }
-          }
-        })
+export async function resolveTenantContext(options: {
+  session?: SessionUser | null;
+  tenantSlug?: string | null;
+  tenantId?: string | null;
+  isPublic?: boolean;
+}): Promise<ResolvedTenantContext> {
+  const { session, tenantSlug, tenantId, isPublic } = options;
+
+  // 1. Authenticated session flow
+  if (session && !isPublic) {
+    if (session.isPlatformAdmin) {
+      const identifier = tenantId || tenantSlug || session.tenantId;
+      if (!identifier) {
+        throw new Error('VALIDATION_ERROR: Tenant identifier is required for platform administrators.');
+      }
+      const tenant = await requireTenant(identifier);
+      return {
+        tenantId: tenant.tenantId,
+        institutionId: tenant.institutionId,
+        tenantSlug: tenant.slug,
+        name: tenant.name,
+        institutionType: tenant.institutionType,
+        subscriptionTier: tenant.subscriptionTier
+      };
     }
+
+    if (!session.tenantId) {
+      throw new Error('UNAUTHENTICATED: User session has no associated institution tenant.');
+    }
+
+    const tenant = await requireTenant(session.tenantId);
+
+    // If client supplied a tenantSlug, verify it matches the user's institution slug
+    if (tenantSlug && tenantSlug !== tenant.slug) {
+      throw new Error('FORBIDDEN: Cross-tenant access is strictly prohibited.');
+    }
+    // If client supplied a tenantId, verify it matches either ID or slug
+    if (tenantId && tenantId !== tenant.tenantId && tenantId !== tenant.slug) {
+      throw new Error('FORBIDDEN: Cross-tenant access is strictly prohibited.');
+    }
+
+    return {
+      tenantId: tenant.tenantId,
+      institutionId: tenant.institutionId,
+      tenantSlug: tenant.slug,
+      name: tenant.name,
+      institutionType: tenant.institutionType,
+      subscriptionTier: tenant.subscriptionTier
+    };
+  }
+
+  // 2. Public flow (e.g. /apply/[tenantSlug] or public websites)
+  const identifier = tenantSlug || tenantId;
+  if (!identifier) {
+    throw new Error('NOT_FOUND: Educational institution tenant identifier is required.');
+  }
+
+  const tenant = await requireTenant(identifier);
+  return {
+    tenantId: tenant.tenantId,
+    institutionId: tenant.institutionId,
+    tenantSlug: tenant.slug,
+    name: tenant.name,
+    institutionType: tenant.institutionType,
+    subscriptionTier: tenant.subscriptionTier
   };
 }
+

@@ -74,12 +74,12 @@ export default function TenantPublicWebsitePage() {
 
         <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
           <Link
-            href={`/${tenant.shortName.toLowerCase()}/admission`}
-            className="px-6 py-3 rounded-xl font-bold text-xs text-white shadow-lg flex items-center gap-2"
+            href={`/apply/${slug}`}
+            className="px-6 py-3 rounded-xl font-bold text-xs text-white shadow-lg flex items-center gap-2 hover:opacity-90 transition-opacity"
             style={{ backgroundColor: tenant.primaryColor }}
           >
             <Compass className="w-4 h-4" />
-            <span>Apply for Online Admission 2026</span>
+            <span>Apply Online for Admission</span>
           </Link>
           <Link
             href="/results"

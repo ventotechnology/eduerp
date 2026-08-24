@@ -39,11 +39,19 @@ export default function HifzTrackerPage() {
 
   const fetchStudents = async () => {
     try {
-      const res = await fetch(`/api/students?tenantId=${tenantSlug}`);
+      const res = await fetch(`/api/hifz?tenantSlug=${tenantSlug}`);
       const data = await res.json();
-      if (data.success && data.data?.students?.length > 0) {
-        setStudents(data.data.students);
-        setSelectedStudentId(data.data.students[0].id);
+      if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+        setStudents(data.data);
+        setSelectedStudentId(data.data[0].id);
+      } else {
+        // Fallback to all students if none explicitly tagged
+        const stuRes = await fetch(`/api/students?tenantSlug=${tenantSlug}`);
+        const stuData = await stuRes.json();
+        if (stuData.success && stuData.data?.students?.length > 0) {
+          setStudents(stuData.data.students);
+          setSelectedStudentId(stuData.data.students[0].id);
+        }
       }
     } catch {
       // Fallback
@@ -55,7 +63,7 @@ export default function HifzTrackerPage() {
   const fetchHifzHistory = async (studentId: string) => {
     if (!studentId) return;
     try {
-      const res = await fetch(`/api/hifz?tenantId=${tenantSlug}&studentId=${studentId}`);
+      const res = await fetch(`/api/hifz?tenantSlug=${tenantSlug}&studentId=${studentId}`);
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) {
         setHistory(data.data);
@@ -86,7 +94,7 @@ export default function HifzTrackerPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tenantId: tenantSlug,
+          tenantSlug,
           studentId: selectedStudentId,
           date: new Date().toISOString().split('T')[0],
           sabakPara: Number(sabakPara),

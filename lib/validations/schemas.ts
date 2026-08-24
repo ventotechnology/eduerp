@@ -5,37 +5,65 @@ import { z } from 'zod';
 // ==========================================
 export const StudentCreateSchema = z.object({
   campusId: z.string().min(1, 'Campus is required'),
-  studentIdNumber: z.string().min(1, 'Student ID number is required'),
-  admissionNumber: z.string().min(1, 'Admission number is required'),
-  rollNumber: z.string().optional(),
-  registrationNumber: z.string().optional(),
+  academicYearId: z.string().optional().nullable(),
+  studentIdNumber: z.string().optional().nullable(),
+  admissionNumber: z.string().optional().nullable(),
+  rollNumber: z.string().optional().nullable(),
+  registrationNumber: z.string().optional().nullable(),
   firstName: z.string().min(1, 'First name is required'),
+  middleName: z.string().optional().nullable(),
   lastName: z.string().min(1, 'Last name is required'),
+  photoUrl: z.string().optional().nullable(),
   dateOfBirth: z.string().or(z.date()),
   gender: z.enum(['Male', 'Female', 'Other']),
-  bloodGroup: z.string().optional(),
-  religion: z.string().optional(),
+  bloodGroup: z.string().optional().nullable(),
+  religion: z.string().optional().nullable(),
   nationality: z.string().default('Bangladeshi'),
-  nidBirthCertNumber: z.string().optional(),
+  nidBirthCertNumber: z.string().optional().nullable(),
   presentAddress: z.string().min(1, 'Present address is required'),
   permanentAddress: z.string().min(1, 'Permanent address is required'),
-  phone: z.string().optional(),
-  email: z.string().email().optional().or(z.literal('')),
-  sectionId: z.string().optional(),
-  batchId: z.string().optional(),
+  phone: z.string().optional().nullable(),
+  email: z.string().email().optional().or(z.literal('')).nullable(),
+
+  // Academic Placement
+  classId: z.string().optional().nullable(),
+  sectionId: z.string().optional().nullable(),
+  shiftId: z.string().optional().nullable(),
+  academicGroupId: z.string().optional().nullable(),
+  subjectCombinationId: z.string().optional().nullable(),
+  technologyTradeId: z.string().optional().nullable(),
+  programId: z.string().optional().nullable(),
+  batchId: z.string().optional().nullable(),
+  semesterId: z.string().optional().nullable(),
+  hifzProgram: z.boolean().optional().default(false),
+  hifzProgramType: z.string().optional().nullable(),
+
+  // Previous Education & Documents
+  previousSchool: z.string().optional().nullable(),
+  previousClass: z.string().optional().nullable(),
+  previousGpa: z.number().optional().nullable(),
+  documentsJson: z.string().optional().nullable(),
+
+  // Fees & Portal Accounts
+  admissionFeeAmount: z.number().min(0).optional().nullable(),
+  createPortalAccount: z.boolean().optional().default(false),
+  createGuardianAccount: z.boolean().optional().default(false),
+
   status: z.enum(['ACTIVE', 'PROMOTED', 'GRADUATED', 'DROPPED_OUT', 'TRANSFERRED']).default('ACTIVE'),
   guardian: z
     .object({
       fatherName: z.string().min(1, 'Father name is required'),
       fatherPhone: z.string().min(1, 'Father phone is required'),
-      fatherProfession: z.string().optional(),
+      fatherProfession: z.string().optional().nullable(),
       motherName: z.string().min(1, 'Mother name is required'),
-      motherPhone: z.string().optional(),
+      motherPhone: z.string().optional().nullable(),
+      motherProfession: z.string().optional().nullable(),
       guardianName: z.string().min(1, 'Guardian name is required'),
       guardianPhone: z.string().min(1, 'Guardian phone is required'),
       guardianRelation: z.string().default('Father')
     })
     .optional()
+    .nullable()
 });
 
 export const StudentUpdateSchema = StudentCreateSchema.partial();
@@ -47,35 +75,86 @@ export const AdmissionApplicationSchema = z.object({
   campusId: z.string().min(1, 'Campus is required'),
   academicYearId: z.string().min(1, 'Academic year is required'),
   firstName: z.string().min(1, 'First name is required'),
+  middleName: z.string().optional().nullable(),
   lastName: z.string().min(1, 'Last name is required'),
+  photoUrl: z.string().optional().nullable(),
   dateOfBirth: z.string().or(z.date()),
   gender: z.enum(['Male', 'Female', 'Other']),
-  bloodGroup: z.string().optional(),
-  religion: z.string().optional(),
+  bloodGroup: z.string().optional().nullable(),
+  religion: z.string().optional().nullable(),
+  nationality: z.string().default('Bangladeshi'),
+  nidBirthCertNumber: z.string().optional().nullable(),
   phone: z.string().min(1, 'Contact phone is required'),
-  email: z.string().email().optional().or(z.literal('')),
+  email: z.string().email().optional().or(z.literal('')).nullable(),
   presentAddress: z.string().min(1, 'Present address is required'),
   permanentAddress: z.string().min(1, 'Permanent address is required'),
-  desiredClassId: z.string().optional(),
-  desiredProgramId: z.string().optional(),
+
+  // Academic Placement Targets
+  desiredClassId: z.string().optional().nullable(),
+  desiredProgramId: z.string().optional().nullable(),
+  shiftId: z.string().optional().nullable(),
+  sectionId: z.string().optional().nullable(),
+  academicGroupId: z.string().optional().nullable(),
+  subjectCombinationId: z.string().optional().nullable(),
+  technologyTradeId: z.string().optional().nullable(),
+  batchId: z.string().optional().nullable(),
+  hifzProgram: z.boolean().optional().default(false),
+
+  // Guardian Information
   guardianName: z.string().min(1, 'Guardian name is required'),
   guardianPhone: z.string().min(1, 'Guardian phone is required'),
   guardianRelation: z.string().default('Father'),
-  guardianOccupation: z.string().optional(),
-  previousSchool: z.string().optional(),
-  previousGpa: z.number().min(0).max(5).optional()
+  guardianOccupation: z.string().optional().nullable(),
+  fatherName: z.string().optional().nullable(),
+  fatherPhone: z.string().optional().nullable(),
+  fatherProfession: z.string().optional().nullable(),
+  motherName: z.string().optional().nullable(),
+  motherPhone: z.string().optional().nullable(),
+  motherProfession: z.string().optional().nullable(),
+
+  // Previous Education & Documents
+  previousSchool: z.string().optional().nullable(),
+  previousClass: z.string().optional().nullable(),
+  previousGpa: z.number().min(0).max(5).optional().nullable(),
+  documentsJson: z.string().optional().nullable(),
+
+  // Fee & Scholarship Configuration
+  applicationFeeAmount: z.number().min(0).optional().nullable(),
+  admissionFeeAmount: z.number().min(0).optional().nullable(),
+  waiverPercentage: z.number().min(0).max(100).optional().nullable()
+});
+
+export const AdmissionSettingSchema = z.object({
+  isOnlineAdmissionOpen: z.boolean().default(true),
+  applicationStartDate: z.string().or(z.date()).optional().nullable(),
+  applicationEndDate: z.string().or(z.date()).optional().nullable(),
+  academicYearId: z.string().optional().nullable(),
+  applicationFee: z.number().min(0).default(0),
+  admissionFeeDefault: z.number().min(0).default(0),
+  isTestRequired: z.boolean().default(false),
+  isInterviewRequired: z.boolean().default(false),
+  autoMeritCalculation: z.boolean().default(true),
+  testWeight: z.number().min(0).max(100).default(50),
+  previousResultWeight: z.number().min(0).max(100).default(30),
+  interviewWeight: z.number().min(0).max(100).default(20),
+  maxCapacityPerClass: z.number().int().min(1).default(40),
+  allowPortalUserCreation: z.boolean().default(true),
+  instructionsText: z.string().optional().nullable(),
+  requiredDocumentsJson: z.string().optional().nullable(),
+  applicationNumberPrefix: z.string().default('APP')
 });
 
 export const ValidAdmissionTransitions: Record<string, string[]> = {
-  SUBMITTED: ['UNDER_REVIEW', 'REJECTED'],
-  UNDER_REVIEW: ['VERIFIED', 'REJECTED'],
-  VERIFIED: ['TEST_ELIGIBLE', 'REJECTED'],
-  TEST_ELIGIBLE: ['TESTED', 'REJECTED'],
+  DRAFT: ['SUBMITTED', 'REJECTED'],
+  SUBMITTED: ['UNDER_REVIEW', 'VERIFIED', 'REJECTED'],
+  UNDER_REVIEW: ['VERIFIED', 'REJECTED', 'SUBMITTED'],
+  VERIFIED: ['TEST_ELIGIBLE', 'INTERVIEW', 'SELECTED', 'WAITLISTED', 'REJECTED'],
+  TEST_ELIGIBLE: ['TESTED', 'INTERVIEW', 'SELECTED', 'WAITLISTED', 'REJECTED'],
   TESTED: ['INTERVIEW', 'SELECTED', 'WAITLISTED', 'REJECTED'],
   INTERVIEW: ['SELECTED', 'WAITLISTED', 'REJECTED'],
-  SELECTED: ['ADMITTED', 'REJECTED'],
-  WAITLISTED: ['SELECTED', 'REJECTED'],
-  REJECTED: ['UNDER_REVIEW'], // appeal
+  SELECTED: ['ADMITTED', 'WAITLISTED', 'REJECTED'],
+  WAITLISTED: ['SELECTED', 'REJECTED', 'UNDER_REVIEW'],
+  REJECTED: ['UNDER_REVIEW', 'SUBMITTED'], // appeal/reopen
   ADMITTED: []
 };
 

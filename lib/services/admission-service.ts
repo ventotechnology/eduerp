@@ -3,16 +3,126 @@ import { AppError } from '../errors/app-error';
 import { logAuditEvent } from '../audit/audit-logger';
 import {
   AdmissionApplicationSchema,
+  AdmissionSettingSchema,
   ValidAdmissionTransitions,
   AdmissionTestSubmissionSchema
 } from '../validations/schemas';
 import { SessionUser } from '../auth/types';
 import { requireTenant } from '../tenant/tenant-guard';
+import { hashPassword } from '../auth/password';
 
 /**
- * Creates an online admission application.
+ * Retrieves or initializes admission settings for the institution.
  */
-export async function createAdmissionApplication(tenantIdentifier: string, rawData: any) {
+export async function getAdmissionSettings(tenantIdentifier: string) {
+  const tenant = await requireTenant(tenantIdentifier);
+
+  let settings = await db.admissionSetting.findUnique({
+    where: { institutionId: tenant.institutionId },
+    include: { academicYear: true }
+  });
+
+  if (!settings) {
+    const currentAy = await db.academicYear.findFirst({
+      where: { institutionId: tenant.institutionId, isCurrent: true }
+    });
+
+    settings = await db.admissionSetting.create({
+      data: {
+        institutionId: tenant.institutionId,
+        academicYearId: currentAy?.id || null,
+        isOnlineAdmissionOpen: true,
+        applicationFee: 0,
+        admissionFeeDefault: 0,
+        isTestRequired: false,
+        isInterviewRequired: false,
+        autoMeritCalculation: true,
+        maxCapacityPerClass: 40,
+        allowPortalUserCreation: true,
+        applicationNumberPrefix: 'APP'
+      },
+      include: { academicYear: true }
+    });
+  }
+
+  return settings;
+}
+
+/**
+ * Updates admission settings for the institution.
+ */
+export async function updateAdmissionSettings(
+  tenantIdentifier: string,
+  rawData: any,
+  actor: SessionUser
+) {
+  const tenant = await requireTenant(tenantIdentifier);
+  const validated = AdmissionSettingSchema.parse(rawData);
+
+  const updated = await db.admissionSetting.upsert({
+    where: { institutionId: tenant.institutionId },
+    update: {
+      isOnlineAdmissionOpen: validated.isOnlineAdmissionOpen,
+      applicationStartDate: validated.applicationStartDate ? new Date(validated.applicationStartDate) : null,
+      applicationEndDate: validated.applicationEndDate ? new Date(validated.applicationEndDate) : null,
+      academicYearId: validated.academicYearId || null,
+      applicationFee: validated.applicationFee,
+      admissionFeeDefault: validated.admissionFeeDefault,
+      isTestRequired: validated.isTestRequired,
+      isInterviewRequired: validated.isInterviewRequired,
+      autoMeritCalculation: validated.autoMeritCalculation,
+      testWeight: validated.testWeight,
+      previousResultWeight: validated.previousResultWeight,
+      interviewWeight: validated.interviewWeight,
+      maxCapacityPerClass: validated.maxCapacityPerClass,
+      allowPortalUserCreation: validated.allowPortalUserCreation,
+      instructionsText: validated.instructionsText || null,
+      requiredDocumentsJson: validated.requiredDocumentsJson || null,
+      applicationNumberPrefix: validated.applicationNumberPrefix || 'APP'
+    },
+    create: {
+      institutionId: tenant.institutionId,
+      isOnlineAdmissionOpen: validated.isOnlineAdmissionOpen,
+      applicationStartDate: validated.applicationStartDate ? new Date(validated.applicationStartDate) : null,
+      applicationEndDate: validated.applicationEndDate ? new Date(validated.applicationEndDate) : null,
+      academicYearId: validated.academicYearId || null,
+      applicationFee: validated.applicationFee,
+      admissionFeeDefault: validated.admissionFeeDefault,
+      isTestRequired: validated.isTestRequired,
+      isInterviewRequired: validated.isInterviewRequired,
+      autoMeritCalculation: validated.autoMeritCalculation,
+      testWeight: validated.testWeight,
+      previousResultWeight: validated.previousResultWeight,
+      interviewWeight: validated.interviewWeight,
+      maxCapacityPerClass: validated.maxCapacityPerClass,
+      allowPortalUserCreation: validated.allowPortalUserCreation,
+      instructionsText: validated.instructionsText || null,
+      requiredDocumentsJson: validated.requiredDocumentsJson || null,
+      applicationNumberPrefix: validated.applicationNumberPrefix || 'APP'
+    },
+    include: { academicYear: true }
+  });
+
+  await logAuditEvent({
+    tenantId: tenant.tenantId,
+    actor,
+    action: 'ADMISSION_SETTINGS_UPDATED',
+    resourceType: 'AdmissionSetting',
+    resourceId: updated.id,
+    newState: { isOnlineAdmissionOpen: updated.isOnlineAdmissionOpen, applicationFee: updated.applicationFee }
+  });
+
+  return updated;
+}
+
+/**
+ * Creates an online or internal admission application.
+ */
+export async function createAdmissionApplication(
+  tenantIdentifier: string,
+  rawData: any,
+  actor?: SessionUser
+) {
   const tenant = await requireTenant(tenantIdentifier);
   const validated = AdmissionApplicationSchema.parse(rawData);
 
@@ -28,8 +138,48 @@ export async function createAdmissionApplication(tenantIdentifier: string, rawDa
     throw AppError.notFound('Selected campus does not belong to this institution.');
   }
 
-  const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-  const appNumber = `APP-2026-${Date.now().toString().slice(-4)}-${randomSuffix}`;
+  // Validate academic year
+  const academicYear = await db.academicYear.findFirst({
+    where: {
+      id: validated.academicYearId,
+      institutionId: tenant.institutionId
+    }
+  });
+
+  if (!academicYear) {
+    throw AppError.notFound('Selected academic year does not exist in this institution.');
+  }
+
+  // Fetch settings for numbering prefix and fees
+  const settings = await getAdmissionSettings(tenant.slug);
+
+  if (!actor && !settings.isOnlineAdmissionOpen) {
+    throw AppError.validation('Online admission applications are currently closed for this institution.');
+  }
+
+  // Generate Concurrency-Safe Unique Application Number: {PREFIX}-{YEAR}-{SEQUENCE}
+  const count = await db.admissionApplication.count({
+    where: { institutionId: tenant.institutionId }
+  });
+  const yearName = academicYear.name.replace(/[^0-9]/g, '').slice(0, 4) || new Date().getFullYear().toString();
+  const prefix = settings.applicationNumberPrefix || 'APP';
+
+  let appNumber = '';
+  let counter = 0;
+  while (!appNumber) {
+    const candidate = `${prefix}-${yearName}-${(count + 1 + counter).toString().padStart(4, '0')}`;
+    const existing = await db.admissionApplication.findUnique({
+      where: { applicationNumber: candidate }
+    });
+    if (!existing) {
+      appNumber = candidate;
+    } else {
+      counter++;
+    }
+  }
+
+  const appFee = validated.applicationFeeAmount ?? settings.applicationFee ?? 0;
+  const initialFeeStatus = appFee > 0 ? 'PENDING' : 'NOT_REQUIRED';
 
   const application = await db.admissionApplication.create({
     data: {
@@ -38,47 +188,126 @@ export async function createAdmissionApplication(tenantIdentifier: string, rawDa
       academicYearId: validated.academicYearId,
       applicationNumber: appNumber,
       firstName: validated.firstName,
+      middleName: validated.middleName || null,
       lastName: validated.lastName,
+      photoUrl: validated.photoUrl || null,
       dateOfBirth: new Date(validated.dateOfBirth),
       gender: validated.gender,
       bloodGroup: validated.bloodGroup || null,
       religion: validated.religion || null,
+      nationality: validated.nationality || 'Bangladeshi',
+      nidBirthCertNumber: validated.nidBirthCertNumber || null,
       phone: validated.phone,
       email: validated.email || null,
       presentAddress: validated.presentAddress,
       permanentAddress: validated.permanentAddress,
+
+      // Academic placement
       desiredClassId: validated.desiredClassId || null,
       desiredProgramId: validated.desiredProgramId || null,
+      shiftId: validated.shiftId || null,
+      sectionId: validated.sectionId || null,
+      academicGroupId: validated.academicGroupId || null,
+      subjectCombinationId: validated.subjectCombinationId || null,
+      technologyTradeId: validated.technologyTradeId || null,
+      batchId: validated.batchId || null,
+      hifzProgram: validated.hifzProgram ?? false,
+
+      // Guardian
       guardianName: validated.guardianName,
       guardianPhone: validated.guardianPhone,
       guardianRelation: validated.guardianRelation || 'Father',
       guardianOccupation: validated.guardianOccupation || null,
+      fatherName: validated.fatherName || null,
+      fatherPhone: validated.fatherPhone || null,
+      fatherProfession: validated.fatherProfession || null,
+      motherName: validated.motherName || null,
+      motherPhone: validated.motherPhone || null,
+      motherProfession: validated.motherProfession || null,
+
+      // Previous Education & Documents
       previousSchool: validated.previousSchool || null,
+      previousClass: validated.previousClass || null,
       previousGpa: validated.previousGpa || null,
-      status: 'SUBMITTED',
-      applicationFeeStatus: 'PENDING'
+      documentsJson: validated.documentsJson || null,
+
+      // Fee
+      applicationFeeStatus: initialFeeStatus,
+      applicationFeeAmount: appFee,
+      admissionFeeStatus: 'PENDING',
+      admissionFeeAmount: validated.admissionFeeAmount ?? settings.admissionFeeDefault ?? 0,
+      waiverPercentage: validated.waiverPercentage ?? 0,
+
+      status: 'SUBMITTED'
     },
     include: {
       campus: true,
       desiredClass: true,
-      desiredProgram: true
+      desiredProgram: true,
+      shift: true,
+      academicYear: true
     }
   });
+
+  if (actor) {
+    await logAuditEvent({
+      tenantId: tenant.tenantId,
+      actor,
+      action: 'ADMISSION_APPLICATION_CREATED',
+      resourceType: 'AdmissionApplication',
+      resourceId: application.id,
+      newState: { applicationNumber: application.applicationNumber, name: `${application.firstName} ${application.lastName}` }
+    });
+  }
 
   return application;
 }
 
 /**
- * Lists admission applications for the tenant.
+ * Lists admission applications for the tenant with multi-faceted filtering.
  */
-export async function getTenantAdmissionApplications(tenantIdentifier: string, status?: string) {
+export async function getTenantAdmissionApplications(
+  tenantIdentifier: string,
+  params?: {
+    status?: string;
+    campusId?: string;
+    classId?: string;
+    programId?: string;
+    academicYearId?: string;
+    search?: string;
+  }
+) {
   const tenant = await requireTenant(tenantIdentifier);
   const whereClause: any = {
     institutionId: tenant.institutionId
   };
 
-  if (status) {
-    whereClause.status = status;
+  if (params?.status && params.status !== 'ALL') {
+    whereClause.status = params.status;
+  }
+  if (params?.campusId) {
+    whereClause.campusId = params.campusId;
+  }
+  if (params?.classId) {
+    whereClause.desiredClassId = params.classId;
+  }
+  if (params?.programId) {
+    whereClause.desiredProgramId = params.programId;
+  }
+  if (params?.academicYearId) {
+    whereClause.academicYearId = params.academicYearId;
+  }
+
+  if (params?.search) {
+    const term = params.search.trim();
+    whereClause.OR = [
+      { firstName: { contains: term, mode: 'insensitive' } },
+      { lastName: { contains: term, mode: 'insensitive' } },
+      { applicationNumber: { contains: term, mode: 'insensitive' } },
+      { phone: { contains: term } },
+      { guardianName: { contains: term, mode: 'insensitive' } },
+      { guardianPhone: { contains: term } }
+    ];
   }
 
   return db.admissionApplication.findMany({
@@ -87,10 +316,49 @@ export async function getTenantAdmissionApplications(tenantIdentifier: string, s
       campus: true,
       desiredClass: true,
       desiredProgram: true,
-      testAttempts: true
+      shift: true,
+      section: true,
+      academicYear: true,
+      testAttempts: {
+        include: { test: true }
+      }
     },
     orderBy: { createdAt: 'desc' }
   });
+}
+
+/**
+ * Retrieves a single application by ID with full relations.
+ */
+export async function getAdmissionApplicationById(tenantIdentifier: string, applicationId: string) {
+  const tenant = await requireTenant(tenantIdentifier);
+  const app = await db.admissionApplication.findFirst({
+    where: {
+      id: applicationId,
+      institutionId: tenant.institutionId
+    },
+    include: {
+      campus: true,
+      desiredClass: true,
+      desiredProgram: true,
+      shift: true,
+      section: true,
+      academicGroup: true,
+      subjectCombination: true,
+      technologyTrade: true,
+      batch: true,
+      academicYear: true,
+      testAttempts: {
+        include: { test: true }
+      }
+    }
+  });
+
+  if (!app) {
+    throw AppError.notFound(`Application with ID '${applicationId}' not found.`);
+  }
+
+  return app;
 }
 
 /**
@@ -100,7 +368,9 @@ export async function transitionAdmissionStatus(
   tenantIdentifier: string,
   applicationId: string,
   targetStatus: string,
-  actor: SessionUser
+  actor: SessionUser,
+  notes?: string,
+  interviewScore?: number
 ) {
   const tenant = await requireTenant(tenantIdentifier);
   const app = await db.admissionApplication.findFirst({
@@ -119,9 +389,21 @@ export async function transitionAdmissionStatus(
     throw AppError.invalidTransition(app.status, targetStatus);
   }
 
+  const updateData: any = {
+    status: targetStatus
+  };
+
+  if (interviewScore !== undefined && interviewScore !== null) {
+    updateData.interviewScore = interviewScore;
+    updateData.interviewDate = new Date();
+  }
+  if (notes) {
+    updateData.interviewNotes = notes;
+  }
+
   const updated = await db.admissionApplication.update({
     where: { id: app.id },
-    data: { status: targetStatus }
+    data: updateData
   });
 
   await logAuditEvent({
@@ -131,14 +413,14 @@ export async function transitionAdmissionStatus(
     resourceType: 'AdmissionApplication',
     resourceId: app.id,
     previousState: { status: app.status },
-    newState: { status: targetStatus }
+    newState: { status: targetStatus, notes, interviewScore }
   });
 
   return updated;
 }
 
 /**
- * Evaluates timed MCQ admission test server-side and stores test attempt.
+ * Evaluates admission test server-side and stores persistent test attempt.
  */
 export async function submitAdmissionTest(tenantIdentifier: string, rawData: any) {
   const tenant = await requireTenant(tenantIdentifier);
@@ -166,26 +448,25 @@ export async function submitAdmissionTest(tenantIdentifier: string, rawData: any
     throw AppError.notFound('Admission test not found.');
   }
 
-  // Parse questions and evaluate answers server-side
-  let questions: Array<{ id: string; correct: string }> = [];
+  // Parse persistent questions and evaluate answers server-side
+  let questions: Array<{ id: string; correct: string; marks?: number }> = [];
   try {
     questions = JSON.parse(test.questionsJson);
   } catch {
-    questions = [
-      { id: 'q1', correct: 'Dhaka' },
-      { id: 'q2', correct: '64' },
-      { id: 'q3', correct: 'Photosynthesis' }
-    ];
+    questions = [];
   }
 
-  let correctCount = 0;
+  let totalEarned = 0;
+  let totalPossible = test.totalMarks || (questions.length * 10);
+  const marksPerQ = questions.length > 0 ? (totalPossible / questions.length) : 10;
+
   questions.forEach((q) => {
-    if (validated.answers[q.id] === q.correct) {
-      correctCount += 1;
+    if (validated.answers[q.id] && validated.answers[q.id] === q.correct) {
+      totalEarned += (q.marks || marksPerQ);
     }
   });
 
-  const finalScore = Math.round((correctCount / Math.max(1, questions.length)) * 100);
+  const finalScore = Math.round(totalEarned * 10) / 10;
 
   const attempt = await db.admissionTestAttempt.create({
     data: {
@@ -198,7 +479,8 @@ export async function submitAdmissionTest(tenantIdentifier: string, rawData: any
     }
   });
 
-  const nextStatus = finalScore >= test.passMarks ? 'TESTED' : 'WAITLISTED';
+  const isPassed = finalScore >= test.passMarks;
+  const nextStatus = isPassed ? 'TESTED' : 'WAITLISTED';
 
   await db.admissionApplication.update({
     where: { id: application.id },
@@ -211,8 +493,9 @@ export async function submitAdmissionTest(tenantIdentifier: string, rawData: any
   return {
     attemptId: attempt.id,
     score: finalScore,
+    totalMarks: test.totalMarks,
     passMarks: test.passMarks,
-    isPassed: finalScore >= test.passMarks,
+    isPassed,
     status: nextStatus
   };
 }
@@ -223,8 +506,13 @@ export async function submitAdmissionTest(tenantIdentifier: string, rawData: any
 export async function convertApplicantToStudent(
   tenantIdentifier: string,
   applicationId: string,
-  sectionId: string | null,
-  actor: SessionUser
+  targetSectionId: string | null,
+  actor: SessionUser,
+  options?: {
+    customRollNumber?: string;
+    createPortalAccount?: boolean;
+    createGuardianAccount?: boolean;
+  }
 ) {
   const tenant = await requireTenant(tenantIdentifier);
 
@@ -236,7 +524,9 @@ export async function convertApplicantToStudent(
     include: {
       institution: true,
       campus: true,
-      desiredClass: true
+      desiredClass: true,
+      desiredProgram: true,
+      academicYear: true
     }
   });
 
@@ -244,106 +534,203 @@ export async function convertApplicantToStudent(
     throw AppError.notFound('Application not found.');
   }
 
-  if (application.status === 'ADMITTED') {
-    throw AppError.conflict('Applicant has already been admitted.');
+  if (application.status === 'ADMITTED' || application.admittedStudentId) {
+    throw AppError.conflict('Applicant has already been admitted and enrolled as an active student.');
   }
+
+  const settings = await getAdmissionSettings(tenant.slug);
 
   return db.$transaction(
     async (tx) => {
-    // 1. Generate unique student ID number
-    const count = await tx.student.count({
-      where: { campus: { institutionId: application.institutionId } }
-    });
-    const studentIdNumber = `STU-2026-${(count + 101).toString().padStart(4, '0')}`;
+      // 1. Generate unique student ID number: {INST_CODE}-{YEAR}-{SEQUENCE}
+      const instCode = application.institution.instituteCode?.toUpperCase() ||
+        application.institution.shortName?.toUpperCase() ||
+        'STU';
+      const yearName = application.academicYear.name.replace(/[^0-9]/g, '').slice(0, 4) || new Date().getFullYear().toString();
 
-    // 2. Create Guardian
-    const guardian = await tx.guardian.create({
-      data: {
-        fatherName: application.guardianName,
-        fatherPhone: application.guardianPhone,
-        fatherProfession: application.guardianOccupation || null,
-        motherName: 'Mother of ' + application.firstName,
-        guardianName: application.guardianName,
-        guardianPhone: application.guardianPhone,
-        guardianRelation: application.guardianRelation || 'Father'
+      const totalStudentCount = await tx.student.count({
+        where: { campus: { institutionId: application.institutionId } }
+      });
+      let studentIdNumber = '';
+      let studentCounter = 0;
+      while (!studentIdNumber) {
+        const candidate = `${instCode}-${yearName}-${(totalStudentCount + 1 + studentCounter).toString().padStart(4, '0')}`;
+        const existing = await tx.student.findFirst({
+          where: {
+            studentIdNumber: candidate,
+            campus: { institutionId: application.institutionId }
+          }
+        });
+        if (!existing) {
+          studentIdNumber = candidate;
+        } else {
+          studentCounter++;
+        }
       }
-    });
 
-    // 3. Create Student
-    const student = await tx.student.create({
-      data: {
-        campusId: application.campusId,
-        studentIdNumber,
-        admissionNumber: application.applicationNumber,
-        rollNumber: (count + 1).toString().padStart(2, '0'),
-        firstName: application.firstName,
-        lastName: application.lastName,
-        dateOfBirth: application.dateOfBirth,
-        gender: application.gender,
-        bloodGroup: application.bloodGroup,
-        religion: application.religion,
-        presentAddress: application.presentAddress,
-        permanentAddress: application.permanentAddress,
-        phone: application.phone,
-        email: application.email,
-        sectionId: sectionId || null,
-        guardianId: guardian.id,
-        status: 'ACTIVE'
+      // 2. Generate Roll Number scoped to Academic Year and Section/Class
+      const activeSectionId = targetSectionId || application.sectionId || null;
+      let rollNumber = options?.customRollNumber;
+
+      if (!rollNumber) {
+        const classEnrollmentCount = await tx.enrollment.count({
+          where: {
+            academicYearId: application.academicYearId,
+            ...(activeSectionId ? { sectionId: activeSectionId } : { classId: application.desiredClassId })
+          }
+        });
+        rollNumber = (classEnrollmentCount + 1).toString().padStart(2, '0');
       }
-    });
 
-    // 4. Create StudentGuardian junction link
-    await tx.studentGuardian.create({
-      data: {
-        studentId: student.id,
-        guardianId: guardian.id,
-        relationshipType: 'PRIMARY',
-        isPrimary: true
+      // 3. Create Real Guardian Record (no placeholder names)
+      const guardian = await tx.guardian.create({
+        data: {
+          fatherName: application.fatherName || application.guardianName,
+          fatherPhone: application.fatherPhone || application.guardianPhone,
+          fatherProfession: application.fatherProfession || application.guardianOccupation || null,
+          motherName: application.motherName || 'Not Provided',
+          motherPhone: application.motherPhone || null,
+          guardianName: application.guardianName,
+          guardianPhone: application.guardianPhone,
+          guardianRelation: application.guardianRelation || 'Father'
+        }
+      });
+
+      // 4. Create Student Record
+      const student = await tx.student.create({
+        data: {
+          campusId: application.campusId,
+          studentIdNumber,
+          admissionNumber: application.applicationNumber,
+          rollNumber,
+          firstName: application.firstName,
+          lastName: application.lastName,
+          dateOfBirth: application.dateOfBirth,
+          gender: application.gender,
+          bloodGroup: application.bloodGroup,
+          religion: application.religion,
+          nationality: application.nationality || 'Bangladeshi',
+          nidBirthCertNumber: application.nidBirthCertNumber,
+          presentAddress: application.presentAddress,
+          permanentAddress: application.permanentAddress,
+          phone: application.phone,
+          email: application.email,
+          sectionId: activeSectionId,
+          batchId: application.batchId,
+          guardianId: guardian.id,
+          status: 'ACTIVE'
+        }
+      });
+
+      // 5. Create StudentGuardian junction link
+      await tx.studentGuardian.create({
+        data: {
+          studentId: student.id,
+          guardianId: guardian.id,
+          relationshipType: 'PRIMARY',
+          isPrimary: true
+        }
+      });
+
+      // 6. CRITICAL: Create Complete Academic Enrollment Record
+      const enrollment = await tx.enrollment.create({
+        data: {
+          studentId: student.id,
+          academicYearId: application.academicYearId,
+          campusId: application.campusId,
+          classId: application.desiredClassId,
+          sectionId: activeSectionId,
+          shiftId: application.shiftId,
+          batchId: application.batchId,
+          rollNumber,
+          status: 'ACTIVE',
+          academicStatus: 'REGULAR',
+          hifzEnrolled: application.hifzProgram,
+          hifzProgram: application.hifzProgram ? 'Hifzul Quran' : null,
+          enrollmentDate: new Date()
+        }
+      });
+
+      // 7. Finance Fee Invoice: Only create if fee > 0, leave UNPAID (do NOT fake mark PAID)
+      const feeAmount = application.admissionFeeAmount ?? settings.admissionFeeDefault ?? 0;
+      let createdInvoice = null;
+
+      if (feeAmount > 0) {
+        const discount = application.waiverPercentage ? (feeAmount * (application.waiverPercentage / 100)) : 0;
+        const total = Math.max(0, feeAmount - discount);
+
+        createdInvoice = await tx.invoice.create({
+          data: {
+            studentId: student.id,
+            invoiceNumber: `INV-ADM-${Date.now().toString().slice(-6)}`,
+            title: `Admission & Session Fee (${application.academicYear.name})`,
+            subTotal: feeAmount,
+            discountAmount: discount,
+            fineAmount: 0,
+            totalAmount: total,
+            paidAmount: 0,
+            dueAmount: total,
+            dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days due
+            status: 'UNPAID'
+          }
+        });
       }
-    });
 
-    // 5. Create Initial Admission Invoice
-    await tx.invoice.create({
-      data: {
-        studentId: student.id,
-        invoiceNumber: `INV-ADM-${student.id.slice(0, 6).toUpperCase()}`,
-        title: 'New Student Admission & Session Fee 2026',
-        subTotal: 8500,
-        discountAmount: 0,
-        fineAmount: 0,
-        totalAmount: 8500,
-        paidAmount: 8500,
-        dueAmount: 0,
-        dueDate: new Date(),
-        status: 'PAID'
+      // 8. Update Application Status to ADMITTED
+      await tx.admissionApplication.update({
+        where: { id: application.id },
+        data: {
+          status: 'ADMITTED',
+          admittedStudentId: student.id,
+          admissionFeeStatus: feeAmount > 0 ? 'PENDING' : 'NOT_REQUIRED'
+        }
+      });
+
+      // 9. Optional Student User Account
+      if (options?.createPortalAccount || settings.allowPortalUserCreation) {
+        const studentEmail = application.email || `student.${student.studentIdNumber.toLowerCase()}@${tenant.slug}.eduerp.us`;
+        const existingUser = await tx.user.findFirst({ where: { email: studentEmail } });
+        if (!existingUser) {
+          const defaultPassword = hashPassword('Student@1234');
+          const user = await tx.user.create({
+            data: {
+              email: studentEmail,
+              passwordHash: defaultPassword,
+              name: `${student.firstName} ${student.lastName}`,
+              role: 'STUDENT',
+              status: 'ACTIVE',
+              tenantId: tenant.tenantId
+            }
+          });
+          await tx.student.update({
+            where: { id: student.id },
+            data: { userId: user.id }
+          });
+        }
       }
-    });
 
-    // 6. Update Application Status to ADMITTED
-    await tx.admissionApplication.update({
-      where: { id: application.id },
-      data: {
-        status: 'ADMITTED',
-        applicationFeeStatus: 'PAID'
-      }
-    });
+      // 10. Audit Log
+      await logAuditEvent({
+        tenantId: tenant.tenantId,
+        actor,
+        action: 'APPLICANT_CONVERTED_TO_STUDENT',
+        resourceType: 'Student',
+        resourceId: student.id,
+        newState: {
+          studentIdNumber: student.studentIdNumber,
+          applicationNumber: application.applicationNumber,
+          enrollmentId: enrollment.id,
+          name: `${student.firstName} ${student.lastName}`
+        }
+      });
 
-    // 7. Audit Log
-    await logAuditEvent({
-      tenantId: tenant.tenantId,
-      actor,
-      action: 'APPLICANT_CONVERTED_TO_STUDENT',
-      resourceType: 'Student',
-      resourceId: student.id,
-      newState: {
-        studentIdNumber: student.studentIdNumber,
-        applicationNumber: application.applicationNumber,
-        name: `${student.firstName} ${student.lastName}`
-      }
-    });
-
-    return student;
-  },
-  { timeout: 20000, maxWait: 10000 }
-);
+      return Object.assign(student, {
+        student,
+        enrollment,
+        guardian,
+        invoice: createdInvoice
+      });
+    },
+    { timeout: 25000, maxWait: 10000 }
+  );
 }

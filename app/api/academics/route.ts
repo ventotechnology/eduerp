@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getServerSession } from '@/lib/auth/server-auth';
 import { requirePermission } from '@/lib/rbac/guard';
+import { resolveTenantContext } from '@/lib/tenant/tenant-guard';
 import {
   getTenantAcademicStructure,
   createAcademicYear,
@@ -34,11 +35,16 @@ import { AppError } from '@/lib/errors/app-error';
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const tenantId = searchParams.get('tenantId');
+    const tenantSlug = searchParams.get('tenantSlug') || searchParams.get('tenantId');
+    const session = await getServerSession(req);
 
-    if (!tenantId) throw AppError.validation('Tenant ID is required.');
+    const tenantContext = await resolveTenantContext({
+      session,
+      tenantSlug,
+      isPublic: !session
+    });
 
-    const structure = await getTenantAcademicStructure(tenantId);
+    const structure = await getTenantAcademicStructure(tenantContext.tenantId);
     return successResponse(structure);
   } catch (err) {
     return errorResponse(err);
