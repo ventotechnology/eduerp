@@ -407,7 +407,18 @@ export class SaasPlanService {
    * Update plan pricing and configuration (Super Admin only)
    */
   static async updatePlan(id: string, data: Partial<SubscriptionPlanInput>) {
-    const { features, tier, ...scalarData } = data;
+    const {
+      features,
+      tier,
+      _count,
+      id: _id,
+      createdAt,
+      updatedAt,
+      subscriptions,
+      orders,
+      invoices,
+      ...scalarData
+    } = data as any;
 
     const updated = await db.subscriptionPlan.update({
       where: { id },
