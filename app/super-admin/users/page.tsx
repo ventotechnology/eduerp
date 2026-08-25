@@ -61,29 +61,44 @@ export default function PlatformUsersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-slate-300">
-              {users.map((u) => (
-                <tr key={u.id} className="hover:bg-slate-800/40 transition">
-                  <td className="py-3.5 px-4 font-bold text-white">
-                    {u.name}
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono">
-                      {u.role}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 font-mono text-slate-300">
-                    {u.email}
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400">
-                      {u.status}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 text-slate-400 text-[11px]">
-                    {new Date(u.createdAt).toLocaleDateString()}
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-slate-400">
+                    <RefreshCw className="w-5 h-5 animate-spin text-emerald-400 mx-auto mb-2" />
+                    <span>Loading platform users...</span>
                   </td>
                 </tr>
-              ))}
+              ) : users.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-slate-500">
+                    No platform users found.
+                  </td>
+                </tr>
+              ) : (
+                users.map((u) => (
+                  <tr key={u.id} className="hover:bg-slate-800/40 transition">
+                    <td className="py-3.5 px-4 font-bold text-white">
+                      {u.name || 'Platform Admin'}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono">
+                        {u.role}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 font-mono text-slate-300">
+                      {u.email}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400">
+                        {u.status || 'ACTIVE'}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-400 text-[11px]">
+                      {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—'}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

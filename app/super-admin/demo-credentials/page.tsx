@@ -53,12 +53,15 @@ export default function DemoCredentialsVaultPage() {
     try {
       setLoading(true);
       const res = await fetch('/api/super-admin/saas');
-      const data = await res.json();
-      if (data.success) {
-        setDemoAccounts(data.demoAccounts || []);
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: Failed to fetch credentials`);
       }
-    } catch {
-      // Handled
+      const data = await res.json();
+      if (data && data.success) {
+        setDemoAccounts(Array.isArray(data.demoAccounts) ? data.demoAccounts : []);
+      }
+    } catch (err) {
+      console.error('Failed to load demo accounts:', err);
     } finally {
       setLoading(false);
     }
@@ -188,13 +191,29 @@ export default function DemoCredentialsVaultPage() {
     document.body.removeChild(link);
   };
 
+  // Safe helper to format key modules
+  const formatModules = (modules: any): string => {
+    if (!modules) return 'Core features';
+    if (Array.isArray(modules)) {
+      return modules.slice(0, 3).join(', ');
+    }
+    if (typeof modules === 'string') {
+      const parts = modules.split(',').map(m => m.trim()).filter(Boolean);
+      return parts.slice(0, 3).join(', ') || modules;
+    }
+    return String(modules);
+  };
+
   const filteredAccounts = demoAccounts.filter(acc => {
+    if (!acc) return false;
     const matchesVertical = selectedVertical === 'ALL' || acc.tenantSlug === selectedVertical;
+    const q = (search || '').toLowerCase();
     const matchesSearch =
-      acc.name.toLowerCase().includes(search.toLowerCase()) ||
-      acc.email.toLowerCase().includes(search.toLowerCase()) ||
-      acc.role.toLowerCase().includes(search.toLowerCase()) ||
-      acc.institution.toLowerCase().includes(search.toLowerCase());
+      !q ||
+      (acc.name || '').toLowerCase().includes(q) ||
+      (acc.email || '').toLowerCase().includes(q) ||
+      (acc.role || '').toLowerCase().includes(q) ||
+      (acc.institution || '').toLowerCase().includes(q);
     return matchesVertical && matchesSearch;
   });
 
@@ -279,7 +298,14 @@ export default function DemoCredentialsVaultPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-slate-300">
-              {filteredAccounts.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-slate-400">
+                    <RefreshCw className="w-5 h-5 animate-spin text-emerald-400 mx-auto mb-2" />
+                    <span>Loading demo personas...</span>
+                  </td>
+                </tr>
+              ) : filteredAccounts.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-slate-500">
                     No matching demo personas found.
@@ -287,19 +313,19 @@ export default function DemoCredentialsVaultPage() {
                 </tr>
               ) : (
                 filteredAccounts.map((acc, idx) => (
-                  <tr key={idx} className="hover:bg-slate-800/40 transition">
+                  <tr key={acc.email || idx} className="hover:bg-slate-800/40 transition">
                     <td className="py-3.5 px-4">
-                      <span className="font-bold text-white block">{acc.name}</span>
-                      <span className="text-[10px] text-slate-400 font-mono">{acc.tenantSlug}</span>
+                      <span className="font-bold text-white block">{acc.name || 'Demo User'}</span>
+                      <span className="text-[10px] text-slate-400 font-mono">{acc.tenantSlug || 'platform'}</span>
                     </td>
                     <td className="py-3.5 px-4">
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-emerald-400 border border-slate-700">
-                        {acc.role}
+                        {acc.role || 'USER'}
                       </span>
                     </td>
                     <td className="py-3.5 px-4">
-                      <span className="text-slate-200 block">{acc.institution}</span>
-                      <span className="text-[10px] text-slate-400">{acc.institutionType}</span>
+                      <span className="text-slate-200 block">{acc.institution || 'Demo Campus'}</span>
+                      <span className="text-[10px] text-slate-400">{acc.institutionType || 'SCHOOL'}</span>
                     </td>
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-1.5 font-mono text-slate-300">
@@ -314,7 +340,7 @@ export default function DemoCredentialsVaultPage() {
                       </div>
                     </td>
                     <td className="py-3.5 px-4 max-w-xs truncate text-[11px] text-slate-400">
-                      {(acc.modules || []).slice(0, 3).join(', ')}
+                      {formatModules(acc.modules)}
                     </td>
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">

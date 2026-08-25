@@ -17,14 +17,18 @@ export async function GET(request: NextRequest) {
     const tenantId = searchParams.get('tenantId') || undefined;
     const status = searchParams.get('status') || undefined;
 
-    const data = await PaymentReconciliationService.getReconciliationDashboard({
+    const result = await PaymentReconciliationService.getReconciliationDashboard({
       scope,
       gateway,
       tenantId,
       status
     });
 
-    return NextResponse.json({ success: true, data });
+    return NextResponse.json({
+      success: true,
+      ...result,
+      data: result
+    });
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error.message || 'Failed to retrieve reconciliation data' },
