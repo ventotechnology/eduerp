@@ -3,6 +3,7 @@ import { hashPassword } from '../auth/password';
 import { InstitutionType, UserRole } from '@prisma/client';
 import crypto from 'crypto';
 import { TenantOnboardingService } from './tenant-onboarding.service';
+import { PaymentGatewayService } from './payment-gateway.service';
 
 export const RESERVED_TENANT_SLUGS = new Set([
   'admin',
@@ -385,6 +386,7 @@ export class SaasSignupService {
       const createdOrder = await tx.subscriptionOrder.create({
         data: {
           orderNumber,
+          checkoutSessionId: checkoutToken,
           signupId: createdSignup.id,
           planId: plan.id,
           billingCycle: input.billingCycle,
@@ -456,20 +458,30 @@ export class SaasSignupService {
       return null;
     }
 
-    // Also fetch available active payment gateways
-    const gateways = await db.paymentGatewayConfig.findMany({
-      where: { isEnabled: true },
-      orderBy: { displayOrder: 'asc' },
-      select: {
-        gateway: true,
-        name: true,
-        displayName: true,
-        isSandbox: true,
-        minAmount: true,
-        maxAmount: true,
-        instructions: true
-      }
+    // Resolve platform gateways dynamically enforcing limits and fees
+    const checkoutGateways = await PaymentGatewayService.getCheckoutGateways({
+      scope: 'PLATFORM',
+      amount: order.totalAmount
     });
+
+    const gateways = checkoutGateways.map(g => ({
+      gateway: g.gateway,
+      displayName: g.displayName,
+      isSandbox: g.isSandbox,
+      currency: g.currency,
+      minAmount: g.minAmount,
+      maxAmount: g.maxAmount,
+      fixedFee: g.fixedFee,
+      percentageFee: g.percentageFee,
+      feeTreatment: g.feeTreatment,
+      calculatedFee: g.calculatedFee,
+      instructions: g.instructions,
+      bankName: g.bankDetails?.bankName || null,
+      bankAccountName: g.bankDetails?.accountName || null,
+      bankAccountNumber: g.bankDetails?.accountNumber || null,
+      bankBranch: g.bankDetails?.branch || null,
+      bankRouting: g.bankDetails?.routing || null
+    }));
 
     return {
       order,

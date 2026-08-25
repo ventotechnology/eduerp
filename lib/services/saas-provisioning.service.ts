@@ -167,7 +167,18 @@ export class SaasProvisioningService {
         throw new Error('Tenant could not be resolved for subscription provisioning.');
       }
 
-      // 4. Create or Update Subscription
+      // 4. Update existing subscriptions for tenant if upgrading/renewing
+      await tx.subscription.updateMany({
+        where: {
+          tenantId: targetTenantId,
+          status: 'ACTIVE'
+        },
+        data: {
+          status: 'SUPERSEDED'
+        }
+      });
+
+      // Create New Active Subscription
       await tx.subscription.create({
         data: {
           tenantId: targetTenantId,
@@ -182,6 +193,16 @@ export class SaasProvisioningService {
           autoRenew: true,
           cancelAtPeriodEnd: false,
           lastBilledAt: now
+        }
+      });
+
+      // Update Tenant tier and status
+      await tx.tenant.update({
+        where: { id: targetTenantId },
+        data: {
+          subscriptionTier: order.plan.tier,
+          isActive: true,
+          status: 'ACTIVE_PAID'
         }
       });
 

@@ -117,6 +117,14 @@ export default function StatusClient({ orderId, queryStatus, queryReason, initia
 
         {/* Action CTAs */}
         <div className="space-y-3">
+          <button
+            onClick={() => window.print()}
+            className="w-full py-2.5 px-4 rounded-xl font-semibold text-xs bg-slate-800/80 text-slate-200 hover:bg-slate-700 hover:text-white border border-slate-700 transition flex items-center justify-center gap-2"
+          >
+            <Download className="w-4 h-4 text-emerald-400" />
+            <span>Print Official Payment Receipt</span>
+          </button>
+
           <Link
             href={tenantSlug ? `/${tenantSlug}/dashboard` : '/login'}
             className="w-full py-3.5 px-4 rounded-xl font-bold text-sm bg-emerald-500 text-slate-950 hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2"
@@ -127,9 +135,9 @@ export default function StatusClient({ orderId, queryStatus, queryReason, initia
 
           <Link
             href="/login"
-            className="w-full py-3 px-4 rounded-xl font-semibold text-xs bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-700 transition-all flex items-center justify-center gap-2"
+            className="w-full py-2.5 px-4 rounded-xl font-semibold text-xs text-slate-400 hover:text-white transition-all flex items-center justify-center"
           >
-            <span>Sign In with Owner Credentials</span>
+            <span>Sign In with Administrator Credentials</span>
           </Link>
         </div>
       </div>

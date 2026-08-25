@@ -58,11 +58,16 @@ export async function GET(request: NextRequest) {
       }),
       db.subscription.count(),
       db.subscriptionOrder.findMany({
-        take: 50,
+        take: 100,
         orderBy: { createdAt: 'desc' },
         include: {
           plan: true,
-          tenant: true
+          tenant: true,
+          signup: true,
+          invoices: true,
+          payments: {
+            orderBy: { createdAt: 'desc' }
+          }
         }
       }),
       db.invoice.findMany({
@@ -754,6 +759,16 @@ export async function POST(request: NextRequest) {
       }
       const result = await SaasCheckoutService.markManualPaymentFailed(orderId, reason || 'Payment unverified/failed', session.name || session.id);
       return NextResponse.json(result);
+    }
+
+    if (action === 'RETRY_FULFILLMENT') {
+      requirePlatformPermission(session, 'PAYMENT_MANAGE');
+      const { orderId } = body;
+      if (!orderId) {
+        return NextResponse.json({ success: false, error: 'Order ID is required.' }, { status: 400 });
+      }
+      const result = await SaasCheckoutService.retryOrderFulfillment(orderId, session.name || session.email || 'SUPER_ADMIN');
+      return NextResponse.json({ success: true, ...(result as any) });
     }
 
     // 6. Set Feature Override

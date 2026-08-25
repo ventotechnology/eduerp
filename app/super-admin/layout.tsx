@@ -58,6 +58,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'Plans & Pricing', href: '/super-admin/plans', icon: Tag },
       { label: 'Orders & Revenue', href: '/super-admin/orders', icon: ShoppingBag },
       { label: 'Payment Gateways', href: '/super-admin/gateways', icon: Zap },
+      { label: 'Payment Reconciliation', href: '/super-admin/reconciliation', icon: ShieldCheck },
       { label: 'Universal SMS', href: '/super-admin/sms', icon: MessageSquare }
     ]
   },
