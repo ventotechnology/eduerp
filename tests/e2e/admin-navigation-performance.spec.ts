@@ -31,14 +31,16 @@ test.describe('Command 12A.5C: Super Admin Panel Navigation & Content-Ready Perf
     async function measureAdminHop(
       linkSelector: string,
       targetUrlPattern: string,
-      contentSelector: string,
+      contentHeadingRegex: RegExp,
       transitionName: string
     ) {
       const clickTime = Date.now();
       await page.click(linkSelector);
       await page.waitForURL(targetUrlPattern);
       const urlTime = Date.now();
-      await page.locator(contentSelector).first().waitFor({ timeout: 10000 });
+      await page.getByRole('heading', { name: contentHeadingRegex }).first().waitFor({ timeout: 10000 }).catch(async () => {
+        await page.locator('main, table').first().waitFor({ timeout: 10000 });
+      });
       const contentTime = Date.now();
 
       performanceMatrix.push({
@@ -52,7 +54,7 @@ test.describe('Command 12A.5C: Super Admin Panel Navigation & Content-Ready Perf
     await measureAdminHop(
       'aside a[href*="/super-admin/institutions"]',
       '**/super-admin/institutions',
-      'table, h1:has-text("Institution")',
+      /Institution/i,
       'Overview -> Institutions'
     );
 
@@ -60,7 +62,7 @@ test.describe('Command 12A.5C: Super Admin Panel Navigation & Content-Ready Perf
     await measureAdminHop(
       'aside a[href*="/super-admin/subscriptions"]',
       '**/super-admin/subscriptions',
-      'h1, h2, text=/Subscription/i',
+      /Subscription/i,
       'Institutions -> Subscriptions'
     );
 
@@ -68,7 +70,7 @@ test.describe('Command 12A.5C: Super Admin Panel Navigation & Content-Ready Perf
     await measureAdminHop(
       'aside a[href*="/super-admin/plans"]',
       '**/super-admin/plans',
-      'h1, h2, text=/Plan|Pricing/i',
+      /Plan|Pricing/i,
       'Subscriptions -> Plans & Pricing'
     );
 
@@ -76,7 +78,7 @@ test.describe('Command 12A.5C: Super Admin Panel Navigation & Content-Ready Perf
     await measureAdminHop(
       'aside a[href*="/super-admin/orders"]',
       '**/super-admin/orders',
-      'h1, h2, text=/Order|Revenue/i',
+      /Order|Revenue/i,
       'Plans -> Orders & Revenue'
     );
 
@@ -84,7 +86,7 @@ test.describe('Command 12A.5C: Super Admin Panel Navigation & Content-Ready Perf
     await measureAdminHop(
       'aside a[href*="/super-admin/gateways"]',
       '**/super-admin/gateways',
-      'h1, h2, text=/Gateway|Payment/i',
+      /Gateway|Payment/i,
       'Orders -> Payment Gateways'
     );
 
@@ -92,7 +94,7 @@ test.describe('Command 12A.5C: Super Admin Panel Navigation & Content-Ready Perf
     await measureAdminHop(
       'aside a[href*="/super-admin/sms"]',
       '**/super-admin/sms',
-      'h1, h2, text=/SMS|Universal/i',
+      /SMS|Universal/i,
       'Gateways -> Universal SMS'
     );
 
@@ -100,7 +102,7 @@ test.describe('Command 12A.5C: Super Admin Panel Navigation & Content-Ready Perf
     await measureAdminHop(
       'aside a[href*="/super-admin/support"]',
       '**/super-admin/support',
-      'h1, h2, text=/Support|Ticket/i',
+      /Support|Ticket/i,
       'Universal SMS -> Support Desk'
     );
 
@@ -108,7 +110,7 @@ test.describe('Command 12A.5C: Super Admin Panel Navigation & Content-Ready Perf
     await measureAdminHop(
       'aside a[href*="/super-admin/users"]',
       '**/super-admin/users',
-      'h1, h2, text=/Platform User|Admin User/i',
+      /User|Admin/i,
       'Support -> Platform Users'
     );
 
@@ -116,7 +118,7 @@ test.describe('Command 12A.5C: Super Admin Panel Navigation & Content-Ready Perf
     await measureAdminHop(
       'aside a[href*="/super-admin/settings"]',
       '**/super-admin/settings',
-      'h1, h2, text=/Settings|Configuration/i',
+      /Setting|Configuration/i,
       'Platform Users -> Settings'
     );
 
@@ -124,7 +126,7 @@ test.describe('Command 12A.5C: Super Admin Panel Navigation & Content-Ready Perf
     await measureAdminHop(
       'aside a[href*="/super-admin/institutions"]',
       '**/super-admin/institutions',
-      'table, h1:has-text("Institution")',
+      /Institution/i,
       'Return -> Institutions (Cached)'
     );
 

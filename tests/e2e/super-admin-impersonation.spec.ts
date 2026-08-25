@@ -41,7 +41,7 @@ test.describe('Command 12A.5C: Super Admin Impersonation, Banner & Institution C
     await page.waitForLoadState('networkidle');
 
     // Verify Impersonation Banner is visible
-    const banner = page.locator('aside[aria-label*="Impersonation"], text=/Impersonating/i').first();
+    const banner = page.locator('aside[aria-label*="Impersonation"]').first();
     await expect(banner).toBeVisible({ timeout: 10000 });
     await expect(banner).toContainText(/Scholars International|SITA|Mohammad Saifullah|PRINCIPAL/i);
 

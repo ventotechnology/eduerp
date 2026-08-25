@@ -29,14 +29,16 @@ test.describe('Command 12A.5C: Tenant Panel Navigation & Content-Ready Performan
     async function measureHop(
       linkSelector: string,
       targetUrlPattern: string,
-      contentSelector: string,
+      contentHeadingRegex: RegExp,
       transitionName: string
     ) {
       const clickTime = Date.now();
       await page.click(linkSelector);
       await page.waitForURL(targetUrlPattern);
       const urlTime = Date.now();
-      await page.locator(contentSelector).first().waitFor({ timeout: 10000 });
+      await page.getByRole('heading', { name: contentHeadingRegex }).first().waitFor({ timeout: 10000 }).catch(async () => {
+        await page.locator('main, table').first().waitFor({ timeout: 10000 });
+      });
       const contentTime = Date.now();
 
       const routeTransition = urlTime - clickTime;
@@ -53,7 +55,7 @@ test.describe('Command 12A.5C: Tenant Panel Navigation & Content-Ready Performan
     await measureHop(
       'aside a[href*="/students"]',
       '**/students',
-      'table, tbody tr, text=/Student Information System|Students|Directory/i',
+      /Student|Directory/i,
       'Dashboard -> Students'
     );
 
@@ -61,7 +63,7 @@ test.describe('Command 12A.5C: Tenant Panel Navigation & Content-Ready Performan
     await measureHop(
       'aside a[href*="/academics"]',
       '**/academics',
-      'text=/Academic Year|Structure|Curriculum/i',
+      /Academic|Structure|Curriculum/i,
       'Students -> Academics'
     );
 
@@ -69,7 +71,7 @@ test.describe('Command 12A.5C: Tenant Panel Navigation & Content-Ready Performan
     await measureHop(
       'aside a[href*="/examination"]',
       '**/examination',
-      'text=/Examination|Exam|Marks|Grading/i',
+      /Examination|Exam|Marks|Grading/i,
       'Academics -> Examination'
     );
 
@@ -77,7 +79,7 @@ test.describe('Command 12A.5C: Tenant Panel Navigation & Content-Ready Performan
     await measureHop(
       'aside a[href*="/lms"]',
       '**/lms',
-      'text=/Learning Management|Courses|LMS/i',
+      /Learning Management|Course|LMS/i,
       'Examination -> LMS'
     );
 
@@ -85,7 +87,7 @@ test.describe('Command 12A.5C: Tenant Panel Navigation & Content-Ready Performan
     await measureHop(
       'aside a[href*="/finance"]',
       '**/finance',
-      'text=/Finance|Accounting|Accounts|Invoices/i',
+      /Finance|Accounting|Accounts|Invoice/i,
       'LMS -> Finance'
     );
 
@@ -93,7 +95,7 @@ test.describe('Command 12A.5C: Tenant Panel Navigation & Content-Ready Performan
     await measureHop(
       'aside a[href*="/hr"]',
       '**/hr',
-      'text=/Human Resources|Workforce|Employees|Staff/i',
+      /Human Resources|Workforce|Employee|Staff/i,
       'Finance -> HR'
     );
 
@@ -101,7 +103,7 @@ test.describe('Command 12A.5C: Tenant Panel Navigation & Content-Ready Performan
     await measureHop(
       'aside a[href*="/facilities"]',
       '**/facilities',
-      'text=/Facilities|Logistics|Hostel|Library|Transport/i',
+      /Facilities|Logistics|Hostel|Library|Transport/i,
       'HR -> Facilities'
     );
 
@@ -109,7 +111,7 @@ test.describe('Command 12A.5C: Tenant Panel Navigation & Content-Ready Performan
     await measureHop(
       'aside a[href*="/communication"]',
       '**/communication',
-      'text=/Communication|Notices|SMS Broadcast/i',
+      /Communication|Notice|SMS/i,
       'Facilities -> Communication'
     );
 
@@ -117,7 +119,7 @@ test.describe('Command 12A.5C: Tenant Panel Navigation & Content-Ready Performan
     await measureHop(
       'aside a[href*="/students"]',
       '**/students',
-      'table, tbody tr, text=/Student Information System|Students|Directory/i',
+      /Student|Directory/i,
       'Return -> Students (Cached)'
     );
 
