@@ -23,6 +23,7 @@ import {
   Mail,
   Phone,
   ShieldCheck,
+  CreditCard,
   Check
 } from 'lucide-react';
 
@@ -195,6 +196,13 @@ export default function SettingsPage() {
           >
             <Mail className="w-3.5 h-3.5 text-teal-400" />
             <span>SMS Gateway</span>
+          </a>
+          <a
+            href={`/${tenantSlug}/settings/payments`}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition text-amber-400 hover:bg-slate-800 hover:text-white"
+          >
+            <CreditCard className="w-3.5 h-3.5 text-amber-400" />
+            <span>Payment Gateways</span>
           </a>
           <a
             href={`/${tenantSlug}/settings/billing`}

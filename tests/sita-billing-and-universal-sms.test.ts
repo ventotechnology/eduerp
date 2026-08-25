@@ -406,14 +406,18 @@ describe('COMMAND 12A.4 — Live Billing Recovery, Zero-Hardcode Subscription En
       // Reset bonus credits to 0 and verify quota limitation
       await db.tenantSmsConfig.update({
         where: { tenantId: sitaTenant.id },
-        data: { bonusSmsCredits: 0, purchasedSmsCredits: 0 }
+        data: {
+          serviceMode: 'PLATFORM_SHARED',
+          bonusSmsCredits: 0,
+          purchasedSmsCredits: 0
+        }
       });
 
       // Exhaust quota by adding a usage record
       await db.smsUsageLedger.create({
         data: {
           tenantId: sitaTenant.id,
-          quantity: 2000,
+          quantity: 100000,
           source: 'INCLUDED_QUOTA',
           billingPeriod: new Date().toISOString().slice(0, 7)
         }

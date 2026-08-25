@@ -1116,10 +1116,16 @@ export async function PUT(request: NextRequest) {
 
     if (action === 'TOGGLE_GATEWAY' && gateway) {
       requirePlatformPermission(session, 'GATEWAY_MANAGE');
-      const updated = await db.paymentGatewayConfig.update({
-        where: { gateway },
-        data: gatewayData
+      const existing = await db.paymentGatewayConfig.findFirst({
+        where: { scope: 'PLATFORM', gateway, tenantId: null }
       });
+      let updated = null;
+      if (existing) {
+        updated = await db.paymentGatewayConfig.update({
+          where: { id: existing.id },
+          data: gatewayData
+        });
+      }
       return NextResponse.json({ success: true, gateway: updated });
     }
 

@@ -321,21 +321,9 @@ export class SaasPlanService {
       }
     ];
 
-    for (const gw of defaultGateways) {
-      await db.paymentGatewayConfig.upsert({
-        where: { gateway: gw.gateway },
-        update: {
-          name: gw.name,
-          displayName: gw.displayName,
-          provider: gw.provider,
-          displayOrder: gw.displayOrder,
-          minAmount: gw.minAmount,
-          maxAmount: gw.maxAmount,
-          instructions: gw.instructions,
-        },
-        create: gw
-      });
-    }
+    // Seed default Payment Gateways via PaymentGatewayService
+    const { PaymentGatewayService } = await import('./payment-gateway.service');
+    await PaymentGatewayService.ensureDefaultGateways();
 
     // Seed default Platform Billing Settings
     await db.platformBillingSettings.upsert({

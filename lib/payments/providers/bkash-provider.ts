@@ -223,8 +223,8 @@ export class BkashPaymentProvider {
   /**
    * Creates a bKash checkout payment request
    */
-  public static async createPayment(input: BkashCreatePaymentInput): Promise<BkashCreatePaymentResult> {
-    const creds = this.getCredentials();
+  public static async createPayment(input: BkashCreatePaymentInput, customCreds?: BkashCredentials): Promise<BkashCreatePaymentResult> {
+    const creds = customCreds || this.getCredentials();
     if (!creds) {
       throw new Error('bKash credentials not configured.');
     }
@@ -306,8 +306,8 @@ export class BkashPaymentProvider {
   /**
    * Executes and verifies a payment after customer approval
    */
-  public static async executePayment(paymentId: string): Promise<BkashExecutePaymentResult> {
-    const creds = this.getCredentials();
+  public static async executePayment(paymentId: string, customCreds?: BkashCredentials): Promise<BkashExecutePaymentResult> {
+    const creds = customCreds || this.getCredentials();
     if (!creds) {
       throw new Error('bKash credentials not configured.');
     }
@@ -379,8 +379,8 @@ export class BkashPaymentProvider {
   /**
    * Queries the status of a bKash payment
    */
-  public static async queryPayment(paymentId: string): Promise<BkashQueryPaymentResult> {
-    const creds = this.getCredentials();
+  public static async queryPayment(paymentId: string, customCreds?: BkashCredentials): Promise<BkashQueryPaymentResult> {
+    const creds = customCreds || this.getCredentials();
     if (!creds) {
       throw new Error('bKash credentials not configured.');
     }
@@ -438,5 +438,73 @@ export class BkashPaymentProvider {
       statusMessage: lastError || 'Query payment failed',
       rawResponse: lastData,
     };
+  }
+
+  /**
+   * Initiates a refund for an executed bKash payment
+   */
+  public static async refundPayment(params: {
+    paymentId: string;
+    trxId: string;
+    amount: number;
+    reason?: string;
+    sku?: string;
+  }, customCreds?: BkashCredentials): Promise<{
+    success: boolean;
+    refundTrxId?: string;
+    statusCode?: string;
+    statusMessage?: string;
+    rawResponse?: any;
+  }> {
+    const creds = customCreds || this.getCredentials();
+    if (!creds) {
+      throw new Error('bKash credentials not configured.');
+    }
+
+    const { idToken, baseUrl } = await this.getGrantToken(creds);
+    const url = `${baseUrl}/tokenized/checkout/payment/refund`;
+
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          Authorization: idToken,
+          'X-App-Key': creds.appKey,
+        },
+        body: JSON.stringify({
+          paymentID: params.paymentId,
+          trxID: params.trxId,
+          amount: params.amount.toFixed(2),
+          reason: params.reason || 'Requested refund',
+          sku: params.sku || 'REFUND'
+        }),
+      });
+
+      const data = await res.json();
+      if (data.statusCode === '0000' || data.refundTrxID) {
+        return {
+          success: true,
+          refundTrxId: data.refundTrxID || data.refundTrxId,
+          statusCode: data.statusCode,
+          statusMessage: data.statusMessage || 'Refund successful',
+          rawResponse: data
+        };
+      }
+
+      return {
+        success: false,
+        statusCode: data.statusCode || 'FAILED',
+        statusMessage: data.statusMessage || 'bKash refund failed',
+        rawResponse: data
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        statusCode: 'EXCEPTION',
+        statusMessage: err.message || 'Refund exception',
+      };
+    }
   }
 }

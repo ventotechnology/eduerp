@@ -29,8 +29,8 @@ export class SaasCheckoutService {
     }
 
     // Verify bKash gateway is enabled
-    const bkashConfig = await db.paymentGatewayConfig.findUnique({
-      where: { gateway: 'BKASH' }
+    const bkashConfig = await db.paymentGatewayConfig.findFirst({
+      where: { scope: 'PLATFORM', gateway: 'BKASH', tenantId: null }
     });
 
     if (bkashConfig && !bkashConfig.isEnabled) {

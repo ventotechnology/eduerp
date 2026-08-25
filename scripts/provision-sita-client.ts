@@ -313,19 +313,17 @@ export async function provisionSitaAndPlatformAccounts(options: {
       }
     });
   } else {
-    // Extend or update existing subscription to ensure 30-day validity
-    if (activeSubscription.endDate < now) {
-      await db.subscription.update({
-        where: { id: activeSubscription.id },
-        data: {
-          planId: enterprisePlan.id,
-          endDate: pilotEnd,
-          currentPeriodEnd: pilotEnd,
-          status: 'ACTIVE',
-          trialEndsAt: pilotEnd
-        }
-      });
-    }
+    // Extend or update existing subscription to ensure Enterprise plan and 30-day validity
+    await db.subscription.update({
+      where: { id: activeSubscription.id },
+      data: {
+        planId: enterprisePlan.id,
+        endDate: activeSubscription.endDate < now ? pilotEnd : activeSubscription.endDate,
+        currentPeriodEnd: activeSubscription.endDate < now ? pilotEnd : activeSubscription.currentPeriodEnd,
+        status: 'ACTIVE',
+        trialEndsAt: pilotEnd
+      }
+    });
   }
 
   // 10. Ensure Key Feature Overrides for Madrasha Pilot

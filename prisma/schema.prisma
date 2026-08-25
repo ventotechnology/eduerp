@@ -80,6 +80,7 @@ model Tenant {
   smsBroadcasts        SmsBroadcast[]
   smsUsageLedgers      SmsUsageLedger[]
   mediaAssets          MediaAsset[]
+  paymentGateways      PaymentGatewayConfig[]
 
   @@index([slug])
   @@index([isActive])
@@ -134,20 +135,31 @@ model TenantFeatureOverride {
 }
 
 model OfflinePaymentRecord {
-  id               String   @id @default(uuid())
+  id               String    @id @default(uuid())
   tenantId         String
-  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  paymentMethod    String // "BANK_TRANSFER", "CHEQUE", "CASH", "MANUAL_INVOICE"
+  tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoiceId        String?
+  orderId          String?
+  paymentMethod    String // "BANK_TRANSFER", "CHEQUE", "CASH", "MANUAL_MFS", "MANUAL_INVOICE"
   amount           Float
-  currency         String   @default("BDT")
+  currency         String    @default("BDT")
   referenceNumber  String
-  paymentDate      DateTime @default(now())
+  paymentDate      DateTime  @default(now())
   proofDocumentUrl String?
   notes            String?
-  approvedBy       String
-  createdAt        DateTime @default(now())
+  status           String    @default("SUBMITTED") // "SUBMITTED", "UNDER_REVIEW", "VERIFIED", "PAID", "REJECTED", "FAILED", "CANCELLED"
+  submittedBy      String?
+  verifiedBy       String?
+  verifiedAt       DateTime?
+  rejectionReason  String?
+  approvedBy       String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   @@index([tenantId])
+  @@index([invoiceId])
+  @@index([orderId])
+  @@index([status])
 }
 
 model SubscriptionPlan {
@@ -352,22 +364,81 @@ model SubscriptionPaymentTransaction {
 }
 
 model PaymentGatewayConfig {
-  id           String   @id @default(uuid())
-  gateway      String   @unique // "BKASH", "NAGAD", "ROCKET", "CARD", "BANK_TRANSFER"
-  name         String
-  displayName  String
-  provider     String?
-  isEnabled    Boolean  @default(false)
-  isSandbox    Boolean  @default(true)
-  displayOrder Int      @default(0)
-  minAmount    Float    @default(1)
-  maxAmount    Float    @default(500000)
-  instructions String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                          String    @id @default(uuid())
+  scope                       String    @default("PLATFORM") // "PLATFORM" | "TENANT"
+  tenantId                    String?
+  tenant                      Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  gateway                     String // "BKASH", "NAGAD", "ROCKET", "SSLCOMMERZ", "SHURJOPAY", "CARD", "BANK_TRANSFER", "MANUAL", "CUSTOM"
+  name                        String
+  displayName                 String
+  merchantName                String?
+  provider                    String?
+  isEnabled                   Boolean   @default(false)
+  isSandbox                   Boolean   @default(true)
+  currency                    String    @default("BDT")
+  minAmount                   Float     @default(1)
+  maxAmount                   Float     @default(500000)
+  fixedFee                    Float     @default(0)
+  percentageFee               Float     @default(0)
+  feeTreatment                String    @default("MERCHANT_ABSORBS") // "MERCHANT_ABSORBS" | "CUSTOMER_PAYS" | "SPLIT"
+  displayOrder                Int       @default(0)
+  checkoutEnabled             Boolean   @default(true)
+  refundEnabled               Boolean   @default(false)
+  partialRefundEnabled        Boolean   @default(false)
+  recurringEnabled            Boolean   @default(false)
+  webhookEnabled              Boolean   @default(false)
+  callbackUrl                 String?
+  webhookUrl                  String?
+  encryptedCredentials        String? // AES-256-GCM encrypted credentials JSON
+  configMetadata              Json? // Custom metadata/endpoints/allowed purposes
+  healthStatus                String    @default("NOT_CONFIGURED") // "HEALTHY" | "DEGRADED" | "UNREACHABLE" | "AUTH_FAILED" | "NOT_CONFIGURED" | "DISABLED"
+  lastHealthCheckAt           DateTime?
+  lastHealthCheckLatency      Int?
+  lastHealthCheckError        String?
+  lastSuccessfulTransactionAt DateTime?
+  allowTenantOverride         Boolean   @default(false)
+  sharedGatewayAvailable      Boolean   @default(false)
+  requiredPlanTier            String?
+  instructions                String?
+  bankName                    String?
+  bankAccountName             String?
+  bankAccountNumber           String?
+  bankBranch                  String?
+  bankRouting                 String?
+  bankSwift                   String?
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
+  updatedBy                   String?
 
+  healthLogs PaymentHealthCheckLog[]
+
+  @@unique([scope, gateway, tenantId])
+  @@index([scope])
   @@index([gateway])
+  @@index([tenantId])
   @@index([isEnabled])
+}
+
+model PaymentHealthCheckLog {
+  id           String                @id @default(uuid())
+  gatewayId    String?
+  config       PaymentGatewayConfig? @relation(fields: [gatewayId], references: [id], onDelete: Cascade)
+  gateway      String // "BKASH", "NAGAD", "ROCKET", etc.
+  scope        String                @default("PLATFORM") // "PLATFORM" | "TENANT"
+  tenantId     String?
+  environment  String // "SANDBOX" | "PRODUCTION"
+  status       String // "HEALTHY" | "DEGRADED" | "UNREACHABLE" | "AUTH_FAILED"
+  latencyMs    Int?
+  errorCode    String?
+  errorMessage String?
+  checkedBy    String?
+  checkedAt    DateTime              @default(now())
+
+  @@index([gatewayId])
+  @@index([gateway])
+  @@index([scope])
+  @@index([tenantId])
+  @@index([checkedAt])
 }
 
 model PlatformBillingSettings {
