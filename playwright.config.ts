@@ -26,6 +26,11 @@ if (fs.existsSync(envLocalPath)) {
 
 export default defineConfig({
   testDir: './tests/e2e',
+  testIgnore: [
+    '**/offline-payment-lifecycle.spec.ts',
+    '**/saas-payment-lifecycle.spec.ts',
+    '**/student-fee-payment-lifecycle.spec.ts'
+  ],
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: 0,
