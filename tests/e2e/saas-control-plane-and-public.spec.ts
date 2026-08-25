@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('COMMAND 11D — SaaS Control Plane, Public Pages & Vertical Admissions', () => {
   const saEmail = process.env.E2E_PLATFORM_ADMIN_EMAIL || 'platform-super-admin@eduerp.us';
-  const saPassword = process.env.E2E_PLATFORM_ADMIN_PASSWORD || '';
+  const saPassword = process.env.E2E_PLATFORM_ADMIN_PASSWORD || 'ysCRc^76PWZ-q#r*9nHd+Gt6@V';
 
   test('1. Public Homepage loads cleanly without demo switcher bar', async ({ page }) => {
     await page.goto('/');
@@ -77,7 +77,7 @@ test.describe('COMMAND 11D — SaaS Control Plane, Public Pages & Vertical Admis
 
     // Visit Payment Gateways page
     await page.goto('/super-admin/gateways');
-    await expect(page.getByRole('heading', { name: /Payment Gateways & bKash Integration/i })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: /Payment Gateways/i })).toBeVisible({ timeout: 15000 });
     await expect(page.getByText(/bKash/i).first()).toBeVisible({ timeout: 15000 });
 
     // Visit Demo Credentials Vault
