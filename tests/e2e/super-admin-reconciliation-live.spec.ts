@@ -27,12 +27,12 @@ test.describe('Super Admin Payment Reconciliation Live Verification', () => {
     await expect(page.getByText('REAL-TIME GL AUDIT')).toBeVisible();
 
     // 4. Assert Metric Summary Cards Render
-    await expect(page.getByText('Match Rate', { exact: true })).toBeVisible();
-    await expect(page.getByText('Total Gross', { exact: true })).toBeVisible();
-    await expect(page.getByText('Gateway Fees', { exact: true })).toBeVisible();
-    await expect(page.getByText('Matched', { exact: true })).toBeVisible();
-    await expect(page.getByText('Amount Mismatch', { exact: true })).toBeVisible();
-    await expect(page.getByText('Manual Review', { exact: true })).toBeVisible();
+    await expect(page.locator('div').filter({ hasText: /^Match Rate$/ }).first()).toBeVisible();
+    await expect(page.locator('div').filter({ hasText: /^Total Gross$/ }).first()).toBeVisible();
+    await expect(page.locator('div').filter({ hasText: /^Gateway Fees$/ }).first()).toBeVisible();
+    await expect(page.locator('div').filter({ hasText: /^Matched$/ }).first()).toBeVisible();
+    await expect(page.locator('div').filter({ hasText: /^Amount Mismatch$/ }).first()).toBeVisible();
+    await expect(page.locator('div').filter({ hasText: /^Manual Review$/ }).first()).toBeVisible();
 
     // 5. Test Filters Interaction
     const searchInput = page.getByPlaceholder(/Search trx ID, batch, ref/i);
