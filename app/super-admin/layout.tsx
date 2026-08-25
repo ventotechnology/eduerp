@@ -114,7 +114,34 @@ export default function SuperAdminLayout({
       }
     }
     verifySuperAdminAuth();
-  }, [pathname, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Proactively prefetch primary admin routes
+  useEffect(() => {
+    const adminRoutes = [
+      '/super-admin',
+      '/super-admin/institutions',
+      '/super-admin/subscriptions',
+      '/super-admin/plans',
+      '/super-admin/orders',
+      '/super-admin/gateways',
+      '/super-admin/sms',
+      '/super-admin/support',
+      '/super-admin/users',
+      '/super-admin/settings'
+    ];
+    const timer = setTimeout(() => {
+      adminRoutes.forEach((route) => {
+        try {
+          router.prefetch(route);
+        } catch {
+          // ignore
+        }
+      });
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [router]);
 
   const handleLogout = async () => {
     try {
@@ -193,6 +220,17 @@ export default function SuperAdminLayout({
                       <Link
                         key={item.href}
                         href={item.href}
+                        prefetch={true}
+                        onMouseEnter={() => {
+                          try {
+                            router.prefetch(item.href);
+                          } catch {}
+                        }}
+                        onFocus={() => {
+                          try {
+                            router.prefetch(item.href);
+                          } catch {}
+                        }}
                         onClick={() => setSidebarOpen(false)}
                         className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition ${
                           isActive
@@ -200,12 +238,12 @@ export default function SuperAdminLayout({
                             : 'text-slate-400 hover:bg-slate-800/80 hover:text-slate-200'
                         }`}
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2.5">
                           <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-400' : 'text-slate-400'}`} />
                           <span>{item.label}</span>
                         </div>
                         {item.badge && (
-                          <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-emerald-500/20 text-emerald-300">
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-800 text-slate-300 border border-slate-700">
                             {item.badge}
                           </span>
                         )}

@@ -130,15 +130,18 @@ export async function GET(request: NextRequest) {
       tenants: (allTenants as any[]).map((t: any) => ({
         id: t.id,
         name: t.institution?.name || t.slug,
+        shortName: t.institution?.shortName || t.slug.slice(0, 3).toUpperCase(),
         slug: t.slug,
         type: t.institutionType,
         subscriptionTier: t.subscriptionTier,
         currentPlan: t.subscriptions?.[0]?.plan?.name || t.subscriptionTier,
+        activePlan: t.subscriptions?.[0]?.plan?.name || t.subscriptionTier,
         subscriptionStatus: t.subscriptions?.[0]?.status || 'NONE',
-        billingCycle: t.subscriptions?.[0]?.billingCycle || 'NONE',
+        billingCycle: t.subscriptions?.[0]?.billingCycle || 'MONTHLY',
         currentPeriodEnd: t.subscriptions?.[0]?.currentPeriodEnd || null,
         isDemoTenant: t.isDemoTenant,
         isActive: t.isActive,
+        status: t.status,
         customDomain: t.customDomain,
         userCount: t._count?.users || 0,
         campusCount: t.institution?.campuses?.length || 0,
@@ -825,6 +828,272 @@ export async function POST(request: NextRequest) {
         userEmail: targetUser.email,
         temporaryPassword,
         message: 'Temporary password generated. The user will be required to change it upon first login.'
+      });
+    }
+
+    // 9. Get Full Institution Details
+    if (action === 'GET_INSTITUTION_DETAILS') {
+      requirePlatformPermission(session, 'PLATFORM_VIEW_DASHBOARD');
+      const { tenantId, slug } = body;
+      const tenant = await db.tenant.findFirst({
+        where: { OR: [{ id: tenantId }, { slug: slug || tenantId }] },
+        include: {
+          institution: {
+            include: {
+              campuses: true,
+              academicYears: { take: 5, orderBy: { startDate: 'desc' } }
+            }
+          },
+          users: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+              status: true,
+              createdAt: true,
+              lastLoginAt: true
+            },
+            orderBy: { createdAt: 'desc' }
+          },
+          subscriptions: {
+            include: { plan: true },
+            orderBy: { createdAt: 'desc' },
+            take: 5
+          },
+          auditLogs: {
+            take: 15,
+            orderBy: { timestamp: 'desc' }
+          }
+        }
+      });
+
+      if (!tenant) {
+        return NextResponse.json({ success: false, ok: false, error: 'Institution not found.' }, { status: 404 });
+      }
+
+      return NextResponse.json({ success: true, ok: true, tenant });
+    }
+
+    // 10. Update Institution Profile
+    if (action === 'UPDATE_INSTITUTION') {
+      requirePlatformPermission(session, 'PLATFORM_SETTINGS_MANAGE');
+      const { tenantId, payload } = body;
+
+      const tenant = await db.tenant.findUnique({
+        where: { id: tenantId },
+        include: { institution: true }
+      });
+
+      if (!tenant || !tenant.institution) {
+        return NextResponse.json({ success: false, ok: false, error: 'Institution not found.' }, { status: 404 });
+      }
+
+      const updatedInstitution = await db.institution.update({
+        where: { id: tenant.institution.id },
+        data: {
+          name: payload.name !== undefined ? payload.name : tenant.institution.name,
+          shortName: payload.shortName !== undefined ? payload.shortName : tenant.institution.shortName,
+          instituteCode: payload.instituteCode !== undefined ? payload.instituteCode : tenant.institution.instituteCode,
+          eiin: payload.eiin !== undefined ? payload.eiin : tenant.institution.eiin,
+          boardAffiliation: payload.boardAffiliation !== undefined ? payload.boardAffiliation : tenant.institution.boardAffiliation,
+          phone: payload.phone !== undefined ? payload.phone : tenant.institution.phone,
+          email: payload.email !== undefined ? payload.email : tenant.institution.email,
+          website: payload.website !== undefined ? payload.website : tenant.institution.website,
+          address: payload.address !== undefined ? payload.address : tenant.institution.address,
+          district: payload.district !== undefined ? payload.district : tenant.institution.district,
+          division: payload.division !== undefined ? payload.division : tenant.institution.division,
+          upazilaThana: payload.upazilaThana !== undefined ? payload.upazilaThana : tenant.institution.upazilaThana,
+          principalHeadName: payload.principalHeadName !== undefined ? payload.principalHeadName : tenant.institution.principalHeadName,
+          principalHeadTitle: payload.principalHeadTitle !== undefined ? payload.principalHeadTitle : tenant.institution.principalHeadTitle,
+          primaryColor: payload.primaryColor !== undefined ? payload.primaryColor : tenant.institution.primaryColor,
+          secondaryColor: payload.secondaryColor !== undefined ? payload.secondaryColor : tenant.institution.secondaryColor,
+          currencyCode: payload.currencyCode !== undefined ? payload.currencyCode : tenant.institution.currencyCode,
+          currencySymbol: payload.currencySymbol !== undefined ? payload.currencySymbol : tenant.institution.currencySymbol,
+        }
+      });
+
+      if (payload.institutionType || payload.customDomain !== undefined || payload.status) {
+        await db.tenant.update({
+          where: { id: tenant.id },
+          data: {
+            institutionType: payload.institutionType || tenant.institutionType,
+            customDomain: payload.customDomain !== undefined ? (payload.customDomain || null) : tenant.customDomain,
+            status: payload.status || tenant.status,
+            isActive: payload.isActive !== undefined ? payload.isActive : tenant.isActive
+          }
+        });
+      }
+
+      await logAuditEvent({
+        tenantId: tenant.id,
+        actor: session,
+        action: 'INSTITUTION_PROFILE_UPDATED',
+        resourceType: 'Institution',
+        resourceId: tenant.institution.id,
+        previousState: { name: tenant.institution.name, phone: tenant.institution.phone },
+        newState: payload
+      });
+
+      return NextResponse.json({
+        success: true,
+        ok: true,
+        message: `Institution '${updatedInstitution.name}' updated successfully.`,
+        institution: updatedInstitution
+      });
+    }
+
+    // 11. Controlled Tenant Slug Update
+    if (action === 'UPDATE_TENANT_SLUG') {
+      requirePlatformPermission(session, 'PLATFORM_SETTINGS_MANAGE');
+      const { tenantId, newSlug, reason } = body;
+
+      if (!newSlug || typeof newSlug !== 'string') {
+        return NextResponse.json({ success: false, ok: false, error: 'A valid new tenant slug is required.' }, { status: 400 });
+      }
+
+      const formattedSlug = newSlug
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9-]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+
+      if (formattedSlug.length < 3) {
+        return NextResponse.json({ success: false, ok: false, error: 'Slug must be at least 3 characters long.' }, { status: 400 });
+      }
+
+      const reservedSlugs = ['api', 'super-admin', 'login', 'signup', 'pricing', 'demo', 'contact', 'privacy', 'terms', 'checkout', 'payment', 'verify', 'apply', 'site', 'results', 'training', 'help'];
+      if (reservedSlugs.includes(formattedSlug)) {
+        return NextResponse.json({ success: false, ok: false, error: `Slug '${formattedSlug}' is a reserved system path.` }, { status: 400 });
+      }
+
+      const tenant = await db.tenant.findUnique({ where: { id: tenantId } });
+      if (!tenant) {
+        return NextResponse.json({ success: false, ok: false, error: 'Tenant not found.' }, { status: 404 });
+      }
+
+      if (tenant.slug === formattedSlug) {
+        return NextResponse.json({ success: true, ok: true, message: 'Slug is unchanged.', slug: tenant.slug });
+      }
+
+      const existingSlug = await db.tenant.findUnique({ where: { slug: formattedSlug } });
+      if (existingSlug && existingSlug.id !== tenantId) {
+        return NextResponse.json({ success: false, ok: false, error: `Slug '${formattedSlug}' is already in use by another institution.` }, { status: 409 });
+      }
+
+      const previousSlug = tenant.slug;
+      await db.tenant.update({
+        where: { id: tenantId },
+        data: { slug: formattedSlug }
+      });
+
+      await logAuditEvent({
+        tenantId,
+        actor: session,
+        action: 'TENANT_SLUG_CHANGED',
+        resourceType: 'Tenant',
+        resourceId: tenantId,
+        previousState: { slug: previousSlug },
+        newState: { slug: formattedSlug, reason: reason || 'Super Admin slug update' }
+      });
+
+      return NextResponse.json({
+        success: true,
+        ok: true,
+        message: `Tenant slug updated from '${previousSlug}' to '${formattedSlug}'.`,
+        previousSlug,
+        slug: formattedSlug
+      });
+    }
+
+    // 12. Create Tenant User
+    if (action === 'CREATE_TENANT_USER') {
+      requirePlatformPermission(session, 'PLATFORM_USER_MANAGE');
+      const { tenantId, name, email, role, password } = body;
+
+      if (!tenantId || !email || !role) {
+        return NextResponse.json({ success: false, ok: false, error: 'Tenant ID, email, and role are required.' }, { status: 400 });
+      }
+
+      const existingUser = await db.user.findFirst({
+        where: { email: email.toLowerCase().trim(), tenantId }
+      });
+      if (existingUser) {
+        return NextResponse.json({ success: false, ok: false, error: `User with email '${email}' already exists in this institution.` }, { status: 409 });
+      }
+
+      const rawPassword = password || generateSecurePassword();
+      const passwordHash = hashPassword(rawPassword);
+
+      const newUser = await db.user.create({
+        data: {
+          tenantId,
+          name: name || email.split('@')[0],
+          email: email.toLowerCase().trim(),
+          role: role as any,
+          status: 'ACTIVE' as any,
+          passwordHash,
+          forcePasswordChange: !password
+        }
+      });
+
+      await logAuditEvent({
+        tenantId,
+        actor: session,
+        action: 'USER_CREATED_BY_SUPER_ADMIN',
+        resourceType: 'User',
+        resourceId: newUser.id,
+        newState: { email: newUser.email, role: newUser.role }
+      });
+
+      return NextResponse.json({
+        success: true,
+        ok: true,
+        message: `User '${newUser.email}' created successfully.`,
+        user: {
+          id: newUser.id,
+          name: newUser.name,
+          email: newUser.email,
+          role: newUser.role,
+          status: newUser.status,
+          temporaryPassword: !password ? rawPassword : undefined
+        }
+      });
+    }
+
+    // 13. Update Tenant User Status
+    if (action === 'UPDATE_TENANT_USER_STATUS') {
+      requirePlatformPermission(session, 'PLATFORM_USER_MANAGE');
+      const { userId, status } = body;
+
+      if (!userId || !status) {
+        return NextResponse.json({ success: false, ok: false, error: 'User ID and status are required.' }, { status: 400 });
+      }
+
+      const targetUser = await db.user.findUnique({ where: { id: userId } });
+      if (!targetUser) {
+        return NextResponse.json({ success: false, ok: false, error: 'User not found.' }, { status: 404 });
+      }
+
+      await db.user.update({
+        where: { id: userId },
+        data: { status: status as any }
+      });
+
+      await logAuditEvent({
+        tenantId: targetUser.tenantId,
+        actor: session,
+        action: 'USER_STATUS_UPDATED',
+        resourceType: 'User',
+        resourceId: targetUser.id,
+        previousState: { status: targetUser.status },
+        newState: { status }
+      });
+
+      return NextResponse.json({
+        success: true,
+        ok: true,
+        message: `User '${targetUser.email}' status updated to '${status}'.`
       });
     }
 

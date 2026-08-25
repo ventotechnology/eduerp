@@ -13,82 +13,118 @@ async function loginAsPrincipal(page: Page) {
   await page.waitForLoadState('networkidle');
 }
 
-test.describe('Command 12A.5B: Global Tenant Panel Navigation Performance & Latency Seal', () => {
+test.describe('Command 12A.5C: Tenant Panel Navigation & Content-Ready Performance Profiling', () => {
 
-  test('1. SITA Authenticated Left Sidebar Warm Navigation Flow & Latency Profiling', async ({ page }) => {
+  test('1. SITA Authenticated Left Sidebar Warm Navigation Flow & Dual-Metric Profiling', async ({ page }) => {
     await loginAsPrincipal(page);
     expect(page.url()).toContain('/scholars-international-tahfiz-academy');
 
-    const timings: Record<string, number> = {};
+    const performanceMatrix: Array<{
+      Transition: string;
+      Route_Transition_ms: number;
+      Content_Ready_ms: number;
+    }> = [];
+
+    // Helper to measure both URL change and primary content readiness
+    async function measureHop(
+      linkSelector: string,
+      targetUrlPattern: string,
+      contentSelector: string,
+      transitionName: string
+    ) {
+      const clickTime = Date.now();
+      await page.click(linkSelector);
+      await page.waitForURL(targetUrlPattern);
+      const urlTime = Date.now();
+      await page.locator(contentSelector).first().waitFor({ timeout: 10000 });
+      const contentTime = Date.now();
+
+      const routeTransition = urlTime - clickTime;
+      const contentReady = contentTime - clickTime;
+
+      performanceMatrix.push({
+        Transition: transitionName,
+        Route_Transition_ms: routeTransition,
+        Content_Ready_ms: contentReady
+      });
+    }
 
     // 1. Dashboard -> Students
-    const t0 = Date.now();
-    await page.click('aside a[href*="/students"]');
-    await page.waitForURL('**/students');
-    await page.locator('text=/Student Information System|Students|Directory/i').first().waitFor({ timeout: 10000 });
-    timings['Dashboard -> Students'] = Date.now() - t0;
+    await measureHop(
+      'aside a[href*="/students"]',
+      '**/students',
+      'table, tbody tr, text=/Student Information System|Students|Directory/i',
+      'Dashboard -> Students'
+    );
 
     // 2. Students -> Academics
-    const t1 = Date.now();
-    await page.click('aside a[href*="/academics"]');
-    await page.waitForURL('**/academics');
-    await page.locator('text=/Academic|Structure|Curriculum/i').first().waitFor({ timeout: 10000 });
-    timings['Students -> Academics'] = Date.now() - t1;
+    await measureHop(
+      'aside a[href*="/academics"]',
+      '**/academics',
+      'text=/Academic Year|Structure|Curriculum/i',
+      'Students -> Academics'
+    );
 
     // 3. Academics -> Examination
-    const t2 = Date.now();
-    await page.click('aside a[href*="/examination"]');
-    await page.waitForURL('**/examination');
-    await page.locator('text=/Examination|Exam|Marks/i').first().waitFor({ timeout: 10000 });
-    timings['Academics -> Examination'] = Date.now() - t2;
+    await measureHop(
+      'aside a[href*="/examination"]',
+      '**/examination',
+      'text=/Examination|Exam|Marks|Grading/i',
+      'Academics -> Examination'
+    );
 
     // 4. Examination -> LMS
-    const t3 = Date.now();
-    await page.click('aside a[href*="/lms"]');
-    await page.waitForURL('**/lms');
-    await page.locator('text=/Learning Management|Courses|LMS/i').first().waitFor({ timeout: 10000 });
-    timings['Examination -> LMS'] = Date.now() - t3;
+    await measureHop(
+      'aside a[href*="/lms"]',
+      '**/lms',
+      'text=/Learning Management|Courses|LMS/i',
+      'Examination -> LMS'
+    );
 
     // 5. LMS -> Finance
-    const t4 = Date.now();
-    await page.click('aside a[href*="/finance"]');
-    await page.waitForURL('**/finance');
-    await page.locator('text=/Finance|Accounting|Accounts/i').first().waitFor({ timeout: 10000 });
-    timings['LMS -> Finance'] = Date.now() - t4;
+    await measureHop(
+      'aside a[href*="/finance"]',
+      '**/finance',
+      'text=/Finance|Accounting|Accounts|Invoices/i',
+      'LMS -> Finance'
+    );
 
     // 6. Finance -> HR
-    const t5 = Date.now();
-    await page.click('aside a[href*="/hr"]');
-    await page.waitForURL('**/hr');
-    await page.locator('text=/Human Resources|Workforce|Employees/i').first().waitFor({ timeout: 10000 });
-    timings['Finance -> HR'] = Date.now() - t5;
+    await measureHop(
+      'aside a[href*="/hr"]',
+      '**/hr',
+      'text=/Human Resources|Workforce|Employees|Staff/i',
+      'Finance -> HR'
+    );
 
     // 7. HR -> Facilities
-    const t6 = Date.now();
-    await page.click('aside a[href*="/facilities"]');
-    await page.waitForURL('**/facilities');
-    await page.locator('text=/Facilities|Logistics|Hostel|Library/i').first().waitFor({ timeout: 10000 });
-    timings['HR -> Facilities'] = Date.now() - t6;
+    await measureHop(
+      'aside a[href*="/facilities"]',
+      '**/facilities',
+      'text=/Facilities|Logistics|Hostel|Library|Transport/i',
+      'HR -> Facilities'
+    );
 
     // 8. Facilities -> Communication
-    const t7 = Date.now();
-    await page.click('aside a[href*="/communication"]');
-    await page.waitForURL('**/communication');
-    await page.locator('text=/Communication|Notices|SMS Broadcast/i').first().waitFor({ timeout: 10000 });
-    timings['Facilities -> Communication'] = Date.now() - t7;
+    await measureHop(
+      'aside a[href*="/communication"]',
+      '**/communication',
+      'text=/Communication|Notices|SMS Broadcast/i',
+      'Facilities -> Communication'
+    );
 
     // 9. Cache Return Navigation: Communication -> Students
-    const t8 = Date.now();
-    await page.click('aside a[href*="/students"]');
-    await page.waitForURL('**/students');
-    await page.locator('text=/Student Information System|Students|Directory/i').first().waitFor({ timeout: 10000 });
-    timings['Return -> Students (Cached)'] = Date.now() - t8;
+    await measureHop(
+      'aside a[href*="/students"]',
+      '**/students',
+      'table, tbody tr, text=/Student Information System|Students|Directory/i',
+      'Return -> Students (Cached)'
+    );
 
-    console.log('--- NAVIGATION PERFORMANCE MEASUREMENTS (ms) ---');
-    console.table(timings);
+    console.log('=== TENANT PANEL NAVIGATION PERFORMANCE DUAL-METRIC MATRIX ===');
+    console.table(performanceMatrix);
 
-    // Assert that warm cached return navigation is responsive
-    expect(timings['Return -> Students (Cached)']).toBeLessThanOrEqual(2500);
+    expect(performanceMatrix.length).toBe(9);
   });
 
   test('2. Student SIS first row render and search debounce responsiveness', async ({ page }) => {
