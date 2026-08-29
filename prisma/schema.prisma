@@ -82,6 +82,7 @@ model Tenant {
   mediaAssets           MediaAsset[]
   paymentGateways       PaymentGatewayConfig[]
   reconciliationRecords PaymentReconciliationRecord[]
+  venominIdentityLinks  VenominIdentityLink[]
 
   @@index([slug])
   @@index([isActive])
@@ -694,6 +695,7 @@ model Institution {
   regulatoryReportRuns RegulatoryReportRun[]
   dataQualityRules     DataQualityRule[]
   dataQualityIssues    DataQualityIssue[]
+  venominIdentityLinks VenominIdentityLink[]
 
   @@index([tenantId])
 }
@@ -816,10 +818,11 @@ model User {
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
 
-  sessions UserSession[]
-  student  Student?
-  guardian Guardian?
-  employee Employee?
+  sessions             UserSession[]
+  student              Student?
+  guardian             Guardian?
+  employee             Employee?
+  venominIdentityLinks VenominIdentityLink[]
 
   @@index([tenantId, role])
   @@index([email])
@@ -7084,4 +7087,81 @@ model MediaAsset {
   @@index([tenantId, entityType, entityId])
   @@index([objectKey])
   @@index([createdAt])
+}
+
+// ----------------------------------------------------
+// 28. Venomin Integration Contract v1 (Command 12)
+// ----------------------------------------------------
+
+model VenominIdentityLink {
+  id                  String       @id @default(uuid())
+  walletmixCustomerId String       @unique
+  tenantId            String?
+  institutionId       String?
+  userId              String?
+  status              String       @default("ACTIVE")
+  metadata            Json?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  tenant              Tenant?      @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  institution         Institution? @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  user                User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([institutionId])
+  @@index([userId])
+  @@map("venomin_identity_links")
+}
+
+model VenominProvisioningRequest {
+  id                String    @id @default(uuid())
+  requestId         String    @unique
+  idempotencyKey    String    @unique
+  venominCustomerId String
+  tenantId          String?
+  institutionId     String?
+  userId            String?
+  status            String    @default("SUCCESS")
+  responsePayload   Json?
+  completedAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([venominCustomerId])
+  @@index([tenantId])
+  @@index([institutionId])
+  @@map("venomin_provisioning_requests")
+}
+
+model VenominWebhookDelivery {
+  id             String    @id @default(uuid())
+  eventId        String    @unique
+  eventType      String
+  destinationUrl String
+  attempt        Int       @default(1)
+  status         String    @default("PENDING")
+  responseCode   Int?
+  errorMessage   String?
+  safeMessage    String?
+  deliveredAt    DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([eventType])
+  @@index([status])
+  @@map("venomin_webhook_deliveries")
+}
+
+model VenominIntegrationLog {
+  id          String   @id @default(uuid())
+  operation   String
+  status      String
+  actorId     String?
+  safeMessage String
+  errorCode   String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([operation])
+  @@index([status])
+  @@map("venomin_integration_logs")
 }
