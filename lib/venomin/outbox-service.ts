@@ -25,7 +25,16 @@ export class VenominOutboxService {
    */
   static async emitOutboxEvent(tx: any, params: EmitOutboxParams) {
     const eventId = generateEduErpEventId();
-    const category = params.category || 'COMMERCIAL';
+    let category = params.category;
+    if (!category) {
+      if (params.eventType.includes('SUPPORT') || params.eventType.includes('TICKET')) {
+        category = 'SUPPORT';
+      } else if (params.eventType.includes('PAYMENT') || params.eventType.includes('INVOICE') || params.eventType.includes('SUBSCRIPTION') || params.eventType.includes('ORDER')) {
+        category = 'BILLING';
+      } else {
+        category = 'CUSTOMER';
+      }
+    }
     const occurredAt = params.occurredAt || new Date();
 
     const rawPayload: Record<string, any> = { ...params.payload };

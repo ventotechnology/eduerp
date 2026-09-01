@@ -133,15 +133,29 @@ export async function processPendingOutboxBatch(
       payloadObj = {};
     }
 
+    function normalizeCategory(cat: string, evt: string): string {
+      const c = (cat || '').toUpperCase();
+      const valid = ['SALES', 'SUPPORT', 'CUSTOMER', 'BILLING', 'REQUEST', 'PROJECT', 'OPERATIONS', 'SECURITY', 'SYSTEM', 'APPROVAL', 'PRODUCT_ACTIVITY'];
+      if (valid.includes(c)) return c;
+      if (evt.includes('SUPPORT') || evt.includes('TICKET')) return 'SUPPORT';
+      if (evt.includes('PAYMENT') || evt.includes('INVOICE') || evt.includes('SUBSCRIPTION') || evt.includes('ORDER')) return 'BILLING';
+      return 'CUSTOMER';
+    }
+
+    const normalizedCat = normalizeCategory(record.category, record.eventType);
+    const eventTitle = payloadObj.title || `[EduERP] ${record.eventType}: ${record.sourceRecordId}`;
+
     const gatewayBody = {
       eventId: record.eventId,
       eventType: record.eventType,
-      category: record.category,
+      category: normalizedCat,
+      title: eventTitle,
       sourceProductKey: 'EDUERP',
       sourceRecordType: record.sourceRecordType,
       sourceRecordId: record.sourceRecordId,
       sourceTenantId: record.sourceTenantId || undefined,
       occurredAt: record.occurredAt.toISOString(),
+      schemaVersion: 'v1',
       isSynthetic: payloadObj.isSynthetic === true,
       payload: payloadObj,
     };
