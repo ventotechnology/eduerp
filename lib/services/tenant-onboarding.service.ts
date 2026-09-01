@@ -1,6 +1,7 @@
 import { db } from '../db';
 import { AppError } from '../errors/app-error';
 import { InstitutionType } from '@prisma/client';
+import { VenominOutboxService } from '../venomin/outbox-service';
 
 export interface OnboardingStepDefinition {
   step: number;
@@ -128,7 +129,38 @@ export class TenantOnboardingService {
       }
     });
 
+    if (stepNumber === 1 && (!existing || !Array.isArray(existing.completedSteps) || (existing.completedSteps as any[]).length === 0)) {
+      await VenominOutboxService.emitOutboxEvent(db, {
+        eventType: 'ONBOARDING_STARTED',
+        category: 'CUSTOMER',
+        sourceRecordType: 'TENANT',
+        sourceRecordId: tenantId,
+        sourceTenantId: tenantId,
+        payload: {
+          tenantId,
+          stepNumber: 1,
+          status: 'IN_PROGRESS',
+        },
+      });
+    }
+
+    if (isCompleted) {
+      await VenominOutboxService.emitOutboxEvent(db, {
+        eventType: 'ONBOARDING_COMPLETED',
+        category: 'CUSTOMER',
+        sourceRecordType: 'TENANT',
+        sourceRecordId: tenantId,
+        sourceTenantId: tenantId,
+        payload: {
+          tenantId,
+          isCompleted: true,
+          completedAt: new Date().toISOString(),
+        },
+      });
+    }
+
     return updated;
+
   }
 
   /**

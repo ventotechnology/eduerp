@@ -4,6 +4,7 @@ import { InstitutionType, UserRole } from '@prisma/client';
 import crypto from 'crypto';
 import { TenantOnboardingService } from './tenant-onboarding.service';
 import { PaymentGatewayService } from './payment-gateway.service';
+import { VenominOutboxService } from '../venomin/outbox-service';
 
 export const RESERVED_TENANT_SLUGS = new Set([
   'admin',
@@ -58,6 +59,8 @@ export interface SignupInput {
   billingCycle: 'MONTHLY' | 'ANNUAL' | 'TRIAL';
   promoCode?: string;
   isTrial?: boolean;
+  isSynthetic?: boolean;
+  syntheticReason?: string;
 }
 
 export interface SlugValidationResult {
@@ -298,6 +301,51 @@ export class SaasSignupService {
           }
         });
 
+        // 9. Emit Venomin Integration Outbox Events
+        await VenominOutboxService.emitOutboxEvent(tx, {
+          eventType: 'ORGANIZATION_REGISTERED',
+          category: 'CUSTOMER',
+          sourceRecordType: 'TENANT',
+          sourceRecordId: tenant.id,
+          sourceTenantId: tenant.id,
+          isSynthetic: input.isSynthetic,
+          syntheticReason: input.syntheticReason,
+          payload: {
+            tenantId: tenant.id,
+            tenantSlug: tenant.slug,
+            institutionName: institution.name,
+            institutionType: tenant.institutionType,
+            contactPerson: input.contactPerson,
+            email: normalizedEmail,
+            phone: input.phone,
+            address: institution.address,
+            planCode: plan.code,
+            subscriptionTier: tenant.subscriptionTier,
+            status: tenant.status,
+          },
+        });
+
+        await VenominOutboxService.emitOutboxEvent(tx, {
+          eventType: 'TRIAL_STARTED',
+          category: 'SUBSCRIPTION',
+          sourceRecordType: 'SUBSCRIPTION',
+          sourceRecordId: tenant.id,
+          sourceTenantId: tenant.id,
+          isSynthetic: input.isSynthetic,
+          syntheticReason: input.syntheticReason,
+          payload: {
+            tenantId: tenant.id,
+            tenantSlug: tenant.slug,
+            planCode: plan.code,
+            planName: plan.name,
+            subscriptionTier: tenant.subscriptionTier,
+            trialDays,
+            trialEndsAt: trialEndsAt.toISOString(),
+            status: 'TRIALING',
+          },
+        });
+
+
         return {
           tenantId: tenant.id,
           tenantSlug: tenant.slug,
@@ -310,6 +358,7 @@ export class SaasSignupService {
       return {
         success: true,
         isTrial: true,
+        tenantId: trialResult.tenantId,
         tenantSlug: trialResult.tenantSlug,
         plan: {
           name: plan.name,

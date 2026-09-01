@@ -267,16 +267,20 @@ describe('Promotion, Semester Progression & Graduation Engine (COMMAND 4)', () =
       }
     });
 
-    const fac = await db.faculty.create({
-      data: {
+    const fac = await db.faculty.upsert({
+      where: { institutionId_code: { institutionId: uniInstitutionId, code: 'FSE' } },
+      update: {},
+      create: {
         institutionId: uniInstitutionId,
         name: 'Faculty of Science & Engineering',
         code: 'FSE'
       }
     });
 
-    const dept = await db.department.create({
-      data: {
+    const dept = await db.department.upsert({
+      where: { institutionId_code: { institutionId: uniInstitutionId, code: 'CSE' } },
+      update: {},
+      create: {
         institutionId: uniInstitutionId,
         facultyId: fac.id,
         name: 'Department of Computer Science & Engineering',

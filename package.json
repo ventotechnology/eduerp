@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "worker:venomin": "npx tsx workers/eduerp-venomin-worker.ts",
     "qa:provision": "npx tsx scripts/provision-qa-users.ts",
     "qa:rotate-passwords": "npx tsx scripts/provision-qa-users.ts --rotate"
   },

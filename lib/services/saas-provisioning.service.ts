@@ -1,6 +1,7 @@
 import { db } from '../db';
 import { UserRole } from '@prisma/client';
 import crypto from 'crypto';
+import { VenominOutboxService } from '../venomin/outbox-service';
 
 export interface PaymentFulfillmentInput {
   gateway: string;
@@ -8,7 +9,10 @@ export interface PaymentFulfillmentInput {
   trxId?: string;
   amount: number;
   providerReference?: string;
+  isSynthetic?: boolean;
+  syntheticReason?: string;
 }
+
 
 export class SaasProvisioningService {
   /**
@@ -261,6 +265,90 @@ export class SaasProvisioningService {
           })
         }
       });
+
+      // 8. Emit Venomin Integration Outbox Events
+      if (order.signupId && order.signup) {
+        await VenominOutboxService.emitOutboxEvent(tx, {
+          eventType: 'ORGANIZATION_REGISTERED',
+          category: 'CUSTOMER',
+          sourceRecordType: 'TENANT',
+          sourceRecordId: targetTenantId,
+          sourceTenantId: targetTenantId,
+          isSynthetic: payment.isSynthetic,
+          syntheticReason: payment.syntheticReason,
+          payload: {
+            tenantId: targetTenantId,
+            tenantSlug: targetTenantSlug,
+            institutionName: order.signup.institutionName,
+            institutionType: order.signup.institutionType,
+            contactPerson: order.signup.contactPerson,
+            email: order.signup.email,
+            phone: order.signup.phone,
+            address: order.signup.address,
+            planCode: order.plan.code,
+            subscriptionTier: order.plan.tier,
+            status: 'ACTIVE_PAID',
+          },
+        });
+      }
+
+      await VenominOutboxService.emitOutboxEvent(tx, {
+        eventType: 'SUBSCRIPTION_STARTED',
+        category: 'SUBSCRIPTION',
+        sourceRecordType: 'SUBSCRIPTION',
+        sourceRecordId: targetTenantId,
+        sourceTenantId: targetTenantId,
+        isSynthetic: payment.isSynthetic,
+        syntheticReason: payment.syntheticReason,
+        payload: {
+          tenantId: targetTenantId,
+          tenantSlug: targetTenantSlug,
+          planCode: order.plan.code,
+          planName: order.plan.name,
+          subscriptionTier: order.plan.tier,
+          billingCycle: order.billingCycle,
+          status: 'ACTIVE',
+        },
+      });
+
+      await VenominOutboxService.emitOutboxEvent(tx, {
+        eventType: 'PAYMENT_CONFIRMED',
+        category: 'BILLING',
+        sourceRecordType: 'SUBSCRIPTION_PAYMENT_TRANSACTION',
+        sourceRecordId: order.id,
+        sourceTenantId: targetTenantId,
+        isSynthetic: payment.isSynthetic,
+        syntheticReason: payment.syntheticReason,
+        payload: {
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          tenantId: targetTenantId,
+          amount: payment.amount,
+          currency: order.currency,
+          gateway: payment.gateway,
+          trxId: payment.trxId,
+          status: 'PAID',
+        },
+      });
+
+      await VenominOutboxService.emitOutboxEvent(tx, {
+        eventType: 'INVOICE_GENERATED',
+        category: 'BILLING',
+        sourceRecordType: 'SUBSCRIPTION_INVOICE',
+        sourceRecordId: invoiceNumber,
+        sourceTenantId: targetTenantId,
+        isSynthetic: payment.isSynthetic,
+        syntheticReason: payment.syntheticReason,
+        payload: {
+          invoiceNumber,
+          orderId: order.id,
+          tenantId: targetTenantId,
+          totalAmount: order.totalAmount,
+          currency: order.currency,
+          status: 'PAID',
+        },
+      });
+
 
       return {
         success: true,

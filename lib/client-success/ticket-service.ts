@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { AppError } from '@/lib/errors/app-error';
 import { hasPlatformPermission } from '@/lib/rbac/platform-guard';
+import { VenominOutboxService } from '@/lib/venomin/outbox-service';
 
 export const VALID_SUPPORT_PRIORITIES = ['LOW', 'NORMAL', 'HIGH', 'URGENT', 'CRITICAL'] as const;
 
@@ -414,8 +415,27 @@ export async function createSupportTicket(
       }
     });
 
+    // Venomin Outbox Event (Sanitized metadata only, no student PII)
+    await VenominOutboxService.emitOutboxEvent(tx, {
+      eventType: 'SUPPORT_TICKET_CREATED',
+      category: 'SUPPORT',
+      sourceRecordType: 'SUPPORT_TICKET',
+      sourceRecordId: createdTicket.id,
+      sourceTenantId: tenantId,
+      payload: {
+        ticketId: createdTicket.id,
+        ticketNumber,
+        subject: data.subject,
+        categoryCode: data.categoryCode,
+        priority,
+        status: 'NEW',
+        tenantId,
+      },
+    });
+
     return createdTicket;
   });
+
 
   // Audit log
   await recordSupportAuditLog({
@@ -756,7 +776,24 @@ export async function updateTicketStatus(
     newState: JSON.stringify({ status: newStatus })
   });
 
+  const eventType = newStatus === 'RESOLVED' ? 'SUPPORT_TICKET_RESOLVED' : 'SUPPORT_TICKET_UPDATED';
+  await VenominOutboxService.emitOutboxEvent(db, {
+    eventType,
+    category: 'SUPPORT',
+    sourceRecordType: 'SUPPORT_TICKET',
+    sourceRecordId: ticket.id,
+    sourceTenantId: ticket.tenantId,
+    payload: {
+      ticketId: ticket.id,
+      ticketNumber: ticket.ticketNumber,
+      status: newStatus,
+      priority: ticket.priority,
+      tenantId: ticket.tenantId,
+    },
+  });
+
   return updatedTicket;
+
 }
 
 export async function assignTicket(

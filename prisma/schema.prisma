@@ -7165,3 +7165,30 @@ model VenominIntegrationLog {
   @@index([status])
   @@map("venomin_integration_logs")
 }
+
+model VenominIntegrationOutbox {
+  id               String    @id @default(uuid())
+  eventId          String    @unique
+  eventType        String
+  category         String    @default("COMMERCIAL")
+  sourceRecordType String
+  sourceRecordId   String
+  sourceTenantId   String?
+  payloadSafeJson  String
+  occurredAt       DateTime  @default(now())
+  status           String    @default("PENDING") // PENDING, DELIVERING, DELIVERED, RETRYING, FAILED_AUTH, FAILED_PERMANENT
+  attemptCount     Int       @default(0)
+  nextAttemptAt    DateTime  @default(now())
+  lastAttemptAt    DateTime?
+  deliveredAt      DateTime?
+  lastErrorCode    String?
+  lastErrorSafe    String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@index([sourceRecordType, sourceRecordId])
+  @@index([occurredAt])
+  @@map("venomin_integration_outbox")
+}
+

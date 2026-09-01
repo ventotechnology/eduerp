@@ -25,10 +25,12 @@ const TEST_SSO_SECRET = new TextEncoder().encode(
 );
 
 describe('EduERP Venomin Integration Contract v1 (Command 12)', () => {
-  const testCustomerId = `VN-CUS-${Date.now().toString(36).toUpperCase()}`;
-  const testEmail = `principal.${Date.now()}@oxford-model-school.edu.bd`;
+  let testCustomerId: string;
+  let testEmail: string;
 
   beforeAll(async () => {
+    testCustomerId = `VN-CUS-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 10000)}`;
+    testEmail = `principal.${Date.now()}.${Math.floor(Math.random() * 10000)}@oxford-model-school.edu.bd`;
     // Ensure test subscription plan exists
     await db.subscriptionPlan.upsert({
       where: { code: 'PROFESSIONAL' },
